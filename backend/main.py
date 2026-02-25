@@ -5,12 +5,11 @@ from sqlmodel import SQLModel
 from app.core.config import settings
 from app.core.db import engine
 from app.api.v1 import auth, workspaces, health, prompt_config, test_chat, integrations, webhooks, automations, knowledge, analytics
-from app.core.seed import seed_modules, seed_admin
+from app.core.seed import seed_modules
 from app.api.v1.dispatch import router as dispatch_router
 from app.api.v1.inbox import router as inbox_router
 from app.api.v1.zoho import router as zoho_router
 from app.api.v1.admin import router as admin_router
-from app.api.v1.admin_auth import router as admin_auth_router
 from app.api.v1.diagnostics import router as diagnostics_router
 from fastapi import HTTPException
 import uuid
@@ -27,8 +26,6 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(SQLModel.metadata.create_all)
     # Seed default module configs
     await seed_modules()
-    # Seed initial super admin
-    await seed_admin()
     yield
 
 app = FastAPI(
@@ -61,7 +58,6 @@ async def add_process_time_header(request: Request, call_next):
 # Routers
 app.include_router(health.router, prefix=f"{settings.API_V1_STR}", tags=["health"])
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
-app.include_router(admin_auth_router, prefix=f"{settings.API_V1_STR}/admin_auth", tags=["admin-auth"])
 app.include_router(admin_router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"])
 
 logger = logging.getLogger("api")
