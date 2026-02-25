@@ -10,6 +10,7 @@ from app.api.v1.dispatch import router as dispatch_router
 from app.api.v1.inbox import router as inbox_router
 from app.api.v1.zoho import router as zoho_router
 from app.api.v1.admin import router as admin_router
+from app.api.v1.admin_auth import router as admin_auth_router
 from app.api.v1.diagnostics import router as diagnostics_router
 from fastapi import HTTPException
 import uuid
@@ -59,6 +60,7 @@ async def add_process_time_header(request: Request, call_next):
 app.include_router(health.router, prefix=f"{settings.API_V1_STR}", tags=["health"])
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
 app.include_router(admin_router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"])
+app.include_router(admin_auth_router, prefix=f"{settings.API_V1_STR}/admin_auth", tags=["admin-auth"])
 
 logger = logging.getLogger("api")
 

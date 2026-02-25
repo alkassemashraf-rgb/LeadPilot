@@ -179,7 +179,7 @@ async def verify_email(
     result = await db.execute(
         select(EmailVerificationToken).where(
             EmailVerificationToken.token_hash == token_hash,
-            EmailVerificationToken.used_at == None,
+            EmailVerificationToken.used_at.is_(None),
         )
     )
     db_token = result.scalars().first()
@@ -310,7 +310,7 @@ async def forgot_password(
             await redis_client.expire(rl_key, 3600)
             
         if attempts > 5:
-            return wrap_error("Rate limit exceeded for password resets", code="EMAIL_429")
+            return wrap_error("Rate limit exceeded for password resets")
     except Exception:
         # If redis fails, do we bypass rate limiting? Yes, degrades gracefully.
         pass
@@ -383,13 +383,13 @@ async def reset_password(
         .where(
             PasswordResetToken.token_hash == token_hash,
             PasswordResetToken.expires_at > datetime.now(timezone.utc),
-            PasswordResetToken.used_at == None
+            PasswordResetToken.used_at.is_(None)
         )
     )
     reset_token = result.scalars().first()
     
     if not reset_token:
-        return wrap_error("Invalid or expired reset token", code="AUTH_INVALID_TOKEN")
+        return wrap_error("Invalid or expired reset token")
     
     # Find user
     user = await db.get(User, reset_token.user_id)

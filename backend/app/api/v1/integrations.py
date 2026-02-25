@@ -45,20 +45,20 @@ async def connect_integration(
 
     # 1. Validation for provider-specific fields
     if "access_token" not in connect_in.config:
-        return wrap_error("Missing access_token in config", code="INTEGRATION_VALIDATION")
-    
+        return wrap_error("Missing access_token in config")
+
     # WhatsApp standard: provider_workspace_id = phone_number_id
     if provider == "whatsapp" and not connect_in.provider_workspace_id:
-        return wrap_error("phone_number_id is required for WhatsApp", code="INTEGRATION_VALIDATION")
-    
+        return wrap_error("phone_number_id is required for WhatsApp")
+
     # Meta standard: provider_workspace_id = page_id
     if provider == "meta" and not connect_in.provider_workspace_id:
-        return wrap_error("page_id is required for Meta", code="INTEGRATION_VALIDATION")
-    
+        return wrap_error("page_id is required for Meta")
+
     # Zoho standard: provider_workspace_id = org_id (optional but recommended)
     # We enforce NOT NULL for any CONNECTED status below
     if not connect_in.provider_workspace_id:
-        return wrap_error(f"Identifier (provider_workspace_id) is required for {provider} connection", code="INTEGRATION_VALIDATION")
+        return wrap_error(f"Identifier (provider_workspace_id) is required for {provider} connection")
 
     # 2. Encrypt the config
     encrypted_config = encrypt_data(connect_in.config)
@@ -92,8 +92,7 @@ async def connect_integration(
     except IntegrityError:
         await db.rollback()
         return wrap_error(
-            f"This connection ({connect_in.provider_workspace_id}) is already linked to another workspace.",
-            code="INTEGRATION_409"
+            f"This connection ({connect_in.provider_workspace_id}) is already linked to another workspace."
         )
 
     return wrap_data(integration)
