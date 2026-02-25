@@ -1,0 +1,45 @@
+# System files
+.DS_Store
+Thumbs.db
+
+# Frontend
+frontend/node_modules
+frontend/.next
+frontend/out
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# Backend
+backend/__pycache__/
+__pycache__/
+backend/*.py[cod]
+backend/*$py.class
+backend/.env
+backend/venv/
+backend/env/
+backend/*.db
+backend/alembic/versions/*.pyc
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Misc
+.gemini/
+*.log
+*.db
+
+# Global node/build patterns
+**/node_modules/
+**/.next/
+**/out/
+**/.env*.local
+**/dist/
+
+# Project Specific
+Website/node_modules/
+Website/.next/
+leadpilot.db
