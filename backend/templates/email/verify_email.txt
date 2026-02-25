@@ -1,0 +1,16 @@
+LeadPilot — Verify Your Email
+==============================================
+
+Hi,
+
+Thanks for signing up! Please verify your email address by visiting the link below.
+
+Verification Link:
+{{ verification_link }}
+
+This link expires in 7 days.
+
+If you didn't create a LeadPilot account, you can safely ignore this email.
+
+—
+LeadPilot Team

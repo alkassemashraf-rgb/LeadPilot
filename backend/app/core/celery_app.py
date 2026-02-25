@@ -1,0 +1,31 @@
+from celery import Celery
+from app.core.config import settings
+
+celery_app = Celery(
+    "worker",
+    broker=settings.REDIS_URL,
+    backend=settings.REDIS_URL,
+    include=["app.workers.tasks", "app.workers.email_tasks"]
+)
+
+celery_app.conf.task_routes = {
+    "app.workers.tasks.*": "main-queue",
+    "app.workers.email_tasks.*": "main-queue",
+}
+
+# Mission 10.13: Hardened Celery Configuration
+celery_app.conf.update(
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+    worker_prefetch_multiplier=1,
+    task_track_started=True,
+)
+
+celery_app.conf.beat_schedule = {
+    "process_email_outbox_every_minute": {
+        "task": "app.workers.email_tasks.process_email_outbox",
+        "schedule": 60.0,
+    },
+}
+
+celery_app.autodiscover_tasks(["app.workers"])

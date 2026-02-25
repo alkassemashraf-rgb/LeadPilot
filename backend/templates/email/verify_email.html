@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Verify your email — LeadPilot{% endblock %}
+
+{% block content %}
+<h1>Verify your email address</h1>
+<p>Thanks for signing up! To get started with LeadPilot, please confirm your email address by clicking the button below.
+</p>
+
+<div class="expiry-notice">
+    ⏱ This link expires in <strong>7 days</strong>.
+</div>
+
+<a href="{{ verification_link }}" class="cta-button">Verify Email Address</a>
+
+<hr class="divider">
+
+<p class="link-fallback">
+    If the button doesn't work, copy and paste this link into your browser:<br>
+    <a href="{{ verification_link }}">{{ verification_link }}</a>
+</p>
+
+<hr class="divider">
+
+<p style="font-size: 13px; color: #94a3b8;">
+    If you didn't create a LeadPilot account, you can safely ignore this email.
+</p>
+{% endblock %}
