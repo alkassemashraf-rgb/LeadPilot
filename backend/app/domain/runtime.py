@@ -285,12 +285,16 @@ async def handle_ai_reply(session: AsyncSession, instance: ExecutionInstance, co
         role = "user" if msg.direction == "inbound" else "assistant"
         messages.append({"role": role, "content": msg.content})
     
-    # 3. Generate Reply
+    # 3. Generate Reply (workspace settings as fallback for model defaults)
     from app.core.ai import ai_provider
+    from app.services.settings_service import get_workspace_ai_settings
+    ws_ai = await get_workspace_ai_settings(instance.workspace_id, session)
+    effective_temp = prompt_version.temperature if prompt_version.temperature != 0.7 else ws_ai.get("temperature", 0.7)
+    effective_max_tokens = prompt_version.max_tokens_per_execution if prompt_version.max_tokens_per_execution != 1000 else ws_ai.get("max_tokens", 2048)
     reply_text = await ai_provider.generate_response(
         messages=messages,
-        temperature=prompt_version.temperature,
-        max_tokens=prompt_version.max_tokens_per_execution
+        temperature=effective_temp,
+        max_tokens=effective_max_tokens
     )
     
     # 4. Resolve Platform from Identity

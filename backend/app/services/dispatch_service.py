@@ -61,6 +61,11 @@ class DispatchService:
         for msg in messages:
             # Check Exponential Backoff for FAILED messages
             if msg.delivery_status == DeliveryStatus.FAILED:
+                # Check workspace auto-retry setting
+                from app.services.settings_service import get_workspace_messaging_settings
+                msg_settings = await get_workspace_messaging_settings(msg.workspace_id, db)
+                if not msg_settings.get("auto_retry_failed_dispatch", True):
+                    continue  # Auto-retry disabled for this workspace
                 # delay = min(60 * 2^attempt_count, 1800)
                 delay_seconds = min(60 * (2 ** (msg.attempt_count - 1)), 1800) if msg.attempt_count > 0 else 60
                 if msg.last_attempt_at and msg.last_attempt_at > now - timedelta(seconds=delay_seconds):

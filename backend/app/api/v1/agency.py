@@ -19,6 +19,10 @@ from app.models.models import (
 )
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.audit import log_admin_action
+from app.services.settings_service import (
+    get_agency_settings as _get_agency_settings,
+    patch_agency_settings as _patch_agency_settings,
+)
 
 router = APIRouter()
 
@@ -535,3 +539,47 @@ async def transfer_workspace_ownership(
         "new_owner_type": payload.owner_type.value,
         "message": "Ownership transferred successfully",
     })
+
+
+# ─── Agency Settings (Mission 16) ────────────────────────────────────────────
+
+class PatchAgencySettingsRequest(BaseModel):
+    settings: dict
+
+
+@router.get("/settings")
+async def get_agency_settings_endpoint(
+    auth: tuple = Depends(require_agency_role([
+        AgencyRole.AGENCY_OWNER, AgencyRole.AGENCY_ADMIN,
+        AgencyRole.AGENCY_OPERATOR, AgencyRole.AGENCY_VIEWER,
+    ])),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    agency, _member, _user = auth
+    result = await _get_agency_settings(agency.id, db)
+    await db.commit()
+    return wrap_data({"settings": result.settings, "version": result.version})
+
+
+@router.patch("/settings")
+async def update_agency_settings_endpoint(
+    payload: PatchAgencySettingsRequest,
+    auth: tuple = Depends(require_agency_role([
+        AgencyRole.AGENCY_OWNER, AgencyRole.AGENCY_ADMIN,
+    ])),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    agency, _member, acting_user = auth
+    result = await _patch_agency_settings(
+        agency.id, payload.settings, acting_user.id, db,
+    )
+    if not result.success:
+        return wrap_error(result.error)
+
+    await log_admin_action(
+        db, acting_user.id, "update_agency_settings",
+        "agency_settings", str(agency.id),
+        metadata={"version": result.version, "patch_keys": list(payload.settings.keys())},
+    )
+    await db.commit()
+    return wrap_data({"settings": result.settings, "version": result.version})

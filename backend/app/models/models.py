@@ -455,3 +455,23 @@ class WorkspaceOwnership(BaseIDModel, table=True):
     owner_type: OwnerType = Field(default=OwnerType.USER)
     owner_user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
     owner_agency_id: Optional[UUID] = Field(default=None, foreign_key="agencyaccount.id", index=True)
+
+# --- Settings Models (Mission 16) ---
+
+class WorkspaceSettings(BaseIDModel, table=True):
+    workspace_id: UUID = Field(foreign_key="workspace.id", unique=True, index=True)
+    settings_json: Dict[str, Any] = Field(sa_column=Column(JSON))
+    version: int = Field(default=1)
+    updated_by_user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+
+class AgencySettings(BaseIDModel, table=True):
+    agency_id: UUID = Field(foreign_key="agencyaccount.id", unique=True, index=True)
+    settings_json: Dict[str, Any] = Field(sa_column=Column(JSON))
+    version: int = Field(default=1)
+    updated_by_user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+
+class SystemSettings(BaseIDModel, table=True):
+    singleton_key: str = Field(default="global", unique=True, index=True)
+    settings_json: Dict[str, Any] = Field(sa_column=Column(JSON))
+    version: int = Field(default=1)
+    updated_by_user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")

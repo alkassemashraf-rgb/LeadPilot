@@ -18,6 +18,7 @@ import {
     Database,
     CreditCard,
     Landmark,
+    SlidersHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adminAuth } from "@/lib/admin-auth";
@@ -29,6 +30,7 @@ const adminNavItems = [
     { name: "Agencies",      href: "/admin/agencies",      icon: Landmark },
     { name: "Plans",         href: "/admin/plans",         icon: CreditCard },
     { name: "Modules",       href: "/admin/modules",       icon: ToggleLeft },
+    { name: "System Settings",href: "/admin/system-settings",icon: SlidersHorizontal },
     { name: "Email Logs",    href: "/admin/email-logs",    icon: Mail },
     { name: "Dispatch",      href: "/admin/dispatch",      icon: Send },
     { name: "Automations",   href: "/admin/automations",   icon: Zap },

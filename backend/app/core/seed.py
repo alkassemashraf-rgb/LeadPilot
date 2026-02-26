@@ -4,7 +4,7 @@ Runs once on app startup; idempotent (uses INSERT or IGNORE logic via get-or-cre
 """
 import logging
 from app.core.db import SessionLocal as AsyncSessionLocal
-from app.models.models import SystemModuleConfig, Plan, PlanEntitlement
+from app.models.models import SystemModuleConfig, Plan, PlanEntitlement, SystemSettings
 from app.core.modules import ALL_MODULES, MODULE_ADMIN_PORTAL
 from sqlmodel import select
 
@@ -141,3 +141,27 @@ async def seed_plans():
                 logger.info("[seed_plans] All default plans already seeded; no action taken.")
     except Exception as e:
         logger.error(f"[seed_plans] Failed to seed plans: {e}", exc_info=True)
+
+
+async def seed_system_settings():
+    """Ensure the single-row SystemSettings exists with defaults."""
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(SystemSettings).where(SystemSettings.singleton_key == "global")
+            )
+            if not result.scalars().first():
+                import copy
+                from app.services.settings_service import SYSTEM_SETTINGS_DEFAULT
+                ss = SystemSettings(
+                    singleton_key="global",
+                    settings_json=copy.deepcopy(SYSTEM_SETTINGS_DEFAULT),
+                    version=1,
+                )
+                db.add(ss)
+                await db.commit()
+                logger.info("[seed_system_settings] Seeded default system settings.")
+            else:
+                logger.info("[seed_system_settings] System settings already exist.")
+    except Exception as e:
+        logger.error(f"[seed_system_settings] Failed: {e}", exc_info=True)

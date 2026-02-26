@@ -29,6 +29,10 @@ from app.models.models import (
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.modules import module_cache, ALL_MODULES, MODULE_ADMIN_PORTAL
 from app.core.audit import log_admin_action
+from app.services.settings_service import (
+    get_system_settings as _get_system_settings,
+    patch_system_settings as _patch_system_settings,
+)
 
 router = APIRouter()
 
@@ -1482,3 +1486,41 @@ async def assign_agency_plan(
         "plan_id": str(plan.id),
         "plan_name": plan.display_name,
     })
+
+
+# ─── System Settings (Mission 16) ────────────────────────────────────────────
+
+class PatchSystemSettingsRequest(BaseModel):
+    settings: Dict[str, Any]
+
+
+@router.get("/system-settings")
+async def get_system_settings_endpoint(
+    admin: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    result = await _get_system_settings(db)
+    await db.commit()
+    return wrap_data({"settings": result.settings, "version": result.version})
+
+
+@router.patch("/system-settings")
+async def update_system_settings_endpoint(
+    payload: PatchSystemSettingsRequest,
+    admin: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    result = await _patch_system_settings(payload.settings, admin.id, db)
+    if not result.success:
+        return wrap_error(result.error)
+
+    await log_admin_action(
+        db=db,
+        actor_user_id=admin.id,
+        action="update_system_settings",
+        entity_type="system_settings",
+        entity_id="global",
+        metadata={"version": result.version, "patch_keys": list(payload.settings.keys())},
+    )
+    await db.commit()
+    return wrap_data({"settings": result.settings, "version": result.version})

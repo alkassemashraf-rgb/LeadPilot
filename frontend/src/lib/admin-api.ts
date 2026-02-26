@@ -286,3 +286,16 @@ export const MODULE_LABELS: Record<string, string> = {
 };
 
 export const LOCKED_MODULES = new Set(["admin_portal"]);
+
+// ---- System Settings -------------------------------------------------------
+
+export async function getSystemSettings() {
+    return adminRequest("/admin/system-settings");
+}
+
+export async function patchSystemSettings(settings: Record<string, any>) {
+    return adminRequest("/admin/system-settings", {
+        method: "PATCH",
+        body: JSON.stringify({ settings }),
+    });
+}

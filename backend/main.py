@@ -5,7 +5,7 @@ from sqlmodel import SQLModel
 from app.core.config import settings
 from app.core.db import engine
 from app.api.v1 import auth, workspaces, health, prompt_config, test_chat, integrations, webhooks, automations, knowledge, analytics
-from app.core.seed import seed_modules, seed_plans
+from app.core.seed import seed_modules, seed_plans, seed_system_settings
 from app.api.v1.dispatch import router as dispatch_router
 from app.api.v1.inbox import router as inbox_router
 from app.api.v1.zoho import router as zoho_router
@@ -13,6 +13,7 @@ from app.api.v1.admin import router as admin_router
 from app.api.v1.admin_auth import router as admin_auth_router
 from app.api.v1.diagnostics import router as diagnostics_router
 from app.api.v1.agency import router as agency_router
+from app.api.v1.settings import router as settings_router
 from fastapi import HTTPException
 import uuid
 import logging
@@ -26,9 +27,10 @@ async def lifespan(app: FastAPI):
     # Initialize database tables
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-    # Seed default module configs and plans
+    # Seed default module configs, plans, and system settings
     await seed_modules()
     await seed_plans()
+    await seed_system_settings()
     yield
 
 app = FastAPI(
@@ -61,6 +63,38 @@ async def add_process_time_header(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Correlation-ID"] = correlation_id
     return response
+
+@app.middleware("http")
+async def maintenance_mode_guard(request: Request, call_next):
+    """Block non-admin API requests when maintenance_mode is enabled."""
+    path = request.url.path
+    # Always allow: health, admin, admin_auth, docs, root
+    exempt_prefixes = (
+        "/health",
+        f"{settings.API_V1_STR}/health",
+        f"{settings.API_V1_STR}/admin",
+        f"{settings.API_V1_STR}/admin_auth",
+        "/docs",
+        "/openapi.json",
+    )
+    if path == "/" or any(path.startswith(p) for p in exempt_prefixes):
+        return await call_next(request)
+
+    # Only check for API paths
+    if path.startswith(settings.API_V1_STR):
+        from app.services.settings_service import is_maintenance_mode
+        from app.core.db import SessionLocal
+        try:
+            async with SessionLocal() as db:
+                if await is_maintenance_mode(db):
+                    return JSONResponse(
+                        status_code=503,
+                        content=wrap_error("System is in maintenance mode. Please try again later."),
+                    )
+        except Exception:
+            pass  # If settings check fails, don't block requests
+
+    return await call_next(request)
 
 # Routers
 app.include_router(health.router, prefix=f"{settings.API_V1_STR}", tags=["health"])
@@ -115,6 +149,7 @@ app.include_router(zoho_router, prefix=f"{settings.API_V1_STR}", tags=["zoho"])
 app.include_router(analytics.router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"])
 app.include_router(diagnostics_router, prefix=f"{settings.API_V1_STR}/diagnostics", tags=["diagnostics"])
 app.include_router(agency_router, prefix=f"{settings.API_V1_STR}/agency", tags=["agency"])
+app.include_router(settings_router, prefix=f"{settings.API_V1_STR}/settings/workspace", tags=["settings"])
 
 @app.get("/")
 async def root():
