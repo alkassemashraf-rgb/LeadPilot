@@ -41,7 +41,11 @@ app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 # Set all CORS enabled origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "https://ashrafkassem-leadpilot.hf.space",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["Authorization", "X-Workspace-ID", "Content-Type"],

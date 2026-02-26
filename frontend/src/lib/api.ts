@@ -50,7 +50,10 @@ class ApiClient {
         // Safe base URL with /api/v1 prefix - ALWAYS absolute
         const base = API_BASE_URL.replace(/\/$/, "");
         const cleanPath = path.startsWith("/") ? path : `/${path}`;
-        const url = `${base}/api/v1${cleanPath}`;
+        // Ensure trailing slash to prevent FastAPI 307 redirects which can fail
+        // behind reverse proxies (e.g. HuggingFace Spaces)
+        const normalizedPath = cleanPath.endsWith("/") ? cleanPath : `${cleanPath}/`;
+        const url = `${base}/api/v1${normalizedPath}`;
 
         const method = options.method || "GET";
         console.log(`[API] ${method} ${url}`);

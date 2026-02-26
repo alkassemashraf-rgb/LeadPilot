@@ -55,12 +55,24 @@ export default function IntegrationsPage() {
     const [configModal, setConfigModal] = useState<{ provider: string } | null>(null);
     const [configPayload, setConfigPayload] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [fetchError, setFetchError] = useState<string | null>(null);
+
+    const buildDefaultCards = () =>
+        Object.keys(PROVIDER_METADATA).map(providerKey => ({
+            id: providerKey,
+            provider: providerKey,
+            name: PROVIDER_METADATA[providerKey].name,
+            description: PROVIDER_METADATA[providerKey].description,
+            icon: PROVIDER_METADATA[providerKey].icon,
+            status: "disconnected" as Status,
+            lastChecked: undefined
+        }));
 
     const fetchIntegrations = async () => {
         setIsLoading(true);
+        setFetchError(null);
         const res = await apiClient.get<any[]>("/integrations");
         if (res.success && res.data) {
-            // Map backend providers to our UI models
             const mapped = Object.keys(PROVIDER_METADATA).map(providerKey => {
                 const backendRecord = res.data?.find(r => r.provider === providerKey);
                 return {
@@ -74,6 +86,9 @@ export default function IntegrationsPage() {
                 };
             });
             setIntegrations(mapped as any);
+        } else {
+            setFetchError(res.error || "Failed to load integrations.");
+            setIntegrations(buildDefaultCards() as any);
         }
         setIsLoading(false);
     };
@@ -144,6 +159,13 @@ export default function IntegrationsPage() {
                     Refresh
                 </button>
             </div>
+
+            {fetchError && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 flex items-center gap-3">
+                    <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+                    <p className="text-sm text-amber-800">{fetchError} Showing default status below.</p>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {isLoading ? (
