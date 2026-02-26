@@ -15,6 +15,7 @@ from app.models.models import (
 from app.integrations.zoho.adapter import ZohoAdapter
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.modules import require_module_enabled, MODULE_ZOHO_SYNC
+from app.services.entitlements import require_entitlement
 
 router = APIRouter()
 
@@ -61,7 +62,7 @@ async def get_workspace_access(
 
 # --- Endpoints ---
 
-@router.get("/workspaces/{workspace_id}/zoho/mapping", response_model=ZohoMappingConfig, dependencies=[Depends(require_module_enabled(MODULE_ZOHO_SYNC, "read"))])
+@router.get("/workspaces/{workspace_id}/zoho/mapping", response_model=ZohoMappingConfig, dependencies=[Depends(require_module_enabled(MODULE_ZOHO_SYNC, "read")), Depends(require_entitlement("zoho_sync"))])
 async def get_mapping(
     workspace_id: UUID,
     member: WorkspaceMember = Depends(get_workspace_access), # Implicitly checks access
@@ -76,7 +77,7 @@ async def get_mapping(
         
     return mapping
 
-@router.post("/workspaces/{workspace_id}/zoho/mapping", response_model=ZohoMappingConfig, dependencies=[Depends(require_module_enabled(MODULE_ZOHO_SYNC, "write"))])
+@router.post("/workspaces/{workspace_id}/zoho/mapping", response_model=ZohoMappingConfig, dependencies=[Depends(require_module_enabled(MODULE_ZOHO_SYNC, "write")), Depends(require_entitlement("zoho_sync", increment=True))])
 async def update_mapping(
     workspace_id: UUID,
     config: ZohoMappingConfig,
@@ -102,7 +103,7 @@ async def update_mapping(
     await session.refresh(mapping)
     return mapping
 
-@router.get("/workspaces/{workspace_id}/zoho/fields", response_model=List[ZohoField], dependencies=[Depends(require_module_enabled(MODULE_ZOHO_SYNC, "read"))])
+@router.get("/workspaces/{workspace_id}/zoho/fields", response_model=List[ZohoField], dependencies=[Depends(require_module_enabled(MODULE_ZOHO_SYNC, "read")), Depends(require_entitlement("zoho_sync"))])
 async def get_zoho_fields(
     workspace_id: UUID,
     module: str = "Leads",
@@ -151,7 +152,7 @@ async def get_zoho_fields(
              # ...
         ]
 
-@router.post("/workspaces/{workspace_id}/contacts/{contact_id}/zoho/sync", response_model=SyncResponse, dependencies=[Depends(require_module_enabled(MODULE_ZOHO_SYNC, "write"))])
+@router.post("/workspaces/{workspace_id}/contacts/{contact_id}/zoho/sync", response_model=SyncResponse, dependencies=[Depends(require_module_enabled(MODULE_ZOHO_SYNC, "write")), Depends(require_entitlement("zoho_sync", increment=True))])
 async def sync_contact(
     workspace_id: UUID,
     contact_id: UUID,
@@ -235,7 +236,7 @@ async def sync_contact(
         await session.rollback() # Rollback on error
         return SyncResponse(success=False, error=str(e))
 
-@router.post("/contacts/{contact_id}/sync", response_model=ResponseEnvelope[SyncResponse], dependencies=[Depends(require_module_enabled(MODULE_ZOHO_SYNC, "write"))])
+@router.post("/contacts/{contact_id}/sync", response_model=ResponseEnvelope[SyncResponse], dependencies=[Depends(require_module_enabled(MODULE_ZOHO_SYNC, "write")), Depends(require_entitlement("zoho_sync", increment=True))])
 async def sync_contact_context_aware(
     contact_id: UUID,
     current_user: User = Depends(deps.get_current_user),

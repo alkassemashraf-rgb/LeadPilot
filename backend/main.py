@@ -5,13 +5,14 @@ from sqlmodel import SQLModel
 from app.core.config import settings
 from app.core.db import engine
 from app.api.v1 import auth, workspaces, health, prompt_config, test_chat, integrations, webhooks, automations, knowledge, analytics
-from app.core.seed import seed_modules
+from app.core.seed import seed_modules, seed_plans
 from app.api.v1.dispatch import router as dispatch_router
 from app.api.v1.inbox import router as inbox_router
 from app.api.v1.zoho import router as zoho_router
 from app.api.v1.admin import router as admin_router
 from app.api.v1.admin_auth import router as admin_auth_router
 from app.api.v1.diagnostics import router as diagnostics_router
+from app.api.v1.agency import router as agency_router
 from fastapi import HTTPException
 import uuid
 import logging
@@ -25,8 +26,9 @@ async def lifespan(app: FastAPI):
     # Initialize database tables
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.create_all)
-    # Seed default module configs
+    # Seed default module configs and plans
     await seed_modules()
+    await seed_plans()
     yield
 
 app = FastAPI(
@@ -112,6 +114,7 @@ app.include_router(inbox_router, prefix=f"{settings.API_V1_STR}/inbox", tags=["i
 app.include_router(zoho_router, prefix=f"{settings.API_V1_STR}", tags=["zoho"])
 app.include_router(analytics.router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"])
 app.include_router(diagnostics_router, prefix=f"{settings.API_V1_STR}/diagnostics", tags=["diagnostics"])
+app.include_router(agency_router, prefix=f"{settings.API_V1_STR}/agency", tags=["agency"])
 
 @app.get("/")
 async def root():

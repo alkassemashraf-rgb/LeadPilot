@@ -11,6 +11,7 @@ from app.schemas.workspace import (
     WorkspaceCreate, WorkspaceRead, MemberRead, MemberInvite, MemberUpdateRole
 )
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
+from app.services.entitlements import get_workspace_entitlements
 
 router = APIRouter()
 
@@ -152,3 +153,15 @@ async def update_member_role(
     db.add(membership)
     await db.commit()
     return wrap_data({"message": "Role updated"})
+
+
+# --- Entitlements (Mission 14) ---
+
+@router.get("/entitlements", response_model=ResponseEnvelope)
+async def get_entitlements(
+    db: AsyncSession = Depends(get_db),
+    workspace: Workspace = Depends(deps.get_active_workspace),
+) -> Any:
+    """Return merged entitlements + usage for the current workspace."""
+    entitlements = await get_workspace_entitlements(workspace.id, db)
+    return wrap_data(entitlements)

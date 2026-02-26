@@ -11,12 +11,13 @@ from app.core.db import get_db
 from app.models.models import Workspace, WorkspaceKnowledgeFile
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.modules import require_module_enabled, MODULE_KNOWLEDGE_FILES
+from app.services.entitlements import require_entitlement
 
 router = APIRouter()
 
 STORAGE_DIR = "storage/knowledge"
 
-@router.post("/files", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_KNOWLEDGE_FILES, "write"))])
+@router.post("/files", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_KNOWLEDGE_FILES, "write")), Depends(require_entitlement("knowledge_files", increment=True))])
 async def upload_knowledge_file(
     file: UploadFile = File(...),
     notes: Optional[str] = Form(None),
@@ -68,7 +69,7 @@ async def upload_knowledge_file(
         "extracted": extracted_text is not None
     })
 
-@router.get("/files", response_model=ResponseEnvelope[List[dict]], dependencies=[Depends(require_module_enabled(MODULE_KNOWLEDGE_FILES, "read"))])
+@router.get("/files", response_model=ResponseEnvelope[List[dict]], dependencies=[Depends(require_module_enabled(MODULE_KNOWLEDGE_FILES, "read")), Depends(require_entitlement("knowledge_files"))])
 async def list_knowledge_files(
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
@@ -91,7 +92,7 @@ async def list_knowledge_files(
         for f in files
     ])
 
-@router.delete("/files/{file_id}", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_KNOWLEDGE_FILES, "write"))])
+@router.delete("/files/{file_id}", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_KNOWLEDGE_FILES, "write")), Depends(require_entitlement("knowledge_files"))])
 async def delete_knowledge_file(
     file_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),

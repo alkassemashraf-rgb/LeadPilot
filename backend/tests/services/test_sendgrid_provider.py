@@ -86,8 +86,8 @@ async def test_diagnostics_reports_sendgrid(monkeypatch, db_session):
     mock_request.state.correlation_id = "test-corr-id"
     
     diag_resp = await get_diagnostics(request=mock_request, db=db_session)
-    data = diag_resp.data
-    
+    data = diag_resp["data"]
+
     assert data["email_provider"] == "sendgrid"
     assert data["sendgrid_configured"] is True
 
@@ -102,7 +102,7 @@ async def test_diagnostics_reports_sendgrid_not_configured(monkeypatch, db_sessi
     mock_request.state.correlation_id = "test-corr-id"
     
     diag_resp = await get_diagnostics(request=mock_request, db=db_session)
-    data = diag_resp.data
-    
+    data = diag_resp["data"]
+
     assert data["email_provider"] == "sendgrid"
     assert data["sendgrid_configured"] is False

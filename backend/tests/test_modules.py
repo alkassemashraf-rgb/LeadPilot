@@ -65,7 +65,7 @@ async def test_module_toggle_updates_db_and_audit_log(
     - Return success ResponseEnvelope with is_enabled: false
     """
     from main import app
-    from app.core.dependencies import get_current_user_obj
+    from app.api.deps import get_current_user
 
     admin = _superadmin_user()
     db_session.add(admin)
@@ -76,7 +76,7 @@ async def test_module_toggle_updates_db_and_audit_log(
     await db_session.flush()
     module_cache.invalidate(MODULE_PROMPT_STUDIO)
 
-    app.dependency_overrides[get_current_user_obj] = lambda: admin
+    app.dependency_overrides[get_current_user] = lambda: admin
 
     try:
         response = await async_client.patch(
@@ -109,7 +109,7 @@ async def test_module_toggle_updates_db_and_audit_log(
         assert audit.metadata_json["new_state"] is False
         assert audit.metadata_json["previous_state"] is True
     finally:
-        app.dependency_overrides.pop(get_current_user_obj, None)
+        app.dependency_overrides.pop(get_current_user, None)
         module_cache.invalidate(MODULE_PROMPT_STUDIO)
 
 
@@ -168,14 +168,14 @@ async def test_admin_portal_module_locked(
     The admin_portal module must NEVER be disableable via the API.
     """
     from main import app
-    from app.core.dependencies import get_current_user_obj
+    from app.api.deps import get_current_user
 
     admin = _superadmin_user()
     admin.email = "lock_test_admin@test.com"
     db_session.add(admin)
     await db_session.flush()
 
-    app.dependency_overrides[get_current_user_obj] = lambda: admin
+    app.dependency_overrides[get_current_user] = lambda: admin
 
     try:
         response = await async_client.patch(
@@ -186,7 +186,7 @@ async def test_admin_portal_module_locked(
         raw = str(response.json())
         assert "MODULE_LOCKED" in raw, f"Expected MODULE_LOCKED in response, got: {raw}"
     finally:
-        app.dependency_overrides.pop(get_current_user_obj, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -232,7 +232,7 @@ async def test_frontend_flag_fetch_contract(
     that admin-api.ts on the frontend relies on.
     """
     from main import app
-    from app.core.dependencies import get_current_user_obj
+    from app.api.deps import get_current_user
 
     admin = _superadmin_user()
     admin.email = "contract_admin@test.com"
@@ -245,7 +245,7 @@ async def test_frontend_flag_fetch_contract(
         db_session.add(mod)
     await db_session.flush()
 
-    app.dependency_overrides[get_current_user_obj] = lambda: admin
+    app.dependency_overrides[get_current_user] = lambda: admin
 
     try:
         response = await async_client.get("/api/v1/admin/modules")
@@ -269,7 +269,7 @@ async def test_frontend_flag_fetch_contract(
         assert module_map.get("auth") is True
         assert module_map.get("email_engine") is False
     finally:
-        app.dependency_overrides.pop(get_current_user_obj, None)
+        app.dependency_overrides.pop(get_current_user, None)
 
 
 # ─────────────────────────────────────────────────────────────────────────────

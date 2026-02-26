@@ -16,6 +16,8 @@ import {
     Zap,
     FileText,
     Database,
+    CreditCard,
+    Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adminAuth } from "@/lib/admin-auth";
@@ -24,6 +26,8 @@ const adminNavItems = [
     { name: "Overview",      href: "/admin",               icon: LayoutDashboard, exact: true },
     { name: "Users",         href: "/admin/users",         icon: Users },
     { name: "Workspaces",    href: "/admin/workspaces",    icon: Building2 },
+    { name: "Agencies",      href: "/admin/agencies",      icon: Landmark },
+    { name: "Plans",         href: "/admin/plans",         icon: CreditCard },
     { name: "Modules",       href: "/admin/modules",       icon: ToggleLeft },
     { name: "Email Logs",    href: "/admin/email-logs",    icon: Mail },
     { name: "Dispatch",      href: "/admin/dispatch",      icon: Send },

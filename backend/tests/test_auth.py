@@ -61,8 +61,8 @@ async def test_forgot_password(async_client: AsyncClient):
     assert "message" in data["data"]
 
 @pytest.mark.asyncio
-@patch("app.api.v1.auth.send_email_task.delay")
-async def test_forgot_password_email_flow(mock_send_email_task_delay, async_client: AsyncClient, db_session: AsyncSession):
+@patch("app.workers.email_tasks.send_email_task_v2.delay")
+async def test_forgot_password_email_flow(mock_delay, async_client: AsyncClient):
     # Setup: Create user first
     signup_payload = {
         "email": "test_forgot_flow@example.com",
@@ -70,18 +70,20 @@ async def test_forgot_password_email_flow(mock_send_email_task_delay, async_clie
         "full_name": "Forgot Flow User"
     }
     await async_client.post("/api/v1/auth/signup", json=signup_payload)
-    
+
     # Test Forgot Password
     forgot_payload = {"email": "test_forgot_flow@example.com"}
-    
+
     response = await async_client.post("/api/v1/auth/forgot-password", json=forgot_payload)
     assert response.status_code == 200
     data = response.json()
     assert data["success"] is True
-    
-    # Verify mock was called
-    mock_send_email_task_delay.assert_called_once()
-    args, kwargs = mock_send_email_task_delay.call_args
-    assert args[0] == "password_reset"
-    assert "token" in args[1]
-    assert args[1]["to_email"] == "test_forgot_flow@example.com"
+
+    # Called twice: once for signup verification email, once for forgot-password
+    assert mock_delay.call_count == 2
+    # The second call is the forgot-password outbox
+    args, _ = mock_delay.call_args_list[1]
+    outbox_id = args[0]
+    # Outbox ID should be a valid UUID string
+    from uuid import UUID
+    UUID(outbox_id)  # raises ValueError if not valid UUID

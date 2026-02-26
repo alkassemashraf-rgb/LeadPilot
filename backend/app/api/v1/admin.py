@@ -22,6 +22,9 @@ from app.models.models import (
     PromptConfig,
     Integration, ZohoLeadMapping,
     ExecutionInstance,
+    Plan, PlanEntitlement, WorkspacePlan,
+    WorkspaceEntitlementOverride, UsageMeter,
+    AgencyAccount, AgencyMember, AgencyStatus, WorkspaceOwnership,
 )
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.modules import module_cache, ALL_MODULES, MODULE_ADMIN_PORTAL
@@ -849,4 +852,633 @@ async def list_executions(
             }
             for e in executions
         ],
+    })
+
+
+# ─── Plans & Entitlements (Mission 14) ──────────────────────────────────────
+
+class PlanCreateRequest(BaseModel):
+    name: str
+    display_name: str
+    description: Optional[str] = None
+    sort_order: int = 0
+
+class PlanUpdateRequest(BaseModel):
+    display_name: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[bool] = None
+    sort_order: Optional[int] = None
+
+class EntitlementItem(BaseModel):
+    module_key: str
+    hard_limit: Optional[int] = None
+
+class EntitlementsBulkRequest(BaseModel):
+    entitlements: List[EntitlementItem]
+
+class AssignPlanRequest(BaseModel):
+    plan_id: str
+
+class OverrideItem(BaseModel):
+    module_key: str
+    hard_limit: Optional[int] = None
+
+class OverridesBulkRequest(BaseModel):
+    overrides: List[OverrideItem]
+
+
+def _plan_to_dict(plan: Plan, entitlements: list = None, workspace_count: int = 0) -> dict:
+    d = {
+        "id": str(plan.id),
+        "name": plan.name,
+        "display_name": plan.display_name,
+        "description": plan.description,
+        "is_active": plan.is_active,
+        "sort_order": plan.sort_order,
+        "created_at": plan.created_at.isoformat(),
+        "workspace_count": workspace_count,
+    }
+    if entitlements is not None:
+        d["entitlements"] = [
+            {"module_key": e.module_key, "hard_limit": e.hard_limit}
+            for e in entitlements
+        ]
+    return d
+
+
+@router.get("/plans", response_model=ResponseEnvelope[dict])
+async def list_plans(
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """List all plans with entitlement counts and workspace counts."""
+    result = await db.execute(select(Plan).order_by(Plan.sort_order))
+    plans = result.scalars().all()
+
+    items = []
+    for plan in plans:
+        # Count entitlements
+        ent_res = await db.execute(
+            select(func.count(PlanEntitlement.id)).where(PlanEntitlement.plan_id == plan.id)
+        )
+        ent_count = ent_res.scalar_one() or 0
+
+        # Count workspaces on this plan
+        ws_res = await db.execute(
+            select(func.count(WorkspacePlan.id)).where(WorkspacePlan.plan_id == plan.id)
+        )
+        ws_count = ws_res.scalar_one() or 0
+
+        items.append({
+            "id": str(plan.id),
+            "name": plan.name,
+            "display_name": plan.display_name,
+            "description": plan.description,
+            "is_active": plan.is_active,
+            "sort_order": plan.sort_order,
+            "entitlement_count": ent_count,
+            "workspace_count": ws_count,
+            "created_at": plan.created_at.isoformat(),
+        })
+
+    return wrap_data({"items": items})
+
+
+@router.post("/plans", response_model=ResponseEnvelope[dict])
+async def create_plan(
+    payload: PlanCreateRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Create a new plan."""
+    plan = Plan(
+        name=payload.name,
+        display_name=payload.display_name,
+        description=payload.description,
+        sort_order=payload.sort_order,
+    )
+    db.add(plan)
+    await db.commit()
+    await db.refresh(plan)
+
+    await log_admin_action(
+        db=db, actor_user_id=admin_user.id,
+        action="plan_create", entity_type="plan", entity_id=str(plan.id),
+    )
+
+    return wrap_data(_plan_to_dict(plan, entitlements=[], workspace_count=0))
+
+
+@router.get("/plans/{plan_id}", response_model=ResponseEnvelope[dict])
+async def get_plan_detail(
+    plan_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Get plan detail with entitlements."""
+    plan = await db.get(Plan, UUID(plan_id))
+    if not plan:
+        return wrap_error("Plan not found")
+
+    ent_res = await db.execute(
+        select(PlanEntitlement).where(PlanEntitlement.plan_id == plan.id)
+    )
+    entitlements = ent_res.scalars().all()
+
+    ws_res = await db.execute(
+        select(func.count(WorkspacePlan.id)).where(WorkspacePlan.plan_id == plan.id)
+    )
+    ws_count = ws_res.scalar_one() or 0
+
+    return wrap_data(_plan_to_dict(plan, entitlements=entitlements, workspace_count=ws_count))
+
+
+@router.put("/plans/{plan_id}", response_model=ResponseEnvelope[dict])
+async def update_plan(
+    plan_id: str,
+    payload: PlanUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Update plan metadata."""
+    plan = await db.get(Plan, UUID(plan_id))
+    if not plan:
+        return wrap_error("Plan not found")
+
+    if payload.display_name is not None:
+        plan.display_name = payload.display_name
+    if payload.description is not None:
+        plan.description = payload.description
+    if payload.is_active is not None:
+        plan.is_active = payload.is_active
+    if payload.sort_order is not None:
+        plan.sort_order = payload.sort_order
+
+    await db.commit()
+    await db.refresh(plan)
+
+    await log_admin_action(
+        db=db, actor_user_id=admin_user.id,
+        action="plan_update", entity_type="plan", entity_id=str(plan.id),
+    )
+
+    return wrap_data(_plan_to_dict(plan))
+
+
+@router.put("/plans/{plan_id}/entitlements", response_model=ResponseEnvelope[dict])
+async def set_plan_entitlements(
+    plan_id: str,
+    payload: EntitlementsBulkRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Bulk-set entitlements for a plan (replaces all existing)."""
+    plan = await db.get(Plan, UUID(plan_id))
+    if not plan:
+        return wrap_error("Plan not found")
+
+    # Delete existing entitlements
+    existing = await db.execute(
+        select(PlanEntitlement).where(PlanEntitlement.plan_id == plan.id)
+    )
+    for ent in existing.scalars().all():
+        await db.delete(ent)
+
+    # Insert new ones
+    new_ents = []
+    for item in payload.entitlements:
+        ent = PlanEntitlement(
+            plan_id=plan.id,
+            module_key=item.module_key,
+            hard_limit=item.hard_limit,
+        )
+        db.add(ent)
+        new_ents.append(ent)
+
+    await db.commit()
+
+    await log_admin_action(
+        db=db, actor_user_id=admin_user.id,
+        action="plan_entitlements_set", entity_type="plan", entity_id=str(plan.id),
+        metadata={"count": len(new_ents)},
+    )
+
+    return wrap_data(_plan_to_dict(plan, entitlements=new_ents))
+
+
+# ─── Workspace Plan Assignment ──────────────────────────────────────────────
+
+@router.get("/workspaces/{workspace_id}/plan", response_model=ResponseEnvelope[dict])
+async def get_workspace_plan(
+    workspace_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Get workspace's current plan and usage summary."""
+    ws = await db.get(Workspace, UUID(workspace_id))
+    if not ws:
+        return wrap_error("Workspace not found")
+
+    wp_res = await db.execute(
+        select(WorkspacePlan).where(WorkspacePlan.workspace_id == ws.id)
+    )
+    wp = wp_res.scalars().first()
+
+    if not wp:
+        return wrap_data({"plan": None, "message": "No plan assigned"})
+
+    plan = await db.get(Plan, wp.plan_id)
+
+    # Get entitlements
+    ent_res = await db.execute(
+        select(PlanEntitlement).where(PlanEntitlement.plan_id == wp.plan_id)
+    )
+    entitlements = ent_res.scalars().all()
+
+    # Get overrides
+    override_res = await db.execute(
+        select(WorkspaceEntitlementOverride).where(
+            WorkspaceEntitlementOverride.workspace_id == ws.id
+        )
+    )
+    overrides = {o.module_key: o.hard_limit for o in override_res.scalars().all()}
+
+    # Get current month usage
+    from app.services.entitlements import _current_period
+    period = _current_period()
+    usage_res = await db.execute(
+        select(UsageMeter).where(
+            UsageMeter.workspace_id == ws.id,
+            UsageMeter.period == period,
+        )
+    )
+    usage_map = {u.module_key: u.counter for u in usage_res.scalars().all()}
+
+    return wrap_data({
+        "plan": {
+            "id": str(plan.id),
+            "name": plan.name,
+            "display_name": plan.display_name,
+        } if plan else None,
+        "assigned_at": wp.assigned_at.isoformat(),
+        "entitlements": [
+            {
+                "module_key": e.module_key,
+                "plan_limit": e.hard_limit,
+                "effective_limit": overrides.get(e.module_key, e.hard_limit),
+                "has_override": e.module_key in overrides,
+                "used": usage_map.get(e.module_key, 0),
+            }
+            for e in entitlements
+        ],
+    })
+
+
+@router.put("/workspaces/{workspace_id}/plan", response_model=ResponseEnvelope[dict])
+async def assign_workspace_plan(
+    workspace_id: str,
+    payload: AssignPlanRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Assign or change a workspace's plan."""
+    ws = await db.get(Workspace, UUID(workspace_id))
+    if not ws:
+        return wrap_error("Workspace not found")
+
+    plan = await db.get(Plan, UUID(payload.plan_id))
+    if not plan:
+        return wrap_error("Plan not found")
+
+    wp_res = await db.execute(
+        select(WorkspacePlan).where(WorkspacePlan.workspace_id == ws.id)
+    )
+    wp = wp_res.scalars().first()
+
+    from datetime import datetime
+    if wp:
+        old_plan_id = str(wp.plan_id)
+        wp.plan_id = plan.id
+        wp.assigned_by = admin_user.id
+        wp.assigned_at = datetime.utcnow()
+    else:
+        old_plan_id = None
+        wp = WorkspacePlan(
+            workspace_id=ws.id,
+            plan_id=plan.id,
+            assigned_by=admin_user.id,
+        )
+        db.add(wp)
+
+    # Also update the legacy subscription_tier field
+    ws.subscription_tier = plan.name
+    await db.commit()
+
+    await log_admin_action(
+        db=db, actor_user_id=admin_user.id,
+        action="workspace_plan_assign", entity_type="workspace", entity_id=workspace_id,
+        metadata={"old_plan_id": old_plan_id, "new_plan_id": str(plan.id)},
+    )
+
+    return wrap_data({
+        "workspace_id": workspace_id,
+        "plan_id": str(plan.id),
+        "plan_name": plan.display_name,
+    })
+
+
+@router.get("/workspaces/{workspace_id}/usage", response_model=ResponseEnvelope[dict])
+async def get_workspace_usage(
+    workspace_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Get workspace usage meters for the current month."""
+    from app.services.entitlements import _current_period
+    period = _current_period()
+
+    result = await db.execute(
+        select(UsageMeter).where(
+            UsageMeter.workspace_id == UUID(workspace_id),
+            UsageMeter.period == period,
+        )
+    )
+    meters = result.scalars().all()
+
+    return wrap_data({
+        "workspace_id": workspace_id,
+        "period": period,
+        "meters": [
+            {
+                "module_key": m.module_key,
+                "counter": m.counter,
+            }
+            for m in meters
+        ],
+    })
+
+
+@router.put("/workspaces/{workspace_id}/overrides", response_model=ResponseEnvelope[dict])
+async def set_workspace_overrides(
+    workspace_id: str,
+    payload: OverridesBulkRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Set entitlement overrides for a workspace (upsert)."""
+    ws_id = UUID(workspace_id)
+
+    for item in payload.overrides:
+        result = await db.execute(
+            select(WorkspaceEntitlementOverride).where(
+                WorkspaceEntitlementOverride.workspace_id == ws_id,
+                WorkspaceEntitlementOverride.module_key == item.module_key,
+            )
+        )
+        existing = result.scalars().first()
+        if existing:
+            existing.hard_limit = item.hard_limit
+        else:
+            override = WorkspaceEntitlementOverride(
+                workspace_id=ws_id,
+                module_key=item.module_key,
+                hard_limit=item.hard_limit,
+            )
+            db.add(override)
+
+    await db.commit()
+
+    await log_admin_action(
+        db=db, actor_user_id=admin_user.id,
+        action="workspace_overrides_set", entity_type="workspace", entity_id=workspace_id,
+        metadata={"count": len(payload.overrides)},
+    )
+
+    return wrap_data({"message": f"Set {len(payload.overrides)} override(s)", "workspace_id": workspace_id})
+
+
+@router.delete("/workspaces/{workspace_id}/overrides/{module_key}", response_model=ResponseEnvelope[dict])
+async def remove_workspace_override(
+    workspace_id: str,
+    module_key: str,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Remove a specific entitlement override for a workspace."""
+    result = await db.execute(
+        select(WorkspaceEntitlementOverride).where(
+            WorkspaceEntitlementOverride.workspace_id == UUID(workspace_id),
+            WorkspaceEntitlementOverride.module_key == module_key,
+        )
+    )
+    override = result.scalars().first()
+    if not override:
+        return wrap_error(f"No override found for module '{module_key}'")
+
+    await db.delete(override)
+    await db.commit()
+
+    return wrap_data({"message": f"Override for '{module_key}' removed", "workspace_id": workspace_id})
+
+
+# ─── Agency Admin Endpoints (Mission 15) ─────────────────────────────────────
+
+class AgencyStatusUpdateRequest(BaseModel):
+    status: AgencyStatus
+
+class AgencyPlanAssignRequest(BaseModel):
+    plan_id: str
+
+
+@router.get("/agencies", response_model=ResponseEnvelope[dict])
+async def list_agencies(
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    query: Optional[str] = None,
+) -> Any:
+    """List all agencies (paginated, searchable by name or owner email)."""
+    stmt = select(AgencyAccount, User).join(User, User.id == AgencyAccount.owner_user_id)
+    count_stmt = select(func.count(AgencyAccount.id))
+
+    if query:
+        filter_clause = AgencyAccount.name.ilike(f"%{query}%") | User.email.ilike(f"%{query}%")
+        stmt = stmt.where(filter_clause)
+        count_stmt = count_stmt.join(User, User.id == AgencyAccount.owner_user_id).where(filter_clause)
+
+    total_res = await db.execute(count_stmt)
+    total = total_res.scalar_one() or 0
+
+    stmt = stmt.order_by(AgencyAccount.created_at.desc()).offset(skip).limit(limit)
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    items = []
+    for agency, owner in rows:
+        # Count workspaces
+        ws_res = await db.execute(
+            select(func.count(WorkspaceOwnership.id)).where(
+                WorkspaceOwnership.owner_agency_id == agency.id
+            )
+        )
+        ws_count = ws_res.scalar_one() or 0
+
+        # Count members
+        mem_res = await db.execute(
+            select(func.count(AgencyMember.id)).where(
+                AgencyMember.agency_id == agency.id
+            )
+        )
+        mem_count = mem_res.scalar_one() or 0
+
+        items.append({
+            "id": str(agency.id),
+            "name": agency.name,
+            "status": agency.status.value,
+            "owner_email": owner.email,
+            "owner_name": owner.full_name,
+            "plan_id": str(agency.plan_id) if agency.plan_id else None,
+            "workspace_count": ws_count,
+            "member_count": mem_count,
+            "created_at": agency.created_at.isoformat(),
+        })
+
+    return wrap_data({"items": items, "total": total})
+
+
+@router.get("/agencies/{agency_id}", response_model=ResponseEnvelope[dict])
+async def get_agency_detail(
+    agency_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Agency detail: members, workspaces, plan."""
+    agency = await db.get(AgencyAccount, UUID(agency_id))
+    if not agency:
+        return wrap_error("Agency not found")
+
+    owner = await db.get(User, agency.owner_user_id)
+
+    # Members
+    mem_res = await db.execute(
+        select(AgencyMember, User)
+        .join(User, User.id == AgencyMember.user_id)
+        .where(AgencyMember.agency_id == agency.id)
+    )
+    members = [
+        {
+            "id": str(m.id),
+            "user_id": str(m.user_id),
+            "email": u.email,
+            "full_name": u.full_name,
+            "role": m.role.value,
+        }
+        for m, u in mem_res.all()
+    ]
+
+    # Workspaces
+    ws_res = await db.execute(
+        select(Workspace)
+        .join(WorkspaceOwnership, WorkspaceOwnership.workspace_id == Workspace.id)
+        .where(WorkspaceOwnership.owner_agency_id == agency.id)
+    )
+    workspaces = [
+        {
+            "id": str(ws.id),
+            "name": ws.name,
+            "subscription_tier": ws.subscription_tier,
+            "created_at": ws.created_at.isoformat(),
+        }
+        for ws in ws_res.scalars().all()
+    ]
+
+    # Plan info
+    plan_info = None
+    if agency.plan_id:
+        plan = await db.get(Plan, agency.plan_id)
+        if plan:
+            plan_info = {
+                "id": str(plan.id),
+                "name": plan.name,
+                "display_name": plan.display_name,
+            }
+
+    return wrap_data({
+        "id": str(agency.id),
+        "name": agency.name,
+        "status": agency.status.value,
+        "owner_email": owner.email if owner else None,
+        "plan": plan_info,
+        "members": members,
+        "workspaces": workspaces,
+        "created_at": agency.created_at.isoformat(),
+    })
+
+
+@router.patch("/agencies/{agency_id}/status", response_model=ResponseEnvelope[dict])
+async def update_agency_status(
+    agency_id: str,
+    payload: AgencyStatusUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Suspend or activate an agency."""
+    agency = await db.get(AgencyAccount, UUID(agency_id))
+    if not agency:
+        return wrap_error("Agency not found")
+
+    old_status = agency.status.value
+    agency.status = payload.status
+    await db.commit()
+
+    await log_admin_action(
+        db=db,
+        actor_user_id=admin_user.id,
+        action="agency_status_update",
+        entity_type="agency",
+        entity_id=agency_id,
+        metadata={"old_status": old_status, "new_status": payload.status.value},
+    )
+
+    return wrap_data({
+        "id": agency_id,
+        "old_status": old_status,
+        "new_status": payload.status.value,
+    })
+
+
+@router.put("/agencies/{agency_id}/plan", response_model=ResponseEnvelope[dict])
+async def assign_agency_plan(
+    agency_id: str,
+    payload: AgencyPlanAssignRequest,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Assign a plan to an agency."""
+    agency = await db.get(AgencyAccount, UUID(agency_id))
+    if not agency:
+        return wrap_error("Agency not found")
+
+    plan = await db.get(Plan, UUID(payload.plan_id))
+    if not plan:
+        return wrap_error("Plan not found")
+
+    old_plan_id = str(agency.plan_id) if agency.plan_id else None
+    agency.plan_id = plan.id
+    await db.commit()
+
+    await log_admin_action(
+        db=db,
+        actor_user_id=admin_user.id,
+        action="agency_plan_assign",
+        entity_type="agency",
+        entity_id=agency_id,
+        metadata={"old_plan_id": old_plan_id, "new_plan_id": str(plan.id)},
+    )
+
+    return wrap_data({
+        "agency_id": agency_id,
+        "plan_id": str(plan.id),
+        "plan_name": plan.display_name,
     })

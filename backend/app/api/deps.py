@@ -9,7 +9,11 @@ from sqlmodel import select
 
 from app.core.config import settings
 from app.core.db import get_db
-from app.models.models import User, Workspace, WorkspaceMember, WorkspaceRole
+from app.models.models import (
+    User, Workspace, WorkspaceMember, WorkspaceRole,
+    AgencyMember, AgencyAccount, AgencyStatus, AgencyRole,
+    WorkspaceOwnership, OwnerType,
+)
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl=f"{settings.API_V1_STR}/auth/login"
@@ -60,6 +64,13 @@ async def get_current_user(
             
     return user
 
+_AGENCY_ROLE_TO_WORKSPACE_ROLE = {
+    AgencyRole.AGENCY_OWNER: WorkspaceRole.OWNER,
+    AgencyRole.AGENCY_ADMIN: WorkspaceRole.OWNER,
+    AgencyRole.AGENCY_OPERATOR: WorkspaceRole.MEMBER,
+    AgencyRole.AGENCY_VIEWER: WorkspaceRole.VIEWER,
+}
+
 async def get_active_workspace(
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -70,8 +81,8 @@ async def get_active_workspace(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="X-Workspace-ID header is required",
         )
-    
-    # Verify user belongs to workspace and get their role
+
+    # 1. Check explicit WorkspaceMember (existing fast path)
     result = await db.execute(
         select(WorkspaceMember)
         .where(
@@ -80,19 +91,56 @@ async def get_active_workspace(
         )
     )
     membership = result.scalars().first()
+
+    # 2. If no direct membership, try agency-based access (lazy provisioning)
+    if not membership:
+        ownership_res = await db.execute(
+            select(WorkspaceOwnership).where(
+                WorkspaceOwnership.workspace_id == x_workspace_id,
+                WorkspaceOwnership.owner_type == OwnerType.AGENCY,
+                WorkspaceOwnership.owner_agency_id.isnot(None),
+            )
+        )
+        ownership = ownership_res.scalars().first()
+
+        if ownership:
+            # Check user is a member of that agency AND agency is active
+            agency_mem_res = await db.execute(
+                select(AgencyMember, AgencyAccount)
+                .join(AgencyAccount, AgencyAccount.id == AgencyMember.agency_id)
+                .where(
+                    AgencyMember.agency_id == ownership.owner_agency_id,
+                    AgencyMember.user_id == user.id,
+                    AgencyAccount.status == AgencyStatus.ACTIVE,
+                )
+            )
+            row = agency_mem_res.first()
+
+            if row:
+                agency_member, _ = row
+                ws_role = _AGENCY_ROLE_TO_WORKSPACE_ROLE.get(
+                    agency_member.role, WorkspaceRole.VIEWER
+                )
+                # Lazy-provision a WorkspaceMember row
+                membership = WorkspaceMember(
+                    user_id=user.id,
+                    workspace_id=x_workspace_id,
+                    role=ws_role,
+                )
+                db.add(membership)
+                await db.flush()
+
     if not membership:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User does not have access to this workspace",
         )
-    
+
     result = await db.execute(select(Workspace).where(Workspace.id == x_workspace_id))
     workspace = result.scalars().first()
     if not workspace:
         raise HTTPException(status_code=404, detail="Workspace not found")
-    
-    # Attach role to the workspace object for convenience in endpoints?
-    # Or return a tuple/custom object. For now let's just return the workspace.
+
     return workspace
 
 def require_role(allowed_roles: List[WorkspaceRole]):

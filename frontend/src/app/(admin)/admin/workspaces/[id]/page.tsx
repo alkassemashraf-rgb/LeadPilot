@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { adminApi, MODULE_LABELS } from "@/lib/admin-api";
 import {
     Building2, Users, Loader2, ChevronLeft, RefreshCw,
-    ToggleLeft, ToggleRight, AlertCircle
+    ToggleLeft, ToggleRight, AlertCircle, CreditCard, Save
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -16,14 +16,19 @@ export default function WorkspaceDetailPage() {
 
     const [workspace, setWorkspace] = useState<any>(null);
     const [modules, setModules] = useState<any[]>([]);
+    const [planData, setPlanData] = useState<any>(null);
+    const [plans, setPlans] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [toggling, setToggling] = useState<string | null>(null);
+    const [assigningPlan, setAssigningPlan] = useState(false);
 
     const load = async () => {
         setLoading(true);
-        const [wsRes, modRes] = await Promise.all([
+        const [wsRes, modRes, planRes, plansRes] = await Promise.all([
             adminApi.getWorkspaceDetail(id),
             adminApi.getWorkspaceModules(id),
+            adminApi.getWorkspacePlan(id),
+            adminApi.getPlans(),
         ]);
 
         if (wsRes.success && wsRes.data) {
@@ -36,7 +41,28 @@ export default function WorkspaceDetailPage() {
             setModules(Array.isArray(modRes.data) ? modRes.data : []);
         }
 
+        if (planRes.success && planRes.data) {
+            setPlanData(planRes.data);
+        }
+
+        if (plansRes.success && plansRes.data) {
+            setPlans(plansRes.data.items || []);
+        }
+
         setLoading(false);
+    };
+
+    const handleAssignPlan = async (planId: string) => {
+        setAssigningPlan(true);
+        const res = await adminApi.assignWorkspacePlan(id, planId);
+        if (res.success) {
+            toast.success("Plan assigned successfully");
+            const planRes = await adminApi.getWorkspacePlan(id);
+            if (planRes.success && planRes.data) setPlanData(planRes.data);
+        } else {
+            toast.error(res.error || "Failed to assign plan");
+        }
+        setAssigningPlan(false);
     };
 
     useEffect(() => { load(); }, [id]);
@@ -152,6 +178,81 @@ export default function WorkspaceDetailPage() {
                                 ))}
                             </tbody>
                         </table>
+                    )}
+                </div>
+            </section>
+
+            {/* Plan & Usage */}
+            <section>
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                    <CreditCard className="w-5 h-5 text-amber-400" />
+                    Plan & Usage
+                </h2>
+                <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
+                    <div className="flex items-center gap-4">
+                        <div className="flex-1">
+                            <div className="text-xs text-slate-500 mb-1">Current Plan</div>
+                            <div className="text-white font-medium text-lg">
+                                {planData?.plan?.display_name || "No plan assigned"}
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <select
+                                className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
+                                value={planData?.plan?.id || ""}
+                                onChange={(e) => {
+                                    if (e.target.value) handleAssignPlan(e.target.value);
+                                }}
+                                disabled={assigningPlan}
+                            >
+                                <option value="" disabled>Change plan...</option>
+                                {plans.filter((p: any) => p.is_active).map((p: any) => (
+                                    <option key={p.id} value={p.id}>{p.display_name}</option>
+                                ))}
+                            </select>
+                            {assigningPlan && <Loader2 className="w-4 h-4 text-amber-400 animate-spin" />}
+                        </div>
+                    </div>
+
+                    {planData?.entitlements?.length > 0 && (
+                        <div className="space-y-2">
+                            <div className="text-xs text-slate-500 font-medium">Usage This Month</div>
+                            {planData.entitlements.map((e: any) => {
+                                const limit = e.effective_limit;
+                                const used = e.used || 0;
+                                const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+                                const isUnlimited = limit === null || limit === undefined;
+                                return (
+                                    <div key={e.module_key} className="flex items-center gap-3">
+                                        <div className="w-36 text-xs text-slate-400 truncate">
+                                            {MODULE_LABELS[e.module_key] || e.module_key}
+                                        </div>
+                                        <div className="flex-1 bg-white/5 rounded-full h-2 overflow-hidden">
+                                            {!isUnlimited && (
+                                                <div
+                                                    className={cn(
+                                                        "h-full rounded-full transition-all",
+                                                        pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-emerald-500"
+                                                    )}
+                                                    style={{ width: `${pct}%` }}
+                                                />
+                                            )}
+                                        </div>
+                                        <div className="w-24 text-xs text-slate-400 text-right">
+                                            {isUnlimited ? (
+                                                <span className="text-emerald-400">Unlimited</span>
+                                            ) : (
+                                                <span className={cn(pct >= 100 ? "text-red-400" : pct >= 80 ? "text-amber-400" : "text-slate-400")}>
+                                                    {used} / {limit}
+                                                </span>
+                                            )}
+                                            {e.has_override && <span className="ml-1 text-amber-400">*</span>}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                            <p className="text-[10px] text-slate-600 mt-1">* = admin override active</p>
+                        </div>
                     )}
                 </div>
             </section>

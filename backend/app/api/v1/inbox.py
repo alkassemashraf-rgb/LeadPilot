@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from sqlmodel import select, and_, or_, col, desc
 
 from app.api import deps
-from app.core.db import SessionLocal
+from app.core.db import get_db
 from app.models.models import (
     Conversation, 
     Message, 
@@ -21,14 +21,12 @@ from app.models.models import (
 from app.schemas.envelope import ResponseEnvelope, wrap_data
 from app.services.dispatch_service import DispatchService
 from app.workers.tasks import dispatch_message_task
+from app.services.entitlements import require_entitlement
 
 router = APIRouter()
 
-async def get_db():
-    async with SessionLocal() as session:
-        yield session
 
-@router.get("/conversations", response_model=ResponseEnvelope[List[dict]])
+@router.get("/conversations", response_model=ResponseEnvelope[List[dict]], dependencies=[Depends(require_entitlement("inbox"))])
 async def list_conversations(
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),

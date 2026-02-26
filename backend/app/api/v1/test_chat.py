@@ -15,13 +15,14 @@ from app.models.models import (
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.ai import ai_provider
 from app.core.modules import require_module_enabled, MODULE_RUNTIME_ENGINE
+from app.services.entitlements import require_entitlement
 
 router = APIRouter()
 
 class ChatInput(BaseModel):
     pass # Using raw dict/pydantic later
 
-@router.post("/sessions", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_RUNTIME_ENGINE, "write"))])
+@router.post("/sessions", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_RUNTIME_ENGINE, "write")), Depends(require_entitlement("runtime_engine", increment=True))])
 async def create_test_session(
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
@@ -65,7 +66,7 @@ async def create_test_session(
     await db.refresh(conversation)
     return wrap_data({"session_id": conversation.id})
 
-@router.post("/sessions/{session_id}/messages", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_RUNTIME_ENGINE, "write"))])
+@router.post("/sessions/{session_id}/messages", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_RUNTIME_ENGINE, "write")), Depends(require_entitlement("runtime_engine"))])
 async def send_test_message(
     session_id: UUID,
     message_in: Dict[str, str], # {"text": "..."}

@@ -11,6 +11,7 @@ from app.api import deps
 from app.models.models import Flow, FlowVersion, FlowStatus, User, Workspace
 from app.api.v1.auth import login # Keeping this if needed, or just remove if unused
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
+from app.services.entitlements import require_entitlement
 
 router = APIRouter()
 
@@ -30,7 +31,7 @@ class BuilderPayload(BaseModel):
     steps: List[BuilderStep]
     publish: bool = False
 
-@router.get("")
+@router.get("", dependencies=[Depends(require_entitlement("automations"))])
 async def list_flows(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_user)
@@ -39,7 +40,7 @@ async def list_flows(
     result = await db.execute(select(Flow))
     return wrap_data(result.scalars().all())
 
-@router.post("/from-builder")
+@router.post("/from-builder", dependencies=[Depends(require_entitlement("automations", increment=True))])
 async def create_from_builder(
     payload: BuilderPayload,
     db: AsyncSession = Depends(get_db),

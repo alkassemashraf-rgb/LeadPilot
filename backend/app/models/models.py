@@ -52,6 +52,20 @@ class ConversationStatus(str, Enum):
     HUMAN_TAKEOVER = "human_takeover"
     CLOSED = "closed"
 
+class AgencyStatus(str, Enum):
+    ACTIVE = "active"
+    SUSPENDED = "suspended"
+
+class AgencyRole(str, Enum):
+    AGENCY_OWNER = "agency_owner"
+    AGENCY_ADMIN = "agency_admin"
+    AGENCY_OPERATOR = "agency_operator"
+    AGENCY_VIEWER = "agency_viewer"
+
+class OwnerType(str, Enum):
+    USER = "user"
+    AGENCY = "agency"
+
 # --- Base Models ---
 
 class BaseIDModel(SQLModel):
@@ -378,3 +392,66 @@ class EmailOutbox(BaseIDModel, table=True):
     next_attempt_at: datetime = Field(default_factory=datetime.utcnow, index=True)
     locked_at: Optional[datetime] = None
     last_error: Optional[str] = None
+
+# --- Plans & Entitlements (Mission 14) ---
+
+class Plan(BaseIDModel, table=True):
+    name: str = Field(unique=True, index=True)
+    display_name: str
+    is_active: bool = Field(default=True)
+    sort_order: int = Field(default=0)
+    description: Optional[str] = None
+
+    entitlements: List["PlanEntitlement"] = Relationship(back_populates="plan")
+
+class PlanEntitlement(BaseIDModel, table=True):
+    __table_args__ = (UniqueConstraint("plan_id", "module_key"),)
+
+    plan_id: UUID = Field(foreign_key="plan.id", index=True)
+    module_key: str = Field(index=True)
+    hard_limit: Optional[int] = Field(default=None)
+
+    plan: Plan = Relationship(back_populates="entitlements")
+
+class WorkspacePlan(BaseIDModel, table=True):
+    workspace_id: UUID = Field(foreign_key="workspace.id", unique=True, index=True)
+    plan_id: UUID = Field(foreign_key="plan.id", index=True)
+    assigned_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    assigned_at: datetime = Field(default_factory=datetime.utcnow)
+
+class WorkspaceEntitlementOverride(BaseIDModel, table=True):
+    __table_args__ = (UniqueConstraint("workspace_id", "module_key"),)
+
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
+    module_key: str = Field(index=True)
+    hard_limit: Optional[int] = Field(default=None)
+
+class UsageMeter(SQLModel, table=True):
+    __table_args__ = (UniqueConstraint("workspace_id", "module_key", "period"),)
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
+    module_key: str = Field(index=True)
+    period: str = Field(index=True)
+    counter: int = Field(default=0)
+
+# --- Agency Model (Mission 15) ---
+
+class AgencyAccount(BaseIDModel, table=True):
+    name: str = Field(index=True)
+    owner_user_id: UUID = Field(foreign_key="user.id", index=True)
+    status: AgencyStatus = Field(default=AgencyStatus.ACTIVE)
+    plan_id: Optional[UUID] = Field(default=None, foreign_key="plan.id")
+
+class AgencyMember(BaseIDModel, table=True):
+    __table_args__ = (UniqueConstraint("agency_id", "user_id"),)
+
+    agency_id: UUID = Field(foreign_key="agencyaccount.id", index=True)
+    user_id: UUID = Field(foreign_key="user.id", index=True)
+    role: AgencyRole = Field(default=AgencyRole.AGENCY_OPERATOR)
+
+class WorkspaceOwnership(BaseIDModel, table=True):
+    workspace_id: UUID = Field(foreign_key="workspace.id", unique=True, index=True)
+    owner_type: OwnerType = Field(default=OwnerType.USER)
+    owner_user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    owner_agency_id: Optional[UUID] = Field(default=None, foreign_key="agencyaccount.id", index=True)

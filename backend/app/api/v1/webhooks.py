@@ -14,6 +14,7 @@ from app.core.config import settings
 from app.models.models import Integration, WebhookEventLog, WebhookStatus
 from app.workers.tasks import process_webhook_event
 from app.core.modules import require_module_enabled, MODULE_WEBHOOKS_INGESTION
+from app.services.entitlements import require_entitlement
 
 router = APIRouter()
 

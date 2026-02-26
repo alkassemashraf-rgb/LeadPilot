@@ -14,10 +14,11 @@ from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.security import encrypt_data, decrypt_data
 from app.api.deps import require_email_state
 from app.core.modules import require_module_enabled, MODULE_INTEGRATIONS_CONNECT
+from app.services.entitlements import require_entitlement
 
 router = APIRouter()
 
-@router.get("", response_model=ResponseEnvelope[List[IntegrationRead]], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "read"))])
+@router.get("", response_model=ResponseEnvelope[List[IntegrationRead]], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "read")), Depends(require_entitlement("integrations_connect"))])
 async def list_integrations(
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
@@ -29,7 +30,7 @@ async def list_integrations(
     integrations = result.scalars().all()
     return wrap_data(integrations)
 
-@router.post("/{provider}/connect", response_model=ResponseEnvelope[IntegrationRead], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "write"))])
+@router.post("/{provider}/connect", response_model=ResponseEnvelope[IntegrationRead], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "write")), Depends(require_entitlement("integrations_connect", increment=True))])
 async def connect_integration(
     provider: str,
     connect_in: IntegrationConnect,
@@ -97,7 +98,7 @@ async def connect_integration(
 
     return wrap_data(integration)
 
-@router.post("/{provider}/disconnect", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "write"))])
+@router.post("/{provider}/disconnect", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "write")), Depends(require_entitlement("integrations_connect"))])
 async def disconnect_integration(
     provider: str,
     db: AsyncSession = Depends(get_db),
@@ -123,7 +124,7 @@ async def disconnect_integration(
 
     return wrap_data({"message": f"{provider} disconnected successfully"})
 
-@router.post("/health-check", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "read"))])
+@router.post("/health-check", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "read")), Depends(require_entitlement("integrations_connect"))])
 async def integrations_health_check(
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),

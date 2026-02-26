@@ -65,6 +65,8 @@ const adminClient = {
     get: <T = any>(path: string) => adminRequest<T>(path, { method: "GET" }),
     post: <T = any>(path: string, body?: any) =>
         adminRequest<T>(path, { method: "POST", body: body ? JSON.stringify(body) : undefined }),
+    put: <T = any>(path: string, body?: any) =>
+        adminRequest<T>(path, { method: "PUT", body: body ? JSON.stringify(body) : undefined }),
     patch: <T = any>(path: string, body?: any) =>
         adminRequest<T>(path, { method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
     delete: <T = any>(path: string) => adminRequest<T>(path, { method: "DELETE" }),
@@ -223,6 +225,43 @@ export const adminApi = {
     // Monitoring (legacy)
     getIntegrations: () => adminClient.get<{ items: any[] }>("/admin/integrations"),
     getExecutions: () => adminClient.get<{ items: any[] }>("/admin/executions"),
+
+    // Plans (Mission 14)
+    getPlans: () => adminClient.get<{ items: any[] }>("/admin/plans"),
+    createPlan: (data: { name: string; display_name: string; description?: string; sort_order?: number }) =>
+        adminClient.post("/admin/plans", data),
+    getPlanDetail: (planId: string) => adminClient.get<any>(`/admin/plans/${planId}`),
+    updatePlan: (planId: string, data: { display_name?: string; description?: string; is_active?: boolean; sort_order?: number }) =>
+        adminClient.put(`/admin/plans/${planId}`, data),
+    setPlanEntitlements: (planId: string, entitlements: { module_key: string; hard_limit: number | null }[]) =>
+        adminClient.put(`/admin/plans/${planId}/entitlements`, { entitlements }),
+
+    // Workspace plan & usage (Mission 14)
+    getWorkspacePlan: (workspaceId: string) =>
+        adminClient.get<any>(`/admin/workspaces/${workspaceId}/plan`),
+    assignWorkspacePlan: (workspaceId: string, planId: string) =>
+        adminClient.put(`/admin/workspaces/${workspaceId}/plan`, { plan_id: planId }),
+    getWorkspaceUsage: (workspaceId: string) =>
+        adminClient.get<any>(`/admin/workspaces/${workspaceId}/usage`),
+    setWorkspaceOverrides: (workspaceId: string, overrides: { module_key: string; hard_limit: number | null }[]) =>
+        adminClient.put(`/admin/workspaces/${workspaceId}/overrides`, { overrides }),
+    removeWorkspaceOverride: (workspaceId: string, moduleKey: string) =>
+        adminClient.delete(`/admin/workspaces/${workspaceId}/overrides/${moduleKey}`),
+
+    // Agencies (Mission 15)
+    getAgencies: (params?: { skip?: number; limit?: number; query?: string }) => {
+        const qs = new URLSearchParams();
+        if (params?.skip !== undefined) qs.set("skip", String(params.skip));
+        if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+        if (params?.query) qs.set("query", params.query);
+        return adminClient.get<{ items: any[]; total: number }>(`/admin/agencies?${qs.toString()}`);
+    },
+    getAgencyDetail: (agencyId: string) =>
+        adminClient.get<any>(`/admin/agencies/${agencyId}`),
+    updateAgencyStatus: (agencyId: string, status: "active" | "suspended") =>
+        adminClient.patch(`/admin/agencies/${agencyId}/status`, { status }),
+    assignAgencyPlan: (agencyId: string, planId: string) =>
+        adminClient.put(`/admin/agencies/${agencyId}/plan`, { plan_id: planId }),
 };
 
 export const MODULE_LABELS: Record<string, string> = {
@@ -239,6 +278,7 @@ export const MODULE_LABELS: Record<string, string> = {
     inbox: "Inbox",
     zoho_sync: "Zoho Sync",
     analytics: "Analytics",
+    automations: "Automations",
     diagnostics: "Diagnostics",
     admin_portal: "Admin Portal",
     support_impersonation_enabled: "Support Impersonation",

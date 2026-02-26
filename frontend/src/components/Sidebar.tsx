@@ -15,7 +15,8 @@ import {
     MessageSquare,
     LogOut,
     SendHorizontal,
-    Inbox
+    Inbox,
+    Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,7 @@ const navItems = [
     { name: "Logs", href: "/logs", icon: FileText },
     { name: "Settings", href: "/settings", icon: Settings },
     { name: "Team", href: "/team", icon: ShieldCheck },
+    { name: "Agency", href: "/agency", icon: Landmark },
 ];
 
 export function Sidebar() {

@@ -16,12 +16,13 @@ from app.models.models import (
     ExecutionStatus, WorkspaceRole, FlowNode
 )
 from app.core.modules import require_module_enabled, MODULE_ANALYTICS
+from app.services.entitlements import require_entitlement
 
 router = APIRouter()
 
 # --- Response Models ---
 
-@router.get("/summary", response_model=ResponseEnvelope, dependencies=[Depends(require_module_enabled(MODULE_ANALYTICS, "read"))])
+@router.get("/summary", response_model=ResponseEnvelope, dependencies=[Depends(require_module_enabled(MODULE_ANALYTICS, "read")), Depends(require_entitlement("analytics"))])
 async def get_analytics_summary(
     range_days: int = Query(7, alias="range", ge=1, le=90),
     current_user: User = Depends(deps.get_current_user),
@@ -149,7 +150,7 @@ async def get_analytics_summary(
     }
     return wrap_data(data)
 
-@router.get("/timeseries", response_model=ResponseEnvelope, dependencies=[Depends(require_module_enabled(MODULE_ANALYTICS, "read"))])
+@router.get("/timeseries", response_model=ResponseEnvelope, dependencies=[Depends(require_module_enabled(MODULE_ANALYTICS, "read")), Depends(require_entitlement("analytics"))])
 async def get_analytics_timeseries(
     metric: str = Query(..., regex="^(conversations|inbound_messages|outbound_sent|zoho_syncs)$"),
     range_days: int = Query(7, alias="range", ge=1, le=90),
@@ -257,7 +258,7 @@ async def get_analytics_timeseries(
     
     return wrap_data(final_data)
 
-@router.get("/executions/breakdown", response_model=ResponseEnvelope, dependencies=[Depends(require_module_enabled(MODULE_ANALYTICS, "read"))])
+@router.get("/executions/breakdown", response_model=ResponseEnvelope, dependencies=[Depends(require_module_enabled(MODULE_ANALYTICS, "read")), Depends(require_entitlement("analytics"))])
 async def get_execution_breakdown(
     range_days: int = Query(7, alias="range", ge=1, le=90),
     current_user: User = Depends(deps.get_current_user),
@@ -284,7 +285,7 @@ async def get_execution_breakdown(
         
     return wrap_data(data)
 
-@router.get("/ai-usage", response_model=ResponseEnvelope, dependencies=[Depends(require_module_enabled(MODULE_ANALYTICS, "read"))])
+@router.get("/ai-usage", response_model=ResponseEnvelope, dependencies=[Depends(require_module_enabled(MODULE_ANALYTICS, "read")), Depends(require_entitlement("analytics"))])
 async def get_ai_usage(
     range_days: int = Query(7, alias="range", ge=1, le=90),
     current_user: User = Depends(deps.get_current_user),

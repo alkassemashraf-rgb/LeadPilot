@@ -10,10 +10,11 @@ from app.models.models import Workspace, Message, DeliveryStatus
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.services.dispatch_service import DispatchService
 from app.core.modules import require_module_enabled, MODULE_DISPATCH_ENGINE
+from app.services.entitlements import require_entitlement
 
 router = APIRouter()
 
-@router.post("/run", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_DISPATCH_ENGINE, "write"))])
+@router.post("/run", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_DISPATCH_ENGINE, "write")), Depends(require_entitlement("dispatch_engine", increment=True))])
 async def trigger_dispatch(
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
@@ -26,7 +27,7 @@ async def trigger_dispatch(
         "failed_count": failed
     })
 
-@router.get("/queue", response_model=ResponseEnvelope[List[dict]], dependencies=[Depends(require_module_enabled(MODULE_DISPATCH_ENGINE, "read"))])
+@router.get("/queue", response_model=ResponseEnvelope[List[dict]], dependencies=[Depends(require_module_enabled(MODULE_DISPATCH_ENGINE, "read")), Depends(require_entitlement("dispatch_engine"))])
 async def get_dispatch_queue(
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),

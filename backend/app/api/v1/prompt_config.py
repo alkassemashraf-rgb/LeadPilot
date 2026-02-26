@@ -11,6 +11,7 @@ from app.schemas.prompt_config import PromptConfigRead, PromptVersionRead, Promp
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.config import settings
 from app.core.modules import require_module_enabled, MODULE_PROMPT_STUDIO
+from app.services.entitlements import require_entitlement
 
 router = APIRouter()
 
@@ -50,7 +51,7 @@ def compile_prompt(data: Dict[str, Any]) -> str:
         
     return "\n".join(lines)
 
-@router.get("", response_model=ResponseEnvelope[PromptConfigRead], dependencies=[Depends(require_module_enabled(MODULE_PROMPT_STUDIO, "read"))])
+@router.get("", response_model=ResponseEnvelope[PromptConfigRead], dependencies=[Depends(require_module_enabled(MODULE_PROMPT_STUDIO, "read")), Depends(require_entitlement("prompt_studio"))])
 async def get_prompt_config(
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
@@ -87,7 +88,7 @@ async def get_prompt_config(
 import logging
 logger = logging.getLogger(__name__)
 
-@router.post("", response_model=ResponseEnvelope[PromptVersionRead], dependencies=[Depends(require_module_enabled(MODULE_PROMPT_STUDIO, "write"))])
+@router.post("", response_model=ResponseEnvelope[PromptVersionRead], dependencies=[Depends(require_module_enabled(MODULE_PROMPT_STUDIO, "write")), Depends(require_entitlement("prompt_studio", increment=True))])
 async def create_prompt_version(
     *,
     db: AsyncSession = Depends(get_db),
