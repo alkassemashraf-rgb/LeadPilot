@@ -30,7 +30,7 @@ class BuilderPayload(BaseModel):
     steps: List[BuilderStep]
     publish: bool = False
 
-@router.get("/")
+@router.get("")
 async def list_flows(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_user)

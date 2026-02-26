@@ -27,9 +27,7 @@ async function adminRequest<T = any>(
 ): Promise<ApiResponse<T>> {
     const base = getBaseUrl().replace(/\/$/, "");
     const cleanPath = path.startsWith("/") ? path : `/${path}`;
-    // Ensure trailing slash to prevent FastAPI 307 redirects
-    const normalizedPath = cleanPath.endsWith("/") ? cleanPath : `${cleanPath}/`;
-    const url = `${base}/api/v1${normalizedPath}`;
+    const url = `${base}/api/v1${cleanPath}`;
 
     const token = adminAuth.getToken();
     const headers = new Headers(options.headers || {});

@@ -14,7 +14,7 @@ from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 
 router = APIRouter()
 
-@router.post("/", response_model=ResponseEnvelope[WorkspaceRead])
+@router.post("", response_model=ResponseEnvelope[WorkspaceRead])
 async def create_workspace(
     *,
     db: AsyncSession = Depends(get_db),
@@ -36,7 +36,7 @@ async def create_workspace(
     await db.refresh(workspace)
     return wrap_data(workspace)
 
-@router.get("/", response_model=ResponseEnvelope[List[WorkspaceRead]])
+@router.get("", response_model=ResponseEnvelope[List[WorkspaceRead]])
 async def list_workspaces(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(deps.get_current_user)

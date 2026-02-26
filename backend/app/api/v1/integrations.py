@@ -17,7 +17,7 @@ from app.core.modules import require_module_enabled, MODULE_INTEGRATIONS_CONNECT
 
 router = APIRouter()
 
-@router.get("/", response_model=ResponseEnvelope[List[IntegrationRead]], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "read"))])
+@router.get("", response_model=ResponseEnvelope[List[IntegrationRead]], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "read"))])
 async def list_integrations(
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
