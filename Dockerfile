@@ -44,6 +44,7 @@ RUN chmod +x /app/start.sh
 ENV PORT=7860
 ENV DATABASE_URL=sqlite+aiosqlite:////app/backend/leadpilot.db
 ENV NEXT_PUBLIC_API_BASE_URL=""
+ENV APP_BASE_URL=https://ashrafkassem-leadpilot.hf.space
 
 EXPOSE 7860
 
