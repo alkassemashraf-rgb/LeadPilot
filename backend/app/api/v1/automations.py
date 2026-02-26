@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from uuid import UUID
 import uuid
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from pydantic import BaseModel
@@ -12,6 +12,7 @@ from app.models.models import Flow, FlowVersion, FlowStatus, User, Workspace
 from app.api.v1.auth import login # Keeping this if needed, or just remove if unused
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.services.entitlements import require_entitlement
+from app.services.audit_service import audit_event
 
 router = APIRouter()
 
@@ -43,9 +44,10 @@ async def list_flows(
 @router.post("/from-builder", dependencies=[Depends(require_entitlement("automations", increment=True))])
 async def create_from_builder(
     payload: BuilderPayload,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
-    current_user: User = Depends(deps.get_current_user)
+    current_user: User = Depends(deps.get_current_user),
 ):
     """Translate wizard payload to runtime JSON and save flow."""
     # 1. Translation Logic
@@ -114,8 +116,14 @@ async def create_from_builder(
         is_published=payload.publish
     )
     db.add(version)
+    await audit_event(
+        db, action="automation_create", entity_type="flow",
+        entity_id=str(flow.id), actor_user_id=current_user.id,
+        outcome="success", workspace_id=workspace.id, request=request,
+        metadata={"flow_name": payload.name, "published": payload.publish},
+    )
     await db.commit()
-    
+
     return wrap_data({"flow_id": str(flow.id), "version": 1})
 
 @router.get("/{flow_id}")
@@ -148,8 +156,9 @@ async def get_flow(
 @router.post("/{flow_id}/publish")
 async def publish_flow(
     flow_id: UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(deps.get_current_user)
+    current_user: User = Depends(deps.get_current_user),
 ):
     """Publish a flow version."""
     flow = await db.get(Flow, flow_id)
@@ -172,6 +181,11 @@ async def publish_flow(
     
     db.add(last_version)
     db.add(flow)
+    await audit_event(
+        db, action="automation_publish", entity_type="flow",
+        entity_id=str(flow.id), actor_user_id=current_user.id,
+        outcome="success", workspace_id=flow.workspace_id, request=request,
+    )
     await db.commit()
-    
+
     return wrap_data({"status": "published"})

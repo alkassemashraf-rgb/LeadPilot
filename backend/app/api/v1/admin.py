@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from typing import Any, Optional, List, Dict
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
@@ -29,6 +29,7 @@ from app.models.models import (
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.modules import module_cache, ALL_MODULES, MODULE_ADMIN_PORTAL
 from app.core.audit import log_admin_action
+from app.services.audit_service import audit_event
 from app.services.settings_service import (
     get_system_settings as _get_system_settings,
     patch_system_settings as _patch_system_settings,
@@ -245,8 +246,16 @@ async def get_audit_log(
     actor_user_id: Optional[str] = None,
     entity_type: Optional[str] = None,
     action: Optional[str] = None,
+    workspace_id: Optional[str] = None,
+    agency_id: Optional[str] = None,
+    actor_type: Optional[str] = None,
+    outcome: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    correlation_id: Optional[str] = None,
 ) -> Any:
-    """Return paginated admin audit log entries."""
+    """Return paginated admin audit log entries with filters."""
+    from datetime import datetime
     query = select(AdminAuditLog)
 
     if actor_user_id:
@@ -255,26 +264,55 @@ async def get_audit_log(
         query = query.where(AdminAuditLog.entity_type == entity_type)
     if action:
         query = query.where(AdminAuditLog.action == action)
+    if workspace_id:
+        query = query.where(AdminAuditLog.workspace_id == UUID(workspace_id))
+    if agency_id:
+        query = query.where(AdminAuditLog.agency_id == UUID(agency_id))
+    if actor_type:
+        query = query.where(AdminAuditLog.actor_type == actor_type)
+    if outcome:
+        query = query.where(AdminAuditLog.outcome == outcome)
+    if correlation_id:
+        query = query.where(AdminAuditLog.correlation_id == UUID(correlation_id))
+    if date_from:
+        try:
+            query = query.where(AdminAuditLog.created_at >= datetime.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            query = query.where(AdminAuditLog.created_at <= datetime.fromisoformat(date_to))
+        except ValueError:
+            pass
+
+    # Filtered count
+    count_query = select(func.count()).select_from(query.subquery())
+    total = (await db.execute(count_query)).scalar_one()
 
     query = query.order_by(AdminAuditLog.created_at.desc()).offset(skip).limit(limit)
-
     result = await db.execute(query)
     entries = result.scalars().all()
-
-    count_result = await db.execute(select(func.count(AdminAuditLog.id)))
-    total = count_result.scalar_one() or 0
 
     return wrap_data({
         "items": [
             {
                 "id": str(e.id),
-                "actor_user_id": str(e.actor_user_id),
+                "actor_user_id": str(e.actor_user_id) if e.actor_user_id else None,
+                "actor_type": e.actor_type,
                 "action": e.action,
                 "entity_type": e.entity_type,
                 "entity_id": e.entity_id,
+                "outcome": e.outcome,
                 "workspace_id": str(e.workspace_id) if e.workspace_id else None,
+                "agency_id": str(e.agency_id) if e.agency_id else None,
                 "metadata_json": e.metadata_json,
                 "correlation_id": str(e.correlation_id) if e.correlation_id else None,
+                "ip_address": e.ip_address,
+                "user_agent": e.user_agent,
+                "request_path": e.request_path,
+                "request_method": e.request_method,
+                "error_code": e.error_code,
+                "error_message": e.error_message,
                 "created_at": e.created_at.isoformat(),
             }
             for e in entries
@@ -282,6 +320,39 @@ async def get_audit_log(
         "total": total,
         "skip": skip,
         "limit": limit,
+    })
+
+
+@router.get("/audit-log/{log_id}", response_model=ResponseEnvelope[dict])
+async def get_audit_log_detail(
+    log_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Get a single audit log entry by ID."""
+    entry = await db.get(AdminAuditLog, UUID(log_id))
+    if not entry:
+        return wrap_error("Audit log entry not found")
+
+    return wrap_data({
+        "id": str(entry.id),
+        "actor_user_id": str(entry.actor_user_id) if entry.actor_user_id else None,
+        "actor_type": entry.actor_type,
+        "action": entry.action,
+        "entity_type": entry.entity_type,
+        "entity_id": entry.entity_id,
+        "outcome": entry.outcome,
+        "workspace_id": str(entry.workspace_id) if entry.workspace_id else None,
+        "agency_id": str(entry.agency_id) if entry.agency_id else None,
+        "metadata_json": entry.metadata_json,
+        "correlation_id": str(entry.correlation_id) if entry.correlation_id else None,
+        "ip_address": entry.ip_address,
+        "user_agent": entry.user_agent,
+        "request_path": entry.request_path,
+        "request_method": entry.request_method,
+        "error_code": entry.error_code,
+        "error_message": entry.error_message,
+        "created_at": entry.created_at.isoformat(),
     })
 
 
@@ -496,6 +567,7 @@ async def set_workspace_module(
     workspace_id: str,
     module_name: str,
     payload: WorkspaceModuleToggle,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(require_superadmin),
 ) -> Any:
@@ -512,6 +584,13 @@ async def set_workspace_module(
     await db.commit()
     module_cache.invalidate(module_name)
 
+    await audit_event(
+        db, action="workspace_module_set", entity_type="module",
+        entity_id=module_name, actor_user_id=admin_user.id,
+        actor_type="admin", outcome="success", request=request,
+        metadata={"workspace_id": workspace_id, "is_enabled": payload.is_enabled},
+    )
+    await db.commit()
     return wrap_data({
         "module_name": module_name,
         "is_enabled": payload.is_enabled,
@@ -524,6 +603,7 @@ async def set_workspace_module(
 @router.post("/email-logs/{outbox_id}/retry", response_model=ResponseEnvelope[dict])
 async def retry_email(
     outbox_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(require_superadmin),
 ) -> Any:
@@ -543,6 +623,12 @@ async def retry_email(
     except Exception:
         pass
 
+    await audit_event(
+        db, action="email_retry", entity_type="email_outbox",
+        entity_id=outbox_id, actor_user_id=admin_user.id,
+        actor_type="admin", outcome="success", request=request,
+    )
+    await db.commit()
     return wrap_data({"message": "Email re-queued for retry", "outbox_id": str(outbox.id)})
 
 
@@ -588,6 +674,7 @@ async def list_webhooks(
 @router.post("/webhooks/{event_id}/replay", response_model=ResponseEnvelope[dict])
 async def replay_webhook(
     event_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(require_superadmin),
 ) -> Any:
@@ -602,6 +689,12 @@ async def replay_webhook(
     event.processed_at = None
     await db.commit()
 
+    await audit_event(
+        db, action="webhook_replay", entity_type="webhook_event",
+        entity_id=event_id, actor_user_id=admin_user.id,
+        actor_type="admin", outcome="success", request=request,
+    )
+    await db.commit()
     return wrap_data({"message": "Webhook event reset for replay", "id": str(event.id)})
 
 
@@ -648,6 +741,7 @@ async def list_dispatch_queue(
 @router.patch("/dispatch/{message_id}/retry", response_model=ResponseEnvelope[dict])
 async def retry_dispatch(
     message_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(require_superadmin),
 ) -> Any:
@@ -661,12 +755,19 @@ async def retry_dispatch(
     msg.last_error = None
     await db.commit()
 
+    await audit_event(
+        db, action="dispatch_retry", entity_type="message",
+        entity_id=message_id, actor_user_id=admin_user.id,
+        actor_type="admin", outcome="success", request=request,
+    )
+    await db.commit()
     return wrap_data({"message": "Message reset for retry", "id": str(msg.id)})
 
 
 @router.patch("/dispatch/{message_id}/dead-letter", response_model=ResponseEnvelope[dict])
 async def dead_letter_dispatch(
     message_id: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(require_superadmin),
 ) -> Any:
@@ -679,6 +780,12 @@ async def dead_letter_dispatch(
     msg.last_error = "Moved to dead-letter by admin"
     await db.commit()
 
+    await audit_event(
+        db, action="dispatch_dead_letter", entity_type="message",
+        entity_id=message_id, actor_user_id=admin_user.id,
+        actor_type="admin", outcome="success", request=request,
+    )
+    await db.commit()
     return wrap_data({"message": "Message moved to dead-letter", "id": str(msg.id)})
 
 
@@ -1265,6 +1372,7 @@ async def set_workspace_overrides(
 async def remove_workspace_override(
     workspace_id: str,
     module_key: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     admin_user: User = Depends(require_superadmin),
 ) -> Any:
@@ -1280,6 +1388,12 @@ async def remove_workspace_override(
         return wrap_error(f"No override found for module '{module_key}'")
 
     await db.delete(override)
+    await audit_event(
+        db, action="workspace_override_remove", entity_type="entitlement_override",
+        entity_id=f"{workspace_id}:{module_key}", actor_user_id=admin_user.id,
+        actor_type="admin", outcome="success", request=request,
+        metadata={"workspace_id": workspace_id, "module_key": module_key},
+    )
     await db.commit()
 
     return wrap_data({"message": f"Override for '{module_key}' removed", "workspace_id": workspace_id})

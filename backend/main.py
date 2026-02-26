@@ -14,6 +14,7 @@ from app.api.v1.admin_auth import router as admin_auth_router
 from app.api.v1.diagnostics import router as diagnostics_router
 from app.api.v1.agency import router as agency_router
 from app.api.v1.settings import router as settings_router
+from app.api.v1.audit_logs import router as audit_logs_router
 from fastapi import HTTPException
 import uuid
 import logging
@@ -150,6 +151,7 @@ app.include_router(analytics.router, prefix=f"{settings.API_V1_STR}/analytics", 
 app.include_router(diagnostics_router, prefix=f"{settings.API_V1_STR}/diagnostics", tags=["diagnostics"])
 app.include_router(agency_router, prefix=f"{settings.API_V1_STR}/agency", tags=["agency"])
 app.include_router(settings_router, prefix=f"{settings.API_V1_STR}/settings/workspace", tags=["settings"])
+app.include_router(audit_logs_router, prefix=f"{settings.API_V1_STR}/audit-logs", tags=["audit-logs"])
 
 @app.get("/")
 async def root():

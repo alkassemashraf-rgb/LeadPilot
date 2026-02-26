@@ -2,7 +2,7 @@
 Agency Router — Mission 15
 Endpoints for creating and managing agency accounts, members, and client workspaces.
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from typing import Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
@@ -19,6 +19,7 @@ from app.models.models import (
 )
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.audit import log_admin_action
+from app.services.audit_service import audit_event
 from app.services.settings_service import (
     get_agency_settings as _get_agency_settings,
     patch_agency_settings as _patch_agency_settings,
@@ -122,6 +123,7 @@ def _member_to_dict(member: AgencyMember, user: Optional[User] = None) -> dict:
 @router.post("/create", response_model=ResponseEnvelope[dict])
 async def create_agency(
     payload: AgencyCreateRequest,
+    request: Request,
     user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -145,6 +147,11 @@ async def create_agency(
         role=AgencyRole.AGENCY_OWNER,
     )
     db.add(member)
+    await audit_event(
+        db, action="agency_create", entity_type="agency",
+        entity_id=str(agency.id), actor_user_id=user.id,
+        outcome="success", agency_id=agency.id, request=request,
+    )
     await db.commit()
     await db.refresh(agency)
 
@@ -227,6 +234,7 @@ async def list_agency_members(
 @router.post("/members/invite", response_model=ResponseEnvelope[dict])
 async def invite_agency_member(
     payload: InviteMemberRequest,
+    request: Request,
     auth: tuple = Depends(require_agency_role([AgencyRole.AGENCY_OWNER, AgencyRole.AGENCY_ADMIN])),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -278,6 +286,12 @@ async def invite_agency_member(
                 role=ws_role,
             ))
 
+    await audit_event(
+        db, action="agency_member_invite", entity_type="agency_member",
+        entity_id=payload.email, actor_user_id=acting_user.id,
+        outcome="success", agency_id=agency.id, request=request,
+        metadata={"invited_email": payload.email, "role": payload.role.value},
+    )
     await db.commit()
     await db.refresh(member)
 
@@ -289,6 +303,7 @@ async def invite_agency_member(
 async def update_member_role(
     member_id: str,
     payload: UpdateMemberRoleRequest,
+    request: Request,
     auth: tuple = Depends(require_agency_role([AgencyRole.AGENCY_OWNER, AgencyRole.AGENCY_ADMIN])),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -327,6 +342,13 @@ async def update_member_role(
             ws_mem.role = new_ws_role
     await db.commit()
 
+    await audit_event(
+        db, action="agency_member_role_change", entity_type="agency_member",
+        entity_id=member_id, actor_user_id=acting_user.id,
+        outcome="success", agency_id=agency.id, request=request,
+        metadata={"old_role": old_role.value, "new_role": payload.role.value},
+    )
+    await db.commit()
     return wrap_data({
         "id": str(target.id),
         "old_role": old_role.value,
@@ -338,6 +360,7 @@ async def update_member_role(
 @router.delete("/members/{member_id}", response_model=ResponseEnvelope[dict])
 async def remove_agency_member(
     member_id: str,
+    request: Request,
     auth: tuple = Depends(require_agency_role([AgencyRole.AGENCY_OWNER, AgencyRole.AGENCY_ADMIN])),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -369,6 +392,11 @@ async def remove_agency_member(
             await db.delete(ws_mem)
 
     await db.delete(target)
+    await audit_event(
+        db, action="agency_member_remove", entity_type="agency_member",
+        entity_id=member_id, actor_user_id=acting_user.id,
+        outcome="success", agency_id=agency.id, request=request,
+    )
     await db.commit()
 
     return wrap_data({"message": "Member removed", "id": member_id})
@@ -378,6 +406,7 @@ async def remove_agency_member(
 @router.post("/workspaces", response_model=ResponseEnvelope[dict])
 async def create_agency_workspace(
     payload: CreateWorkspaceRequest,
+    request: Request,
     auth: tuple = Depends(require_agency_role([AgencyRole.AGENCY_OWNER, AgencyRole.AGENCY_ADMIN])),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -440,6 +469,12 @@ async def create_agency_workspace(
             role=ws_role,
         ))
 
+    await audit_event(
+        db, action="agency_workspace_create", entity_type="workspace",
+        entity_id=str(workspace.id), actor_user_id=acting_user.id,
+        outcome="success", agency_id=agency.id, workspace_id=workspace.id,
+        request=request,
+    )
     await db.commit()
     await db.refresh(workspace)
 
@@ -496,6 +531,7 @@ async def list_agency_workspaces(
 async def transfer_workspace_ownership(
     workspace_id: str,
     payload: TransferOwnershipRequest,
+    request: Request,
     auth: tuple = Depends(require_agency_role([AgencyRole.AGENCY_OWNER])),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -532,6 +568,12 @@ async def transfer_workspace_ownership(
         ownership.owner_agency_id = target_agency.id
         ownership.owner_user_id = None
 
+    await audit_event(
+        db, action="agency_ownership_transfer", entity_type="workspace",
+        entity_id=workspace_id, actor_user_id=acting_user.id,
+        outcome="success", agency_id=agency.id, request=request,
+        metadata={"new_owner_type": payload.owner_type.value},
+    )
     await db.commit()
 
     return wrap_data({

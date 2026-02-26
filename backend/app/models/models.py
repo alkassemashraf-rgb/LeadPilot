@@ -351,18 +351,31 @@ class SystemModuleConfig(BaseIDModel, table=True):
     updated_by_user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
 
 class AdminAuditLog(BaseIDModel, table=True):
-    actor_user_id: UUID = Field(foreign_key="user.id", index=True)
+    actor_user_id: Optional[UUID] = Field(default=None, foreign_key="user.id", index=True)
     action: str = Field(index=True)
     entity_type: str = Field(index=True)
     entity_id: str = Field(index=True)
     workspace_id: Optional[UUID] = Field(default=None, foreign_key="workspace.id")
     metadata_json: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     correlation_id: Optional[UUID] = None
+    # Mission 17 — Enterprise Audit fields
+    actor_type: Optional[str] = Field(default=None, index=True)
+    agency_id: Optional[UUID] = Field(default=None, index=True)
+    outcome: Optional[str] = Field(default=None, index=True)
+    ip_address: Optional[str] = Field(default=None)
+    user_agent: Optional[str] = Field(default=None)
+    request_path: Optional[str] = Field(default=None)
+    request_method: Optional[str] = Field(default=None)
+    error_code: Optional[str] = Field(default=None)
+    error_message: Optional[str] = Field(default=None)
 
     __table_args__ = (
         Index("idx_audit_actor_created", "actor_user_id", "created_at"),
         Index("idx_audit_entity_created", "entity_type", "entity_id", "created_at"),
         Index("idx_audit_created", "created_at"),
+        Index("idx_audit_agency_created", "agency_id", "created_at"),
+        Index("idx_audit_outcome", "outcome", "created_at"),
+        Index("idx_audit_actor_type", "actor_type", "created_at"),
     )
 
 class EmailLog(OptionalWorkspaceScopedModel, table=True):

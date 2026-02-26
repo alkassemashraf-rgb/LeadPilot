@@ -17,6 +17,7 @@ from app.models.models import User, Workspace, WorkspaceMember, WorkspaceRole, P
 from app.schemas.user import Token, UserRead, UserCreate, ForgotPassword, ResetPassword, GoogleCallback, MeRead
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.api.deps import get_current_user
+from app.services.audit_service import audit_event
 
 import logging
 logger = logging.getLogger(__name__)
@@ -57,15 +58,28 @@ async def get_me(
 
 @router.post("/login", response_model=ResponseEnvelope[Token])
 async def login(
-    db: AsyncSession = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
+    request: Request, db: AsyncSession = Depends(get_db), form_data: OAuth2PasswordRequestForm = Depends()
 ) -> Any:
     """OAuth2 compatible token login, get an access token for future requests."""
     result = await db.execute(select(User).where(User.email == form_data.username))
     user = result.scalars().first()
     if not user or not security.verify_password(form_data.password, user.hashed_password):
+        await audit_event(
+            db, action="user_login", entity_type="user",
+            entity_id=str(user.id) if user else form_data.username,
+            actor_user_id=user.id if user else None,
+            outcome="failure", error_code="invalid_credentials", request=request,
+        )
+        await db.commit()
         return wrap_error("Incorrect email or password")
-    
+
     if not user.is_active:
+        await audit_event(
+            db, action="user_login", entity_type="user",
+            entity_id=str(user.id), actor_user_id=user.id,
+            outcome="failure", error_code="inactive_user", request=request,
+        )
+        await db.commit()
         return wrap_error("Inactive user")
     
     # Get the first workspace the user belongs to for the token (default context)
@@ -82,11 +96,17 @@ async def login(
         ),
         "token_type": "bearer",
     }
+    await audit_event(
+        db, action="user_login", entity_type="user",
+        entity_id=str(user.id), actor_user_id=user.id,
+        outcome="success", request=request,
+    )
+    await db.commit()
     return wrap_data(token_data)
 
 @router.post("/signup", response_model=ResponseEnvelope[UserRead])
 async def signup(
-    *, db: AsyncSession = Depends(get_db), user_in: UserCreate
+    *, db: AsyncSession = Depends(get_db), user_in: UserCreate, request: Request
 ) -> Any:
     """Create new user and a default workspace."""
     result = await db.execute(select(User).where(User.email == user_in.email))
@@ -153,10 +173,15 @@ async def signup(
         status=EmailOutboxStatus.PENDING
     )
     db.add(outbox)
-    
+
+    await audit_event(
+        db, action="user_signup", entity_type="user",
+        entity_id=str(db_user.id), actor_user_id=db_user.id,
+        outcome="success", request=request,
+    )
     await db.commit()
     await db.refresh(db_user)
-    
+
     # Attempt fast-path send
     try:
         from app.workers.email_tasks import send_email_task_v2
@@ -168,7 +193,7 @@ async def signup(
 
 @router.get("/verify-email", response_model=ResponseEnvelope[dict])
 async def verify_email(
-    token: str, db: AsyncSession = Depends(get_db)
+    token: str, request: Request, db: AsyncSession = Depends(get_db)
 ) -> Any:
     """Verify user email from token delivered by email."""
     from app.models.models import EmailVerificationToken
@@ -185,6 +210,12 @@ async def verify_email(
     db_token = result.scalars().first()
     
     if not db_token:
+        await audit_event(
+            db, action="verify_email", entity_type="email_token",
+            entity_id="unknown", outcome="failure",
+            error_code="invalid_token", request=request,
+        )
+        await db.commit()
         return wrap_error("Invalid or already-used verification link.")
     
     # Check expiry - use naive comparison since SQLite stores naive datetimes
@@ -196,6 +227,12 @@ async def verify_email(
         now_check = now_naive
     
     if token_expires < now_check:
+        await audit_event(
+            db, action="verify_email", entity_type="email_token",
+            entity_id=str(db_token.user_id), actor_user_id=db_token.user_id,
+            outcome="failure", error_code="token_expired", request=request,
+        )
+        await db.commit()
         return wrap_error("This verification link has expired. Please request a new one.")
     
     # Mark token used and verify user
@@ -206,13 +243,18 @@ async def verify_email(
         return wrap_error("User not found.")
     
     user.email_verified_at = now_naive
-    
+
+    await audit_event(
+        db, action="verify_email", entity_type="user",
+        entity_id=str(user.id), actor_user_id=user.id,
+        outcome="success", request=request,
+    )
     await db.commit()
     return wrap_data({"message": "Email verified successfully! You can now use all LeadPilot features."})
 
 @router.post("/resend-verification", response_model=ResponseEnvelope[dict])
 async def resend_verification(
-    *, db: AsyncSession = Depends(get_db), body: dict
+    *, db: AsyncSession = Depends(get_db), body: dict, request: Request
 ) -> Any:
     """Resend a verification email. Rate limit: 5 per hour per email."""
     from app.models.models import EmailVerificationToken
@@ -280,20 +322,25 @@ async def resend_verification(
         status=EmailOutboxStatus.PENDING
     )
     db.add(outbox)
+    await audit_event(
+        db, action="resend_verification", entity_type="user",
+        entity_id=str(user.id), actor_user_id=user.id,
+        outcome="success", request=request,
+    )
     await db.commit()
-    
+
     try:
         from app.workers.email_tasks import send_email_task_v2
         send_email_task_v2.delay(str(outbox.id))
     except Exception as e:
         logger.warning(f"Worker broker unavailable: {e}")
-    
+
     return wrap_data(success_msg)
 
 
 @router.post("/forgot-password", response_model=ResponseEnvelope[dict])
 async def forgot_password(
-    *, db: AsyncSession = Depends(get_db), forgot_in: ForgotPassword
+    *, db: AsyncSession = Depends(get_db), forgot_in: ForgotPassword, request: Request
 ) -> Any:
     """Request a password reset."""
     
@@ -367,7 +414,12 @@ async def forgot_password(
             send_email_task_v2.delay(str(outbox.id))
         except Exception as e:
             logger.warning(f"Worker broker unavailable for fast-path enqueue: {e}")
-        
+
+    await audit_event(
+        db, action="forgot_password", entity_type="user",
+        entity_id=forgot_in.email, outcome="success", request=request,
+    )
+    await db.commit()
     return wrap_data(success_msg)
 
 @router.post("/reset-password", response_model=ResponseEnvelope[dict])

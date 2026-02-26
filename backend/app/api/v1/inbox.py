@@ -3,7 +3,7 @@ from uuid import UUID
 from datetime import datetime
 import hashlib
 
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlmodel import select, and_, or_, col, desc
@@ -11,17 +11,19 @@ from sqlmodel import select, and_, or_, col, desc
 from app.api import deps
 from app.core.db import get_db
 from app.models.models import (
-    Conversation, 
-    Message, 
-    Contact, 
-    DeliveryStatus, 
-    ConversationStatus, 
-    Workspace
+    Conversation,
+    Message,
+    Contact,
+    DeliveryStatus,
+    ConversationStatus,
+    Workspace,
+    User,
 )
 from app.schemas.envelope import ResponseEnvelope, wrap_data
 from app.services.dispatch_service import DispatchService
 from app.workers.tasks import dispatch_message_task
 from app.services.entitlements import require_entitlement
+from app.services.audit_service import audit_event
 
 router = APIRouter()
 
@@ -140,9 +142,11 @@ async def get_conversation_thread(
 async def reply_to_conversation(
     conversation_id: UUID,
     body: dict,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
-    _ = Depends(deps.require_role(["owner", "member"]))
+    current_user: User = Depends(deps.get_current_user),
+    _ = Depends(deps.require_role(["owner", "member"])),
 ) -> Any:
     """
     Manually reply to a conversation.
@@ -187,18 +191,27 @@ async def reply_to_conversation(
     await db.commit()
     await db.refresh(new_msg)
     
+    await audit_event(
+        db, action="inbox_reply", entity_type="conversation",
+        entity_id=str(conversation_id), actor_user_id=current_user.id,
+        outcome="success", workspace_id=workspace.id, request=request,
+    )
+    await db.commit()
+
     # Enqueue dispatch
     dispatch_message_task.delay(str(new_msg.id))
-    
+
     return wrap_data({"message_id": str(new_msg.id), "status": "pending"})
 
 @router.patch("/conversations/{conversation_id}/status", response_model=ResponseEnvelope[dict])
 async def update_conversation_status(
     conversation_id: UUID,
     body: dict,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
-    _ = Depends(deps.require_role(["owner", "member"]))
+    current_user: User = Depends(deps.get_current_user),
+    _ = Depends(deps.require_role(["owner", "member"])),
 ) -> Any:
     """
     Toggle between BOT_ACTIVE, HUMAN_TAKEOVER, and CLOSED.
@@ -214,6 +227,12 @@ async def update_conversation_status(
     conv.status = ConversationStatus(new_status)
     conv.updated_at = datetime.utcnow()
     db.add(conv)
+    await audit_event(
+        db, action="inbox_status_change", entity_type="conversation",
+        entity_id=str(conversation_id), actor_user_id=current_user.id,
+        outcome="success", workspace_id=workspace.id, request=request,
+        metadata={"new_status": new_status},
+    )
     await db.commit()
-    
+
     return wrap_data({"conversation_id": str(conv.id), "status": conv.status})

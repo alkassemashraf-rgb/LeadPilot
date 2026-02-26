@@ -1,7 +1,7 @@
 from typing import List, Any, Dict
 from uuid import UUID
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -15,6 +15,7 @@ from app.core.security import encrypt_data, decrypt_data
 from app.api.deps import require_email_state
 from app.core.modules import require_module_enabled, MODULE_INTEGRATIONS_CONNECT
 from app.services.entitlements import require_entitlement
+from app.services.audit_service import audit_event
 
 router = APIRouter()
 
@@ -34,6 +35,7 @@ async def list_integrations(
 async def connect_integration(
     provider: str,
     connect_in: IntegrationConnect,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
     _allowed: User = Depends(require_email_state("integrations_connect")),
@@ -96,13 +98,23 @@ async def connect_integration(
             f"This connection ({connect_in.provider_workspace_id}) is already linked to another workspace."
         )
 
+    await audit_event(
+        db, action="integration_connect", entity_type="integration",
+        entity_id=str(integration.id), actor_user_id=_allowed.id,
+        outcome="success", workspace_id=workspace.id, request=request,
+        metadata={"provider": provider},
+    )
+    await db.commit()
+    await db.refresh(integration)
     return wrap_data(integration)
 
 @router.post("/{provider}/disconnect", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "write")), Depends(require_entitlement("integrations_connect"))])
 async def disconnect_integration(
     provider: str,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
+    current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """Disconnect and clear integration record."""
     result = await db.execute(
@@ -122,12 +134,22 @@ async def disconnect_integration(
         integration.last_checked_at = datetime.utcnow()
         await db.commit()
 
+    await audit_event(
+        db, action="integration_disconnect", entity_type="integration",
+        entity_id=str(integration.id) if integration else provider,
+        actor_user_id=current_user.id,
+        outcome="success", workspace_id=workspace.id, request=request,
+        metadata={"provider": provider},
+    )
+    await db.commit()
     return wrap_data({"message": f"{provider} disconnected successfully"})
 
 @router.post("/health-check", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "read")), Depends(require_entitlement("integrations_connect"))])
 async def integrations_health_check(
+    request: Request,
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
+    current_user: User = Depends(deps.get_current_user),
 ) -> Any:
     """Perform structural validation for all connected integrations."""
     result = await db.execute(
@@ -155,5 +177,11 @@ async def integrations_health_check(
         
         db.add(integration)
 
+    await audit_event(
+        db, action="integration_health_check", entity_type="workspace",
+        entity_id=str(workspace.id), actor_user_id=current_user.id,
+        outcome="success", workspace_id=workspace.id, request=request,
+        metadata={"checked_count": len(integrations), "errors_found": errors_found},
+    )
     await db.commit()
     return wrap_data({"status": "ok", "checked_count": len(integrations), "errors_found": errors_found})

@@ -1,6 +1,6 @@
 from typing import List, Any
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, delete
 
@@ -12,6 +12,7 @@ from app.schemas.workspace import (
 )
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.services.entitlements import get_workspace_entitlements
+from app.services.audit_service import audit_event
 
 router = APIRouter()
 
@@ -20,7 +21,8 @@ async def create_workspace(
     *,
     db: AsyncSession = Depends(get_db),
     workspace_in: WorkspaceCreate,
-    current_user: User = Depends(deps.get_current_user)
+    current_user: User = Depends(deps.get_current_user),
+    request: Request,
 ) -> Any:
     """Create a new workspace and add current user as Owner."""
     workspace = Workspace(name=workspace_in.name)
@@ -33,6 +35,11 @@ async def create_workspace(
         role=WorkspaceRole.OWNER
     )
     db.add(membership)
+    await audit_event(
+        db, action="workspace_create", entity_type="workspace",
+        entity_id=str(workspace.id), actor_user_id=current_user.id,
+        outcome="success", workspace_id=workspace.id, request=request,
+    )
     await db.commit()
     await db.refresh(workspace)
     return wrap_data(workspace)
@@ -79,7 +86,8 @@ async def invite_member(
     invite_in: MemberInvite,
     workspace: Workspace = Depends(deps.get_active_workspace),
     current_user: User = Depends(deps.get_current_user),
-    _ = Depends(deps.require_role([WorkspaceRole.OWNER, WorkspaceRole.MEMBER]))
+    _ = Depends(deps.require_role([WorkspaceRole.OWNER, WorkspaceRole.MEMBER])),
+    request: Request,
 ) -> Any:
     """Invite a new member to the workspace."""
     import secrets
@@ -104,15 +112,24 @@ async def invite_member(
     inviter_name = current_user.full_name or current_user.email
     
     await EmailService.send_invite_email(invite.email, invite.token, workspace.name, inviter_name)
-    
+
+    await audit_event(
+        db, action="workspace_invite", entity_type="invite",
+        entity_id=invite_in.email, actor_user_id=current_user.id,
+        outcome="success", workspace_id=workspace.id, request=request,
+        metadata={"invited_email": invite_in.email},
+    )
+    await db.commit()
     return wrap_data({"message": f"Invite sent to {invite_in.email}"})
 
 @router.delete("/members/{member_id}", response_model=ResponseEnvelope[dict])
 async def remove_member(
     member_id: UUID,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
-    _ = Depends(deps.require_role([WorkspaceRole.OWNER]))
+    current_user: User = Depends(deps.get_current_user),
+    _ = Depends(deps.require_role([WorkspaceRole.OWNER])),
 ) -> Any:
     """Remove a member from the workspace."""
     if member_id == workspace.id: # Should be member_id == user.id of owner?
@@ -126,6 +143,11 @@ async def remove_member(
             WorkspaceMember.user_id == member_id
         )
     )
+    await audit_event(
+        db, action="workspace_member_remove", entity_type="workspace_member",
+        entity_id=str(member_id), actor_user_id=current_user.id,
+        outcome="success", workspace_id=workspace.id, request=request,
+    )
     await db.commit()
     return wrap_data({"message": "Member removed"})
 
@@ -133,9 +155,11 @@ async def remove_member(
 async def update_member_role(
     member_id: UUID,
     role_in: MemberUpdateRole,
+    request: Request,
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
-    _ = Depends(deps.require_role([WorkspaceRole.OWNER]))
+    current_user: User = Depends(deps.get_current_user),
+    _ = Depends(deps.require_role([WorkspaceRole.OWNER])),
 ) -> Any:
     """Update a member's role."""
     result = await db.execute(
@@ -151,6 +175,12 @@ async def update_member_role(
         
     membership.role = role_in.role
     db.add(membership)
+    await audit_event(
+        db, action="workspace_role_change", entity_type="workspace_member",
+        entity_id=str(member_id), actor_user_id=current_user.id,
+        outcome="success", workspace_id=workspace.id, request=request,
+        metadata={"new_role": role_in.role},
+    )
     await db.commit()
     return wrap_data({"message": "Role updated"})
 

@@ -92,13 +92,22 @@ export interface SystemOverview {
 
 export interface AuditLogEntry {
     id: string;
-    actor_admin_user_id?: string | null;
+    actor_user_id?: string | null;
+    actor_type?: string | null;
     action: string;
     entity_type: string;
     entity_id: string;
+    outcome?: string | null;
     workspace_id?: string | null;
+    agency_id?: string | null;
     metadata_json?: Record<string, unknown> | null;
     correlation_id?: string | null;
+    ip_address?: string | null;
+    user_agent?: string | null;
+    request_path?: string | null;
+    request_method?: string | null;
+    error_code?: string | null;
+    error_message?: string | null;
     created_at: string;
 }
 
@@ -153,16 +162,30 @@ export const adminApi = {
         adminClient.get<any>(`/admin/workspaces/${workspaceId}`),
 
     // Audit log
-    getAuditLog: (params?: { skip?: number; limit?: number; action?: string; entity_type?: string }) => {
+    getAuditLog: (params?: {
+        skip?: number; limit?: number; action?: string; entity_type?: string;
+        actor_type?: string; outcome?: string; workspace_id?: string;
+        agency_id?: string; date_from?: string; date_to?: string;
+        correlation_id?: string;
+    }) => {
         const qs = new URLSearchParams();
         if (params?.skip !== undefined) qs.set("skip", String(params.skip));
         if (params?.limit !== undefined) qs.set("limit", String(params.limit));
         if (params?.action) qs.set("action", params.action);
         if (params?.entity_type) qs.set("entity_type", params.entity_type);
+        if (params?.actor_type) qs.set("actor_type", params.actor_type);
+        if (params?.outcome) qs.set("outcome", params.outcome);
+        if (params?.workspace_id) qs.set("workspace_id", params.workspace_id);
+        if (params?.agency_id) qs.set("agency_id", params.agency_id);
+        if (params?.date_from) qs.set("date_from", params.date_from);
+        if (params?.date_to) qs.set("date_to", params.date_to);
+        if (params?.correlation_id) qs.set("correlation_id", params.correlation_id);
         return adminClient.get<{ items: AuditLogEntry[]; total: number; skip: number; limit: number }>(
             `/admin/audit-log?${qs.toString()}`
         );
     },
+    getAuditLogDetail: (logId: string) =>
+        adminClient.get<AuditLogEntry>(`/admin/audit-log/${logId}`),
 
     // Email logs + retry
     getEmailLogs: (params?: { status?: string; email_type?: string; skip?: number; limit?: number }) => {
