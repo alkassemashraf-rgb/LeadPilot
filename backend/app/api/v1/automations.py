@@ -11,6 +11,7 @@ from app.api import deps
 from app.models.models import Flow, FlowVersion, FlowStatus, User, Workspace
 from app.api.v1.auth import login # Keeping this if needed, or just remove if unused
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
+from app.core.catalog_registry import VALID_NODE_TYPES, VALID_TRIGGER_TYPES
 from app.services.entitlements import require_entitlement
 from app.services.audit_service import audit_event
 
@@ -50,6 +51,13 @@ async def create_from_builder(
     current_user: User = Depends(deps.get_current_user),
 ):
     """Translate wizard payload to runtime JSON and save flow."""
+    # Validate step and trigger types against catalog registry
+    for step in payload.steps:
+        if step.type not in VALID_NODE_TYPES:
+            return wrap_error(f"Invalid step type: {step.type}")
+    if payload.trigger.type not in VALID_TRIGGER_TYPES:
+        return wrap_error(f"Invalid trigger type: {payload.trigger.type}")
+
     # 1. Translation Logic
     nodes = []
     edges = []

@@ -21,8 +21,24 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api";
+import { useCatalog, catalogLabel, type CatalogEntry } from "@/lib/catalog";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+// Icon mapping for catalog icon_hint → Lucide component
+const NODE_TYPE_ICONS: Record<string, any> = {
+    bot: Bot,
+    send: Send,
+    user: UserRound,
+    tag: TagIcon,
+};
+
+// Trigger presentation — combines catalog trigger types with platform-specific UI
+const TRIGGER_CARDS = [
+    { id: "whatsapp", triggerKey: "MESSAGE_INBOUND", platform: "whatsapp", name: "WhatsApp Message", icon: MessageSquare, color: "text-green-600", bg: "bg-green-50" },
+    { id: "meta-msg", triggerKey: "MESSAGE_INBOUND", platform: "meta", name: "Messenger/Instagram", icon: Facebook, color: "text-blue-600", bg: "bg-blue-50" },
+    { id: "leadgen", triggerKey: "LEAD_AD_SUBMIT", platform: "meta", name: "Meta Lead Ads", icon: Zap, color: "text-orange-600", bg: "bg-orange-50" },
+];
 
 type StepType = "AI_REPLY" | "SEND_MESSAGE" | "HUMAN_HANDOVER" | "TAG_CONTACT";
 
@@ -34,6 +50,7 @@ interface Step {
 
 export default function NewAutomationPage() {
     const router = useRouter();
+    const { data: nodeTypes } = useCatalog("automation-node-types");
     const [currentStep, setCurrentStep] = useState(1);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -185,17 +202,13 @@ export default function NewAutomationPage() {
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {[
-                                { id: "whatsapp", name: "WhatsApp Message", type: "MESSAGE_INBOUND", icon: MessageSquare, color: "text-green-600", bg: "bg-green-50" },
-                                { id: "meta-msg", name: "Messenger/Instagram", type: "MESSAGE_INBOUND", icon: Facebook, color: "text-blue-600", bg: "bg-blue-50" },
-                                { id: "leadgen", name: "Meta Lead Ads", type: "LEAD_AD_SUBMIT", icon: Zap, color: "text-orange-600", bg: "bg-orange-50" }
-                            ].map((t) => (
+                            {TRIGGER_CARDS.map((t) => (
                                 <button
                                     key={t.id}
-                                    onClick={() => setTrigger({ ...trigger, type: t.type, platform: t.id === "whatsapp" ? "whatsapp" : "meta" })}
+                                    onClick={() => setTrigger({ ...trigger, type: t.triggerKey, platform: t.platform })}
                                     className={cn(
                                         "flex items-start gap-4 p-5 rounded-2xl border transition-all text-left group hover:scale-[1.02]",
-                                        (trigger.type === t.type && (t.id === "whatsapp" ? trigger.platform === "whatsapp" : trigger.platform === "meta"))
+                                        (trigger.type === t.triggerKey && trigger.platform === t.platform)
                                             ? "border-teal-500 bg-teal-50/50 ring-2 ring-teal-500/10"
                                             : "border-border bg-white hover:border-teal-200"
                                     )}
@@ -226,21 +239,19 @@ export default function NewAutomationPage() {
                                     Add Step
                                 </button>
                                 <div className="absolute right-0 top-full mt-2 w-56 bg-white border border-border shadow-xl rounded-xl p-2 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-20">
-                                    {[
-                                        { type: "AI_REPLY", name: "AI Reply", icon: Bot },
-                                        { type: "SEND_MESSAGE", name: "Send Message", icon: Send },
-                                        { type: "HUMAN_HANDOVER", name: "Human Handover", icon: UserRound },
-                                        { type: "TAG_CONTACT", name: "Tag Contact", icon: TagIcon }
-                                    ].map(action => (
-                                        <button
-                                            key={action.type}
-                                            onClick={() => addStep(action.type as StepType)}
-                                            className="w-full flex items-center gap-3 p-2.5 hover:bg-teal-50 hover:text-teal-600 rounded-lg text-sm font-medium transition-colors"
-                                        >
-                                            <action.icon className="w-4 h-4" />
-                                            {action.name}
-                                        </button>
-                                    ))}
+                                    {(nodeTypes || []).map((nt) => {
+                                        const Icon = NODE_TYPE_ICONS[nt.icon_hint] || Zap;
+                                        return (
+                                            <button
+                                                key={nt.key}
+                                                onClick={() => addStep(nt.key as StepType)}
+                                                className="w-full flex items-center gap-3 p-2.5 hover:bg-teal-50 hover:text-teal-600 rounded-lg text-sm font-medium transition-colors"
+                                            >
+                                                <Icon className="w-4 h-4" />
+                                                {nt.label}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -265,11 +276,12 @@ export default function NewAutomationPage() {
                                                 {index + 1}
                                             </span>
                                             <div className="flex items-center gap-2 font-bold text-slate-700">
-                                                {step.type === "AI_REPLY" && <Bot className="w-4 h-4 text-teal-600" />}
-                                                {step.type === "SEND_MESSAGE" && <Send className="w-4 h-4 text-teal-600" />}
-                                                {step.type === "HUMAN_HANDOVER" && <UserRound className="w-4 h-4 text-teal-600" />}
-                                                {step.type === "TAG_CONTACT" && <TagIcon className="w-4 h-4 text-teal-600" />}
-                                                {step.type.replace("_", " ")}
+                                                {(() => {
+                                                    const nt = nodeTypes?.find(n => n.key === step.type);
+                                                    const Icon = nt ? (NODE_TYPE_ICONS[nt.icon_hint] || Zap) : Zap;
+                                                    return <Icon className="w-4 h-4 text-teal-600" />;
+                                                })()}
+                                                {catalogLabel(nodeTypes, step.type, step.type.replace("_", " "))}
                                             </div>
                                         </div>
 
@@ -407,7 +419,7 @@ export default function NewAutomationPage() {
                                         {steps.map((s, i) => (
                                             <div key={s.id} className="text-sm flex items-center gap-3 text-slate-600 bg-slate-50 p-3 rounded-xl border border-border/50">
                                                 <span className="w-5 h-5 bg-white border border-border text-[10px] flex items-center justify-center rounded-full font-bold">{i + 1}</span>
-                                                {s.type.replace("_", " ")}
+                                                {catalogLabel(nodeTypes, s.type, s.type.replace("_", " "))}
                                             </div>
                                         ))}
                                     </div>

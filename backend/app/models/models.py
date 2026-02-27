@@ -335,6 +335,20 @@ class WorkspaceKnowledgeFile(WorkspaceScopedModel, table=True):
     storage_path: str
     extracted_text: Optional[str] = Field(default=None)
     notes: Optional[str] = None
+    sha256_hash: Optional[str] = Field(default=None, index=True)
+    status: str = Field(default="READY")  # READY | FAILED
+
+
+class QualificationConfig(WorkspaceScopedModel, table=True):
+    """Workspace-scoped lead qualification configuration."""
+    version: int = Field(default=1)
+    qualification_questions: List[Dict[str, Any]] = Field(
+        default_factory=list, sa_column=Column(JSON)
+    )
+    qualification_statuses: List[Dict[str, Any]] = Field(
+        default_factory=list, sa_column=Column(JSON)
+    )
+
 
 class PasswordResetToken(BaseIDModel, table=True):
     user_id: UUID = Field(foreign_key="user.id", index=True)

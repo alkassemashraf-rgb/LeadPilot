@@ -5,6 +5,7 @@ import { Check, Clock, ChevronDown, ChevronUp, Loader2, CheckCircle, AlertCircle
 import Link from "next/link";
 import AnimateOnScroll from "@/components/marketing/AnimateOnScroll";
 import FloatingOrb from "@/components/marketing/FloatingOrb";
+import { useCatalog, type PlanCatalogEntry } from "@/lib/catalog";
 
 const tiers = [
   {
@@ -42,6 +43,8 @@ const faqs = [
 ];
 
 function WaitlistForm() {
+  const { data: plans } = useCatalog<PlanCatalogEntry[]>("plans");
+  const waitlistPlans = (plans || []).filter(p => p.name !== "free");
   const [email, setEmail] = useState("");
   const [plan, setPlan] = useState("Growth");
   const [state, setState] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -94,9 +97,16 @@ function WaitlistForm() {
             className="w-full sm:w-36 px-4 py-3 rounded-xl text-sm"
             style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#F1F5F9", outline: "none" }}
           >
-            <option value="Growth">Growth</option>
-            <option value="Pro">Pro</option>
-            <option value="Enterprise">Enterprise</option>
+            {waitlistPlans.length > 0
+              ? waitlistPlans.map((p) => (
+                  <option key={p.name} value={p.display_name}>{p.display_name}</option>
+                ))
+              : <>
+                  <option value="Growth">Growth</option>
+                  <option value="Pro">Pro</option>
+                  <option value="Enterprise">Enterprise</option>
+                </>
+            }
           </select>
         </div>
         <button type="submit" disabled={state === "loading"}

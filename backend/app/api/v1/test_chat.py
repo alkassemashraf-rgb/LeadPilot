@@ -1,26 +1,20 @@
-from typing import List, Any, Dict
-from pydantic import BaseModel
+from typing import Any, Dict
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, desc
-import json
 
 from app.api import deps
 from app.core.db import get_db
-from app.models.models import (
-    Workspace, PromptConfig, PromptVersion, 
-    Conversation, Message, Contact
-)
+from app.models.models import Workspace, Conversation, Message, Contact
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.ai import ai_provider
 from app.core.modules import require_module_enabled, MODULE_RUNTIME_ENGINE
 from app.services.entitlements import require_entitlement
+from app.services.prompt_compiler import compile_workspace_prompt
 
 router = APIRouter()
 
-class ChatInput(BaseModel):
-    pass # Using raw dict/pydantic later
 
 @router.post("/sessions", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_RUNTIME_ENGINE, "write")), Depends(require_entitlement("runtime_engine", increment=True))])
 async def create_test_session(
@@ -28,21 +22,6 @@ async def create_test_session(
     workspace: Workspace = Depends(deps.get_active_workspace),
 ) -> Any:
     """Create a new test conversation session."""
-    # Create a dummy contact for testing if not exists? 
-    # Or just a conversation with platform='test'
-    conversation = Conversation(
-        workspace_id=workspace.id,
-        contact_id=None, # In a real app, create a Contact first
-        # platform="test" -- Add this to Conversation model if needed, 
-        # but Message has platform.
-    )
-    # We'll use a specific metadata to flag it as test
-    # Actually, let's just use the Message.platform="test"
-    
-    # Needs a contact though for the foreign key if it's not optional
-    # Checking models.py... Conversation has contact_id: UUID = Field(foreign_key="contact.id")
-    # I'll create a "Test User" contact for the workspace if missing.
-    
     result = await db.execute(
         select(Contact).where(Contact.workspace_id == workspace.id, Contact.external_id == "test-contact")
     )
@@ -66,14 +45,15 @@ async def create_test_session(
     await db.refresh(conversation)
     return wrap_data({"session_id": conversation.id})
 
+
 @router.post("/sessions/{session_id}/messages", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_RUNTIME_ENGINE, "write")), Depends(require_entitlement("runtime_engine"))])
 async def send_test_message(
     session_id: UUID,
-    message_in: Dict[str, str], # {"text": "..."}
+    message_in: Dict[str, str],
     db: AsyncSession = Depends(get_db),
     workspace: Workspace = Depends(deps.get_active_workspace),
 ) -> Any:
-    """Send a message and get AI response using active PromptConfig."""
+    """Send a message and get AI response using unified prompt compiler."""
     text = message_in.get("text")
     if not text:
         return wrap_error("Message text is required")
@@ -97,25 +77,12 @@ async def send_test_message(
     db.add(user_msg)
     await db.flush()
 
-    # 3. Get active prompt config
-    result = await db.execute(
-        select(PromptConfig).where(PromptConfig.workspace_id == workspace.id)
-    )
-    config = result.scalars().first()
-    if not config or not config.current_version_id:
+    # 3. Compile workspace prompt (includes knowledge files + qualification)
+    compiled = await compile_workspace_prompt(workspace.id, db, include_files=True, include_qualification=True)
+    if not compiled.version_id:
         return wrap_error("No active prompt configuration found for this workspace.")
 
-    result = await db.execute(
-        select(PromptVersion).where(PromptVersion.id == config.current_version_id)
-    )
-    version = result.scalars().first()
-
-    # 4. Compile Prompt (System + Profile + Guardrails)
-    system_prompt = f"{version.system_prompt_text}\n\n"
-    system_prompt += f"BUSINESS PROFILE:\n{json.dumps(version.business_profile_json, indent=2)}\n\n"
-    system_prompt += f"GUARDRAILS:\n{json.dumps(version.guardrails_json, indent=2)}"
-
-    # 5. Fetch History (last 10)
+    # 4. Fetch History (last 10)
     result = await db.execute(
         select(Message)
         .where(Message.conversation_id == session_id)
@@ -124,21 +91,21 @@ async def send_test_message(
     )
     history_objs = result.scalars().all()
     history_objs.reverse()
-    
+
     history = [
         {"role": "user" if m.direction == "inbound" else "assistant", "content": m.content}
         for m in history_objs
     ]
 
-    # 6. Generate AI Reply
+    # 5. Generate AI Reply
     reply_text = await ai_provider.generate_chat_reply(
-        prompt=system_prompt,
+        prompt=compiled.system_instruction,
         history=history,
-        temperature=version.temperature,
-        max_tokens=version.max_tokens_per_execution
+        temperature=compiled.temperature,
+        max_tokens=compiled.max_tokens,
     )
 
-    # 7. Store assistant message
+    # 6. Store assistant message
     assistant_msg = Message(
         workspace_id=workspace.id,
         conversation_id=session_id,

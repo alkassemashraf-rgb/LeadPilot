@@ -16,6 +16,8 @@ from app.api.v1.agency import router as agency_router
 from app.api.v1.settings import router as settings_router
 from app.api.v1.audit_logs import router as audit_logs_router
 from app.api.v1.support_timeline import router as support_timeline_router
+from app.api.v1.catalog import router as catalog_router
+from app.api.v1.qualification import router as qualification_router
 from fastapi import HTTPException
 import uuid
 import logging
@@ -76,6 +78,7 @@ async def maintenance_mode_guard(request: Request, call_next):
         f"{settings.API_V1_STR}/health",
         f"{settings.API_V1_STR}/admin",
         f"{settings.API_V1_STR}/admin_auth",
+        f"{settings.API_V1_STR}/catalog",
         "/docs",
         "/openapi.json",
     )
@@ -154,6 +157,8 @@ app.include_router(agency_router, prefix=f"{settings.API_V1_STR}/agency", tags=[
 app.include_router(settings_router, prefix=f"{settings.API_V1_STR}/settings/workspace", tags=["settings"])
 app.include_router(audit_logs_router, prefix=f"{settings.API_V1_STR}/audit-logs", tags=["audit-logs"])
 app.include_router(support_timeline_router, prefix=f"{settings.API_V1_STR}", tags=["support-timeline"])
+app.include_router(catalog_router, prefix=f"{settings.API_V1_STR}/catalog", tags=["catalog"])
+app.include_router(qualification_router, prefix=f"{settings.API_V1_STR}/qualification-config", tags=["qualification"])
 
 @app.get("/")
 async def root():

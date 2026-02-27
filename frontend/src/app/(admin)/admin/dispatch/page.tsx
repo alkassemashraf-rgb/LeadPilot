@@ -5,10 +5,10 @@ import { adminApi } from "@/lib/admin-api";
 import { Send, Loader2, Info, RefreshCw, RotateCcw, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-
-const STATUS_OPTIONS = ["", "PENDING", "SENDING", "SENT", "FAILED"];
+import { useCatalog } from "@/lib/catalog";
 
 export default function AdminDispatchPage() {
+    const { data: deliveryStatuses } = useCatalog("message-delivery-statuses");
     const [items, setItems] = useState<any[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -82,8 +82,9 @@ export default function AdminDispatchPage() {
                     onChange={(e) => setStatus(e.target.value)}
                     className="bg-white/5 border border-white/10 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
                 >
-                    {STATUS_OPTIONS.map((s) => (
-                        <option key={s} value={s} className="bg-slate-900">{s || "All Statuses"}</option>
+                    <option value="" className="bg-slate-900">All Statuses</option>
+                    {deliveryStatuses?.map((s) => (
+                        <option key={s.key} value={s.key.toUpperCase()} className="bg-slate-900">{s.label}</option>
                     ))}
                 </select>
             </div>

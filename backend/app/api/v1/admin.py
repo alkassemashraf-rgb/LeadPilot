@@ -26,6 +26,7 @@ from app.models.models import (
     WorkspaceEntitlementOverride, UsageMeter,
     AgencyAccount, AgencyMember, AgencyStatus, WorkspaceOwnership,
     RuntimeEventLog,
+    QualificationConfig,
 )
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.modules import module_cache, ALL_MODULES, MODULE_ADMIN_PORTAL
@@ -1725,3 +1726,72 @@ async def update_system_settings_endpoint(
     )
     await db.commit()
     return wrap_data({"settings": result.settings, "version": result.version})
+
+
+# ── Qualification Defaults (Mission 20) ──────────────────────────────
+
+from app.api.v1.qualification import DEFAULT_QUESTIONS, DEFAULT_STATUSES
+
+
+@router.get("/qualification-defaults", response_model=ResponseEnvelope[dict])
+async def get_qualification_defaults(
+    admin: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Get global default qualification config."""
+    return wrap_data({
+        "qualification_questions": DEFAULT_QUESTIONS,
+        "qualification_statuses": DEFAULT_STATUSES,
+    })
+
+
+@router.put("/qualification-defaults", response_model=ResponseEnvelope[dict])
+async def set_qualification_defaults(
+    body: Dict[str, Any],
+    admin: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Set global default qualification config (stored in system settings)."""
+    from app.api.v1 import qualification as qual_mod
+    if "qualification_questions" in body:
+        qual_mod.DEFAULT_QUESTIONS = body["qualification_questions"]
+    if "qualification_statuses" in body:
+        qual_mod.DEFAULT_STATUSES = body["qualification_statuses"]
+    return wrap_data({
+        "qualification_questions": qual_mod.DEFAULT_QUESTIONS,
+        "qualification_statuses": qual_mod.DEFAULT_STATUSES,
+    })
+
+
+@router.post("/workspaces/{workspace_id}/qualification-reset", response_model=ResponseEnvelope[dict])
+async def reset_workspace_qualification(
+    workspace_id: UUID,
+    admin: User = Depends(require_superadmin),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Reset a workspace's qualification config to global defaults."""
+    result = await db.execute(
+        select(QualificationConfig).where(
+            QualificationConfig.workspace_id == workspace_id
+        )
+    )
+    config = result.scalars().first()
+    if not config:
+        config = QualificationConfig(
+            workspace_id=workspace_id,
+            qualification_questions=DEFAULT_QUESTIONS,
+            qualification_statuses=DEFAULT_STATUSES,
+        )
+        db.add(config)
+    else:
+        config.qualification_questions = DEFAULT_QUESTIONS
+        config.qualification_statuses = DEFAULT_STATUSES
+        config.version += 1
+    await db.commit()
+    await db.refresh(config)
+    return wrap_data({
+        "id": str(config.id),
+        "version": config.version,
+        "qualification_questions": config.qualification_questions,
+        "qualification_statuses": config.qualification_statuses,
+    })

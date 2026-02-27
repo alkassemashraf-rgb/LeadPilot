@@ -20,7 +20,7 @@ async def test_automation_publish(async_client: AsyncClient):
         "name": "Test Flow",
         "description": "Integration test flow",
         "steps": [], 
-        "trigger": {"type": "WEBHOOK", "platform": "WHATSAPP", "keywords": []},
+        "trigger": {"type": "MESSAGE_INBOUND", "platform": "WHATSAPP", "keywords": []},
         "publish": False
     }
     start_res = await async_client.post("/api/v1/automations/from-builder", json=flow_payload, headers=headers)

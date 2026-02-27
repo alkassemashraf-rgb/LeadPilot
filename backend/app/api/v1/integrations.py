@@ -14,6 +14,7 @@ from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.security import encrypt_data, decrypt_data
 from app.api.deps import require_email_state
 from app.core.modules import require_module_enabled, MODULE_INTEGRATIONS_CONNECT
+from app.core.catalog_registry import VALID_PROVIDERS
 from app.services.entitlements import require_entitlement
 from app.services.audit_service import audit_event
 
@@ -43,7 +44,7 @@ async def connect_integration(
     """Connect/update an integration (Zoho, WhatsApp, Meta).
     Policy: allowed if verified OR within 7-day verification grace window.
     """
-    if provider not in ["zoho", "whatsapp", "meta"]:
+    if provider not in VALID_PROVIDERS:
         raise HTTPException(status_code=400, detail="Unsupported provider")
 
     # 1. Validation for provider-specific fields

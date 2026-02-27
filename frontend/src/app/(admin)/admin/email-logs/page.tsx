@@ -6,6 +6,7 @@ import { Mail, Loader2, Info, RefreshCw, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+// Source: backend/app/core/catalog_registry.py — EMAIL_OUTBOX_STATUSES / EMAIL_TYPES
 const STATUS_OPTIONS = ["", "PENDING", "SENT", "FAILED", "PROCESSING"];
 const EMAIL_TYPE_OPTIONS = ["", "welcome", "verify_email", "password_reset", "invite"];
 

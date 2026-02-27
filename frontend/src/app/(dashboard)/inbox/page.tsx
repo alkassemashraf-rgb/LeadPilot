@@ -21,6 +21,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api";
+import { useCatalog, catalogLabel, type CatalogEntry } from "@/lib/catalog";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import TimelinePanel from "@/components/inbox/TimelinePanel";
@@ -53,6 +54,7 @@ type Conversation = {
 // --- Components ---
 
 export default function InboxPage() {
+    const { data: convStatuses } = useCatalog("conversation-statuses");
     const [conversations, setConversations] = useState<Conversation[]>([]);
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [thread, setThread] = useState<{ messages: Message[], status: string, contact: any } | null>(null);
@@ -187,9 +189,9 @@ export default function InboxPage() {
                             onChange={(e) => setStatusFilter(e.target.value)}
                         >
                             <option value="all">All Status</option>
-                            <option value="bot_active">AI Active</option>
-                            <option value="human_takeover">Human</option>
-                            <option value="closed">Closed</option>
+                            {convStatuses?.map((s) => (
+                                <option key={s.key} value={s.key}>{s.label}</option>
+                            ))}
                         </select>
                     </div>
                 </div>
@@ -397,15 +399,25 @@ export default function InboxPage() {
 
 // --- Subcomponents ---
 
+const STATUS_STYLES: Record<string, string> = {
+    bot_active: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    human_takeover: "bg-amber-100 text-amber-700 border-amber-200",
+    closed: "bg-slate-100 text-slate-600 border-slate-200",
+};
+const STATUS_FALLBACK_LABELS: Record<string, string> = {
+    bot_active: "AI Active",
+    human_takeover: "Human Control",
+    closed: "Closed",
+};
+
 function StatusBadge({ status }: { status: "bot_active" | "human_takeover" | "closed" }) {
-    switch (status) {
-        case "bot_active":
-            return <div className="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-[10px] font-bold border border-emerald-200 uppercase">AI Active</div>;
-        case "human_takeover":
-            return <div className="flex items-center gap-1.5 px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full text-[10px] font-bold border border-amber-200 uppercase">Human Control</div>;
-        case "closed":
-            return <div className="flex items-center gap-1.5 px-2 py-0.5 bg-slate-100 text-slate-600 rounded-full text-[10px] font-bold border border-slate-200 uppercase">Closed</div>;
-    }
+    const style = STATUS_STYLES[status] || STATUS_STYLES.closed;
+    const label = STATUS_FALLBACK_LABELS[status] || status;
+    return (
+        <div className={cn("flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase", style)}>
+            {label}
+        </div>
+    );
 }
 
 function DeliveryStatusBadge({ status, error }: { status: string, error?: string }) {

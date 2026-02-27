@@ -8,15 +8,14 @@ from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import engine
+from app.services.prompt_compiler import compile_workspace_prompt
 from app.models.models import (
-    ExecutionInstance, 
-    ExecutionStatus, 
-    ExecutionStepLog, 
-    FlowVersion, 
+    ExecutionInstance,
+    ExecutionStatus,
+    ExecutionStepLog,
+    FlowVersion,
     Message,
-    PromptConfig,
-    PromptVersion,
-    Conversation, 
+    Conversation,
     Contact,
     ChannelIdentity,
     ConversationStatus,
@@ -283,49 +282,45 @@ async def handle_zoho_upsert(session: AsyncSession, instance: ExecutionInstance,
     return {"zoho_lead_id": zoho_id, "action": action}
 
 async def handle_ai_reply(session: AsyncSession, instance: ExecutionInstance, config: Dict[str, Any]) -> Dict[str, Any]:
-    """Generates an AI reply using PromptConfig and Conversation History."""
-    # 1. Fetch Prompt Config
-    prompt_config_result = await session.execute(
-        select(PromptConfig).where(PromptConfig.workspace_id == instance.workspace_id)
+    """Generates an AI reply using unified prompt compiler + conversation history."""
+    # 1. Compile workspace prompt (includes knowledge files, qualification, step config)
+    compiled = await compile_workspace_prompt(
+        instance.workspace_id,
+        session,
+        include_files=True,
+        include_qualification=True,
+        step_config=config,
     )
-    prompt_config = prompt_config_result.scalars().first()
-    if not prompt_config or not prompt_config.current_version_id:
+    if not compiled.version_id:
         raise Exception("No active PromptConfig found for workspace")
-    
-    prompt_version = await session.get(PromptVersion, prompt_config.current_version_id)
-    
-    # 2. Fetch History (Last 15 messages)
-    # Find relevant conversation
+
+    # 2. Fetch conversation and history (last 15 messages)
     conv_result = await session.execute(
         select(Conversation).where(Conversation.contact_id == instance.contact_id)
     )
     conversation = conv_result.scalars().first()
     if not conversation:
         raise Exception("Conversation not found for contact")
-        
+
     msg_result = await session.execute(
         select(Message).where(Message.conversation_id == conversation.id).order_by(Message.created_at.desc()).limit(15)
     )
-    history = msg_result.scalars().all()
-    # history is a sequence, need to list it to reverse? sqlmodel returns Sequence.
-    # Actually scalars().all() returns a list.
-    history = list(history)
+    history = list(msg_result.scalars().all())
     history.reverse()
-    
+
     messages = []
-    # System prompt
-    messages.append({"role": "system", "content": f"{prompt_version.system_prompt_text}\n\nBusiness Context: {prompt_version.business_profile_json}"})
-    
+    messages.append({"role": "system", "content": compiled.system_instruction})
+
     for msg in history:
         role = "user" if msg.direction == "inbound" else "assistant"
         messages.append({"role": role, "content": msg.content})
-    
+
     # 3. Generate Reply (workspace settings as fallback for model defaults)
     from app.core.ai import ai_provider
     from app.services.settings_service import get_workspace_ai_settings
     ws_ai = await get_workspace_ai_settings(instance.workspace_id, session)
-    effective_temp = prompt_version.temperature if prompt_version.temperature != 0.7 else ws_ai.get("temperature", 0.7)
-    effective_max_tokens = prompt_version.max_tokens_per_execution if prompt_version.max_tokens_per_execution != 1000 else ws_ai.get("max_tokens", 2048)
+    effective_temp = compiled.temperature if compiled.temperature != 0.7 else ws_ai.get("temperature", 0.7)
+    effective_max_tokens = compiled.max_tokens if compiled.max_tokens != 1000 else ws_ai.get("max_tokens", 2048)
     reply_text = await ai_provider.generate_response(
         messages=messages,
         temperature=effective_temp,

@@ -325,6 +325,7 @@ export const adminApi = {
         adminClient.put(`/admin/agencies/${agencyId}/plan`, { plan_id: planId }),
 };
 
+// Canonical source: GET /api/v1/catalog/modules — prefer useCatalog("modules") for dynamic labels
 export const MODULE_LABELS: Record<string, string> = {
     auth: "Authentication",
     email_engine: "Email Engine",

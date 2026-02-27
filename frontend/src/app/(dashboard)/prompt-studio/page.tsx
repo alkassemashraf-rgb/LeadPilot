@@ -7,7 +7,6 @@ import {
     Sparkles,
     AlertCircle,
     CheckCircle2,
-    ChevronRight,
     Shield,
     Target,
     UserCircle,
@@ -17,7 +16,10 @@ import {
     FileText,
     Trash2,
     Plus,
-    Upload
+    Upload,
+    Download,
+    ArrowUp,
+    ArrowDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api";
@@ -31,6 +33,12 @@ export default function PromptStudioPage() {
     const [versionHistory, setVersionHistory] = useState<any[]>([]);
     const [knowledgeFiles, setKnowledgeFiles] = useState<any[]>([]);
     const [isUploading, setIsUploading] = useState(false);
+
+    // Qualification state
+    const [qualQuestions, setQualQuestions] = useState<any[]>([]);
+    const [qualStatuses, setQualStatuses] = useState<any[]>([]);
+    const [qualVersion, setQualVersion] = useState(1);
+    const [isSavingQual, setIsSavingQual] = useState(false);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -70,6 +78,68 @@ export default function PromptStudioPage() {
         }
     };
 
+    const fetchQualificationConfig = async () => {
+        const res = await apiClient.get("/qualification-config");
+        if (res.success && res.data) {
+            setQualQuestions(res.data.qualification_questions || []);
+            setQualStatuses(res.data.qualification_statuses || []);
+            setQualVersion(res.data.version || 1);
+        }
+    };
+
+    const handleSaveQualification = async () => {
+        setIsSavingQual(true);
+        const res = await apiClient.post("/qualification-config", {
+            qualification_questions: qualQuestions,
+            qualification_statuses: qualStatuses,
+        });
+        if (res.success && res.data) {
+            setQualVersion(res.data.version || qualVersion + 1);
+        } else {
+            alert("Error saving qualification config: " + res.error);
+        }
+        setIsSavingQual(false);
+    };
+
+    const addQuestion = () => {
+        setQualQuestions([
+            ...qualQuestions,
+            { label: "", enabled: true, order: qualQuestions.length },
+        ]);
+    };
+
+    const removeQuestion = (index: number) => {
+        setQualQuestions(qualQuestions.filter((_, i) => i !== index));
+    };
+
+    const updateQuestion = (index: number, field: string, value: any) => {
+        setQualQuestions(qualQuestions.map((q, i) => i === index ? { ...q, [field]: value } : q));
+    };
+
+    const moveQuestion = (index: number, direction: "up" | "down") => {
+        const target = direction === "up" ? index - 1 : index + 1;
+        if (target < 0 || target >= qualQuestions.length) return;
+        const next = [...qualQuestions];
+        [next[index], next[target]] = [next[target], next[index]];
+        next.forEach((q, i) => (q.order = i));
+        setQualQuestions(next);
+    };
+
+    const addStatus = () => {
+        setQualStatuses([
+            ...qualStatuses,
+            { label: "", color: "#94a3b8", enabled: true },
+        ]);
+    };
+
+    const removeStatus = (index: number) => {
+        setQualStatuses(qualStatuses.filter((_, i) => i !== index));
+    };
+
+    const updateStatus = (index: number, field: string, value: any) => {
+        setQualStatuses(qualStatuses.map((s, i) => i === index ? { ...s, [field]: value } : s));
+    };
+
     const fetchConfig = async () => {
         setIsLoading(true);
         setError(null);
@@ -87,6 +157,7 @@ export default function PromptStudioPage() {
                 setError(res.error || "Failed to load prompt configuration.");
             }
             await fetchKnowledgeFiles();
+            await fetchQualificationConfig();
         } catch (err: any) {
             setError("Connectivity error. Please check your internet or try again.");
         } finally {
@@ -163,7 +234,8 @@ export default function PromptStudioPage() {
     const tabs = [
         { id: "editor", label: "Assistant Configuration", icon: UserCircle },
         { id: "knowledge", label: "Knowledge Base", icon: FileText },
-        { id: "history", label: "Version History", icon: History }
+        { id: "qualification", label: "Lead Qualification", icon: Target },
+        { id: "history", label: "Version History", icon: History },
     ];
 
     return (
@@ -223,6 +295,11 @@ export default function PromptStudioPage() {
                                         {tab.id === "knowledge" && knowledgeFiles.length > 0 && (
                                             <span className="ml-2 bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full text-[10px]">
                                                 {knowledgeFiles.length}
+                                            </span>
+                                        )}
+                                        {tab.id === "qualification" && qualQuestions.filter(q => q.enabled !== false).length > 0 && (
+                                            <span className="ml-2 bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-full text-[10px]">
+                                                {qualQuestions.filter(q => q.enabled !== false).length}
                                             </span>
                                         )}
                                     </button>
@@ -449,15 +526,43 @@ export default function PromptStudioPage() {
                                                                     <span>{(file.size_bytes / 1024).toFixed(1)} KB</span>
                                                                     <span>•</span>
                                                                     <span>{new Date(file.created_at).toLocaleDateString()}</span>
+                                                                    <span>•</span>
+                                                                    {file.status === "READY" ? (
+                                                                        <span className="text-emerald-600 flex items-center gap-0.5">
+                                                                            <CheckCircle2 className="w-3 h-3" /> Indexed
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-rose-500 flex items-center gap-0.5">
+                                                                            <AlertCircle className="w-3 h-3" /> Failed
+                                                                        </span>
+                                                                    )}
+                                                                    {file.extracted && (
+                                                                        <>
+                                                                            <span>•</span>
+                                                                            <span className="text-teal-600">Text extracted</span>
+                                                                        </>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>
-                                                        <button
-                                                            onClick={() => handleDeleteFile(file.id)}
-                                                            className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                                        >
-                                                            <Trash2 className="w-4 h-4" />
-                                                        </button>
+                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                                                            <a
+                                                                href={`${process.env.NEXT_PUBLIC_API_URL || ""}/api/v1/knowledge/files/${file.id}/download`}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="p-2 text-slate-300 hover:text-teal-600 hover:bg-teal-50 rounded-lg transition-all"
+                                                                title="Download"
+                                                            >
+                                                                <Download className="w-4 h-4" />
+                                                            </a>
+                                                            <button
+                                                                onClick={() => handleDeleteFile(file.id)}
+                                                                className="p-2 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+                                                                title="Delete"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 ))
                                             )}
@@ -466,7 +571,169 @@ export default function PromptStudioPage() {
                                         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex gap-3">
                                             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                                             <p className="text-[11px] text-amber-800 leading-normal">
-                                                <strong>Pro Tip:</strong> Files like TXT and CSV are indexed automatically. For PDFs, make sure to add a summary in the "Notes" field (coming soon) or ensure they are text-searchable.
+                                                <strong>Pro Tip:</strong> Uploaded files (TXT, CSV, PDF) are automatically extracted and injected into your AI&apos;s context. The AI will reference these documents when responding to leads.
+                                            </p>
+                                        </div>
+                                    </div>
+                                ) : activeTab === "qualification" ? (
+                                    <div className="space-y-8">
+                                        {/* Header */}
+                                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                                            <div>
+                                                <h2 className="text-lg font-bold text-slate-800">Lead Qualification</h2>
+                                                <p className="text-xs text-slate-500">Configure questions the AI collects from leads, and qualification statuses. <span className="text-slate-400">(v{qualVersion})</span></p>
+                                            </div>
+                                            <button
+                                                onClick={handleSaveQualification}
+                                                disabled={isSavingQual}
+                                                className="bg-teal-700 text-white px-5 py-2 rounded-lg text-sm font-bold hover:bg-teal-800 transition-all flex items-center gap-2 shadow-sm disabled:opacity-50"
+                                            >
+                                                {isSavingQual ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                                Save Qualification
+                                            </button>
+                                        </div>
+
+                                        {/* Questions Section */}
+                                        <section className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 text-slate-800">
+                                                    <Target className="w-4 h-4 text-teal-600" />
+                                                    <h3 className="text-sm font-bold uppercase tracking-wider">Qualification Questions</h3>
+                                                </div>
+                                                <button
+                                                    onClick={addQuestion}
+                                                    className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1 transition-all"
+                                                >
+                                                    <Plus className="w-3.5 h-3.5" /> Add Question
+                                                </button>
+                                            </div>
+                                            <p className="text-[11px] text-slate-400">The AI will attempt to collect these details from each lead during conversation.</p>
+
+                                            {qualQuestions.length === 0 ? (
+                                                <div className="py-10 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 text-slate-400">
+                                                    <Target className="w-8 h-8 mb-3 opacity-20" />
+                                                    <p className="text-sm font-medium">No questions configured</p>
+                                                    <p className="text-[10px] mt-1">Click &quot;Add Question&quot; to start building your qualification form.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {qualQuestions.map((q, i) => (
+                                                        <div key={i} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl group hover:border-teal-400 transition-all">
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <button
+                                                                    onClick={() => moveQuestion(i, "up")}
+                                                                    disabled={i === 0}
+                                                                    className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-20 transition-all"
+                                                                >
+                                                                    <ArrowUp className="w-3 h-3" />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => moveQuestion(i, "down")}
+                                                                    disabled={i === qualQuestions.length - 1}
+                                                                    className="p-0.5 text-slate-300 hover:text-slate-600 disabled:opacity-20 transition-all"
+                                                                >
+                                                                    <ArrowDown className="w-3 h-3" />
+                                                                </button>
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                value={q.label}
+                                                                onChange={(e) => updateQuestion(i, "label", e.target.value)}
+                                                                placeholder="e.g. Budget Range"
+                                                                className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all"
+                                                            />
+                                                            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={q.enabled !== false}
+                                                                    onChange={(e) => updateQuestion(i, "enabled", e.target.checked)}
+                                                                    className="w-4 h-4 accent-teal-600"
+                                                                />
+                                                                <span className="text-[10px] font-medium text-slate-500">Enabled</span>
+                                                            </label>
+                                                            <button
+                                                                onClick={() => removeQuestion(i)}
+                                                                className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </section>
+
+                                        {/* Statuses Section */}
+                                        <section className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 text-slate-800">
+                                                    <Shield className="w-4 h-4 text-teal-600" />
+                                                    <h3 className="text-sm font-bold uppercase tracking-wider">Qualification Statuses</h3>
+                                                </div>
+                                                <button
+                                                    onClick={addStatus}
+                                                    className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1 transition-all"
+                                                >
+                                                    <Plus className="w-3.5 h-3.5" /> Add Status
+                                                </button>
+                                            </div>
+                                            <p className="text-[11px] text-slate-400">Define the lifecycle stages for your leads. These statuses will appear in the Contacts page.</p>
+
+                                            {qualStatuses.length === 0 ? (
+                                                <div className="py-10 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 text-slate-400">
+                                                    <Shield className="w-8 h-8 mb-3 opacity-20" />
+                                                    <p className="text-sm font-medium">No statuses configured</p>
+                                                    <p className="text-[10px] mt-1">Click &quot;Add Status&quot; to define lead lifecycle stages.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {qualStatuses.map((s, i) => (
+                                                        <div key={i} className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-xl group hover:border-teal-400 transition-all">
+                                                            <input
+                                                                type="color"
+                                                                value={s.color || "#94a3b8"}
+                                                                onChange={(e) => updateStatus(i, "color", e.target.value)}
+                                                                className="w-8 h-8 rounded-lg border border-slate-200 cursor-pointer p-0.5"
+                                                                title="Pick color"
+                                                            />
+                                                            <input
+                                                                type="text"
+                                                                value={s.label}
+                                                                onChange={(e) => updateStatus(i, "label", e.target.value)}
+                                                                placeholder="e.g. Qualified"
+                                                                className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all"
+                                                            />
+                                                            <span
+                                                                className="px-3 py-1 rounded-full text-[10px] font-bold text-white"
+                                                                style={{ backgroundColor: s.color || "#94a3b8" }}
+                                                            >
+                                                                {s.label || "Preview"}
+                                                            </span>
+                                                            <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={s.enabled !== false}
+                                                                    onChange={(e) => updateStatus(i, "enabled", e.target.checked)}
+                                                                    className="w-4 h-4 accent-teal-600"
+                                                                />
+                                                                <span className="text-[10px] font-medium text-slate-500">Enabled</span>
+                                                            </label>
+                                                            <button
+                                                                onClick={() => removeStatus(i)}
+                                                                className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </section>
+
+                                        <div className="bg-teal-50/50 border border-teal-100 rounded-xl p-4 flex gap-3">
+                                            <AlertCircle className="w-4 h-4 text-teal-600 shrink-0" />
+                                            <p className="text-[11px] text-teal-700 leading-normal">
+                                                <strong>How it works:</strong> Enabled questions are injected into the AI&apos;s system prompt. The AI will naturally ask leads for this information during conversation. Statuses can be used to categorize leads in the Contacts page.
                                             </p>
                                         </div>
                                     </div>
