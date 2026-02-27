@@ -21,6 +21,14 @@ from app.core.catalog_registry import (
     WORKSPACE_ROLES,
     AGENCY_ROLES,
     MODULE_LABELS,
+    TIMEZONES,
+    LANGUAGES,
+    AI_MODELS,
+    DEDUPE_STRATEGIES,
+    EVENT_SOURCES,
+    EVENT_OUTCOMES,
+    AUDIT_ACTIONS,
+    CONTACT_FIELDS,
 )
 
 router = APIRouter()
@@ -143,5 +151,45 @@ router.add_api_route(
 router.add_api_route(
     "/message-delivery-statuses",
     _static_endpoint(MESSAGE_DELIVERY_STATUSES),
+    methods=["GET"],
+)
+router.add_api_route(
+    "/timezones",
+    _static_endpoint(TIMEZONES),
+    methods=["GET"],
+)
+router.add_api_route(
+    "/languages",
+    _static_endpoint(LANGUAGES),
+    methods=["GET"],
+)
+router.add_api_route(
+    "/ai-models",
+    _static_endpoint(AI_MODELS),
+    methods=["GET"],
+)
+router.add_api_route(
+    "/dedupe-strategies",
+    _static_endpoint(DEDUPE_STRATEGIES),
+    methods=["GET"],
+)
+router.add_api_route(
+    "/event-sources",
+    _static_endpoint(EVENT_SOURCES),
+    methods=["GET"],
+)
+router.add_api_route(
+    "/event-outcomes",
+    _static_endpoint(EVENT_OUTCOMES),
+    methods=["GET"],
+)
+router.add_api_route(
+    "/audit-actions",
+    _static_endpoint(AUDIT_ACTIONS),
+    methods=["GET"],
+)
+router.add_api_route(
+    "/contact-fields",
+    _static_endpoint(CONTACT_FIELDS),
     methods=["GET"],
 )

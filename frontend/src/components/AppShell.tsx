@@ -3,9 +3,11 @@
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { ImpersonationBanner } from "./ImpersonationBanner";
+import { LookupsProvider } from "@/lib/lookups";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
     return (
+        <LookupsProvider>
         <div className="min-h-screen bg-background">
             <ImpersonationBanner />
             <Sidebar />
@@ -18,5 +20,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </main>
             </div>
         </div>
+        </LookupsProvider>
     );
 }

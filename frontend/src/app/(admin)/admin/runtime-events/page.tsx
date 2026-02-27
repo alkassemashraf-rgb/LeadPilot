@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { adminApi, RuntimeEventEntry } from "@/lib/admin-api";
+import { useCatalog, type CatalogEntry } from "@/lib/catalog";
 import { Loader2, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Copy, Check, AlertCircle, CheckCircle, MinusCircle } from "lucide-react";
 
 function formatDate(iso: string) {
@@ -70,6 +71,8 @@ function CopyButton({ text }: { text: string }) {
 }
 
 export default function AdminRuntimeEventsPage() {
+    const { data: eventSources } = useCatalog("event-sources");
+    const { data: eventOutcomes } = useCatalog("event-outcomes");
     const [events, setEvents] = useState<RuntimeEventEntry[]>([]);
     const [total, setTotal] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -126,12 +129,9 @@ export default function AdminRuntimeEventsPage() {
                     className="bg-slate-800 border border-slate-700 rounded-lg text-sm text-white px-3 py-2 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
                 >
                     <option value="">All Sources</option>
-                    <option value="webhook">Webhook</option>
-                    <option value="runtime">Runtime</option>
-                    <option value="dispatch">Dispatch</option>
-                    <option value="email">Email</option>
-                    <option value="zoho">Zoho</option>
-                    <option value="inbox">Inbox</option>
+                    {(eventSources || []).map((s) => (
+                        <option key={s.key} value={s.key}>{s.label}</option>
+                    ))}
                 </select>
                 <input
                     type="text"
@@ -146,9 +146,9 @@ export default function AdminRuntimeEventsPage() {
                     className="bg-slate-800 border border-slate-700 rounded-lg text-sm text-white px-3 py-2 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500"
                 >
                     <option value="">All Outcomes</option>
-                    <option value="success">Success</option>
-                    <option value="failure">Failure</option>
-                    <option value="skipped">Skipped</option>
+                    {(eventOutcomes || []).map((o) => (
+                        <option key={o.key} value={o.key}>{o.label}</option>
+                    ))}
                 </select>
                 <input
                     type="text"

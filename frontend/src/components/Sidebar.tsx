@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
     LayoutDashboard,
     Users,
@@ -19,6 +19,7 @@ import {
     Landmark,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiClient } from "@/lib/api";
 
 const navItems = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -35,9 +36,24 @@ const navItems = [
     { name: "Agency", href: "/agency", icon: Landmark },
 ];
 
+function getInitials(name: string | null): string {
+    if (!name) return "?";
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return parts[0].substring(0, 2).toUpperCase();
+}
+
 export function Sidebar() {
     const pathname = usePathname();
-    const router = useRouter();
+    const [userName, setUserName] = useState<string | null>(null);
+
+    useEffect(() => {
+        apiClient.get("/auth/me").then((res) => {
+            if (res.success && res.data) {
+                setUserName(res.data.full_name || res.data.email);
+            }
+        });
+    }, []);
 
     const handleLogout = () => {
         const { auth } = require("@/lib/auth");
@@ -74,11 +90,10 @@ export function Sidebar() {
             <div className="p-4 border-t border-border">
                 <div className="flex items-center gap-3 px-3 py-2">
                     <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold">
-                        JD
+                        {getInitials(userName)}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold truncate">John Doe</p>
-                        <p className="text-[10px] text-slate-500 truncate">Workspace Owner</p>
+                        <p className="text-xs font-semibold truncate">{userName || "Loading..."}</p>
                     </div>
                     <button
                         onClick={handleLogout}

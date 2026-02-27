@@ -14,7 +14,7 @@ from app.core import security
 from app.core.config import settings
 from app.core.db import get_db
 from app.models.models import User, Workspace, WorkspaceMember, WorkspaceRole, PasswordResetToken, EmailLog, EmailStatus, EmailOutbox, EmailOutboxStatus
-from app.schemas.user import Token, UserRead, UserCreate, ForgotPassword, ResetPassword, GoogleCallback, MeRead
+from app.schemas.user import Token, UserRead, UserCreate, ForgotPassword, ResetPassword, GoogleCallback, MeRead, ProfileUpdate
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.api.deps import get_current_user
 from app.services.audit_service import audit_event
@@ -52,6 +52,54 @@ async def get_me(
         email_verified_at=current_user.email_verified_at,
         email_verification_expires_at=grace_expires,
         requires_email_verification=requires_verification,
+        verification_grace_remaining_days=grace_remaining_days,
+    ))
+
+
+@router.patch("/me", response_model=ResponseEnvelope[MeRead])
+async def update_profile(
+    update_in: ProfileUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    request: Request = None,
+) -> Any:
+    """Update the authenticated user's profile."""
+    changed = False
+
+    if update_in.full_name is not None:
+        stripped = update_in.full_name.strip()
+        if not stripped:
+            return wrap_error("Full name cannot be empty")
+        current_user.full_name = stripped
+        changed = True
+
+    if changed:
+        db.add(current_user)
+        await audit_event(
+            db, action="update_profile", entity_type="user",
+            entity_id=str(current_user.id), actor_user_id=current_user.id,
+            outcome="success", request=request,
+        )
+        await db.commit()
+        await db.refresh(current_user)
+
+    now = datetime.utcnow()
+    verified = current_user.email_verified_at is not None
+    grace_expires = current_user.email_verification_expires_at
+    grace_remaining_days: Optional[int] = None
+    if not verified and grace_expires is not None:
+        delta = grace_expires - now
+        grace_remaining_days = max(0, delta.days)
+
+    return wrap_data(MeRead(
+        id=current_user.id,
+        email=current_user.email,
+        full_name=current_user.full_name,
+        is_active=current_user.is_active,
+        is_superuser=current_user.is_superuser,
+        email_verified_at=current_user.email_verified_at,
+        email_verification_expires_at=grace_expires,
+        requires_email_verification=not verified,
         verification_grace_remaining_days=grace_remaining_days,
     ))
 

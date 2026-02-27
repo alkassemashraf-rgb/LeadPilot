@@ -34,7 +34,15 @@ export type CatalogKey =
   | "automation-node-types"
   | "automation-trigger-types"
   | "conversation-statuses"
-  | "message-delivery-statuses";
+  | "message-delivery-statuses"
+  | "timezones"
+  | "languages"
+  | "ai-models"
+  | "dedupe-strategies"
+  | "event-sources"
+  | "event-outcomes"
+  | "audit-actions"
+  | "contact-fields";
 
 // ── Cache ────────────────────────────────────────────────────────────
 
@@ -62,7 +70,7 @@ function setCache<T>(key: string, data: T): void {
 
 // ── Fetch ────────────────────────────────────────────────────────────
 
-async function fetchCatalog<T = CatalogEntry[]>(key: CatalogKey): Promise<T> {
+export async function fetchCatalog<T = CatalogEntry[]>(key: CatalogKey): Promise<T> {
   const cached = getCached<T>(key);
   if (cached !== null) return cached;
 

@@ -15,6 +15,7 @@ import {
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api";
+import { useLookups } from "@/lib/lookups";
 import { toast } from "sonner";
 
 interface ZohoField {
@@ -29,17 +30,9 @@ interface MappingConfig {
     field_mappings: Record<string, string>;
 }
 
-const LEADPILOT_FIELDS = [
-    { key: "first_name", label: "First Name", required: true },
-    { key: "last_name", label: "Last Name", required: true },
-    { key: "email", label: "Email", required: false },
-    { key: "phone", label: "Phone", required: false },
-    { key: "company", label: "Company", required: false },
-    { key: "description", label: "Description / Notes", required: false },
-];
-
 export default function ZohoMappingPage() {
     const router = useRouter();
+    const lookups = useLookups();
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [zohoFields, setZohoFields] = useState<ZohoField[]>([]);
@@ -183,9 +176,9 @@ export default function ZohoMappingPage() {
                             value={config.dedupe_strategy}
                             onChange={(e) => setConfig({ ...config, dedupe_strategy: e.target.value })}
                         >
-                            <option value="EMAIL">Email Address Only</option>
-                            <option value="PHONE">Phone Number Only</option>
-                            <option value="EMAIL_OR_PHONE">Email OR Phone (Recommended)</option>
+                            {lookups.dedupeStrategies.map((s) => (
+                                <option key={s.key} value={s.key}>{s.label}</option>
+                            ))}
                         </select>
                         <p className="text-[10px] text-slate-400">
                             {config.dedupe_strategy === "EMAIL_OR_PHONE"
@@ -217,7 +210,7 @@ export default function ZohoMappingPage() {
                 </div>
 
                 <div className="divide-y divide-border">
-                    {LEADPILOT_FIELDS.map((field) => (
+                    {lookups.contactFields.map((field) => (
                         <div key={field.key} className="p-4 flex items-center gap-4 hover:bg-slate-50/50 transition-colors">
                             <div className="w-1/3">
                                 <label className="text-sm font-medium text-slate-700 flex items-center gap-1.5">

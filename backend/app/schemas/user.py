@@ -29,6 +29,10 @@ class MeRead(UserRead):
     verification_grace_remaining_days: Optional[int] = None
 
 
+class ProfileUpdate(BaseModel):
+    full_name: Optional[str] = None
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str

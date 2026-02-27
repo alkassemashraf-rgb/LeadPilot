@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { apiClient } from "@/lib/api";
+import { useLookups } from "@/lib/lookups";
 import {
     Settings,
     Globe,
@@ -11,9 +12,23 @@ import {
     Bell,
     Loader2,
     Save,
+    User,
+    ShieldCheck,
 } from "lucide-react";
 
 type SettingsData = Record<string, any>;
+
+interface UserProfile {
+    id: string;
+    email: string;
+    full_name: string | null;
+    is_active: boolean;
+    is_superuser: boolean;
+    email_verified_at: string | null;
+    requires_email_verification: boolean;
+}
+
+type Section = "profile" | "workspace";
 
 const TABS = [
     { key: "general", label: "General", icon: Globe },
@@ -23,20 +38,38 @@ const TABS = [
     { key: "notifications", label: "Notifications", icon: Bell },
 ] as const;
 
-export default function WorkspaceSettingsPage() {
+export default function SettingsPage() {
+    const lookups = useLookups();
+
+    // Profile state
+    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [profileName, setProfileName] = useState("");
+    const [savingProfile, setSavingProfile] = useState(false);
+
+    // Workspace state
     const [settings, setSettings] = useState<SettingsData | null>(null);
     const [version, setVersion] = useState(0);
     const [activeTab, setActiveTab] = useState<string>("general");
-    const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [dirty, setDirty] = useState<SettingsData>({});
+
+    // Shared
+    const [section, setSection] = useState<Section>("profile");
+    const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState<{ type: "success" | "error"; msg: string } | null>(null);
 
     useEffect(() => {
-        apiClient.get("/settings/workspace").then((res) => {
-            if (res.success && res.data) {
-                setSettings(res.data.settings);
-                setVersion(res.data.version);
+        Promise.all([
+            apiClient.get("/auth/me"),
+            apiClient.get("/settings/workspace"),
+        ]).then(([meRes, wsRes]) => {
+            if (meRes.success && meRes.data) {
+                setProfile(meRes.data);
+                setProfileName(meRes.data.full_name || "");
+            }
+            if (wsRes.success && wsRes.data) {
+                setSettings(wsRes.data.settings);
+                setVersion(wsRes.data.version);
             }
             setLoading(false);
         });
@@ -47,14 +80,29 @@ export default function WorkspaceSettingsPage() {
         setTimeout(() => setToast(null), 3000);
     };
 
-    const updateField = (section: string, key: string, value: any) => {
+    // Profile save
+    const handleSaveProfile = async () => {
+        setSavingProfile(true);
+        const res = await apiClient.patch("/auth/me", { full_name: profileName.trim() || null });
+        setSavingProfile(false);
+        if (res.success && res.data) {
+            setProfile(res.data);
+            setProfileName(res.data.full_name || "");
+            showToast("success", "Profile updated successfully");
+        } else {
+            showToast("error", res.error || "Failed to update profile");
+        }
+    };
+
+    // Workspace settings
+    const updateField = (sec: string, key: string, value: any) => {
         setSettings((prev) => {
             if (!prev) return prev;
-            return { ...prev, [section]: { ...prev[section], [key]: value } };
+            return { ...prev, [sec]: { ...prev[sec], [key]: value } };
         });
         setDirty((prev) => ({
             ...prev,
-            [section]: { ...(prev[section] || {}), [key]: value },
+            [sec]: { ...(prev[sec] || {}), [key]: value },
         }));
     };
 
@@ -81,11 +129,8 @@ export default function WorkspaceSettingsPage() {
         );
     }
 
-    if (!settings) {
-        return <p className="text-slate-500 p-8">Failed to load settings.</p>;
-    }
-
-    const s = settings[activeTab] || {};
+    const s = settings ? (settings[activeTab] || {}) : {};
+    const profileDirty = profileName.trim() !== (profile?.full_name || "");
 
     return (
         <div className="space-y-8 pb-10">
@@ -93,18 +138,30 @@ export default function WorkspaceSettingsPage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight text-slate-900 flex items-center gap-2">
-                        <Settings className="w-6 h-6 text-teal-700" /> Workspace Settings
+                        <Settings className="w-6 h-6 text-teal-700" /> Settings
                     </h1>
-                    <p className="text-slate-500 text-sm mt-1">Manage your workspace configuration &middot; Version {version}</p>
+                    <p className="text-slate-500 text-sm mt-1">Manage your profile and workspace configuration</p>
                 </div>
-                <button
-                    onClick={handleSave}
-                    disabled={saving || Object.keys(dirty).length === 0}
-                    className="flex items-center gap-2 px-5 py-2.5 bg-teal-700 text-white rounded-lg hover:bg-teal-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
-                >
-                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                    Save Changes
-                </button>
+                {section === "workspace" && (
+                    <button
+                        onClick={handleSave}
+                        disabled={saving || Object.keys(dirty).length === 0}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-teal-700 text-white rounded-lg hover:bg-teal-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
+                    >
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        Save Changes
+                    </button>
+                )}
+                {section === "profile" && (
+                    <button
+                        onClick={handleSaveProfile}
+                        disabled={savingProfile || !profileDirty}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-teal-700 text-white rounded-lg hover:bg-teal-800 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-bold transition-all"
+                    >
+                        {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        Save Profile
+                    </button>
+                )}
             </div>
 
             {/* Toast */}
@@ -118,62 +175,116 @@ export default function WorkspaceSettingsPage() {
                 </div>
             )}
 
-            {/* Tabs */}
-            <div className="flex border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
-                {TABS.map((tab) => (
-                    <button
-                        key={tab.key}
-                        onClick={() => setActiveTab(tab.key)}
-                        className={`flex items-center gap-2 px-6 py-3.5 text-sm font-bold border-b-2 transition-all ${
-                            activeTab === tab.key
-                                ? "border-teal-600 text-teal-700 bg-white"
-                                : "border-transparent text-slate-400 hover:text-slate-600"
-                        }`}
-                    >
-                        <tab.icon className="w-4 h-4" />
-                        {tab.label}
-                    </button>
-                ))}
+            {/* Section Toggle */}
+            <div className="flex gap-2">
+                <button
+                    onClick={() => setSection("profile")}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                        section === "profile"
+                            ? "bg-teal-700 text-white shadow-sm"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                >
+                    <User className="w-4 h-4" /> Profile
+                </button>
+                <button
+                    onClick={() => setSection("workspace")}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                        section === "workspace"
+                            ? "bg-teal-700 text-white shadow-sm"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                >
+                    <ShieldCheck className="w-4 h-4" /> Workspace
+                    {version > 0 && <span className="text-xs opacity-70">v{version}</span>}
+                </button>
             </div>
 
-            {/* Fields */}
-            <div className="bg-white p-6 md:p-8 rounded-xl border border-slate-100 shadow-sm space-y-6">
-                {activeTab === "general" && (
-                    <>
-                        <Field label="Name Override" type="text" value={s.name_override ?? ""} onChange={(v) => updateField("general", "name_override", v || null)} placeholder="Leave empty to use workspace name" />
-                        <Field label="Logo URL" type="text" value={s.logo_url ?? ""} onChange={(v) => updateField("general", "logo_url", v || null)} placeholder="https://example.com/logo.png" />
-                        <SelectField label="Timezone" value={s.timezone} options={["UTC", "US/Eastern", "US/Pacific", "Europe/London", "Asia/Dubai", "Asia/Tokyo"]} onChange={(v) => updateField("general", "timezone", v)} />
-                        <SelectField label="Default Language" value={s.default_language} options={["en", "ar", "es", "fr", "de", "zh"]} onChange={(v) => updateField("general", "default_language", v)} />
-                    </>
-                )}
-                {activeTab === "messaging" && (
-                    <>
-                        <Field label="Default Reply Delay (seconds)" type="number" value={s.default_reply_delay_seconds} onChange={(v) => updateField("messaging", "default_reply_delay_seconds", Number(v))} />
-                        <Toggle label="Fallback Message Enabled" description="Send a fallback message when AI cannot generate a response" value={s.fallback_message_enabled} onChange={(v) => updateField("messaging", "fallback_message_enabled", v)} />
-                        <Toggle label="Auto-Retry Failed Dispatch" description="Automatically retry failed message deliveries with exponential backoff" value={s.auto_retry_failed_dispatch} onChange={(v) => updateField("messaging", "auto_retry_failed_dispatch", v)} />
-                    </>
-                )}
-                {activeTab === "ai" && (
-                    <>
-                        <SelectField label="Default Model" value={s.default_model} options={["gemini-1.5-pro", "gemini-1.5-flash", "gemini-2.0-flash"]} onChange={(v) => updateField("ai", "default_model", v)} />
-                        <Field label="Temperature" type="number" value={s.temperature} step="0.1" min="0" max="2" onChange={(v) => updateField("ai", "temperature", Number(v))} />
-                        <Field label="Max Tokens" type="number" value={s.max_tokens} onChange={(v) => updateField("ai", "max_tokens", Number(v))} />
-                        <Toggle label="Guardrails Enabled" description="Enforce safety guardrails on AI-generated responses" value={s.guardrails_enabled} onChange={(v) => updateField("ai", "guardrails_enabled", v)} />
-                    </>
-                )}
-                {activeTab === "automation" && (
-                    <>
-                        <Toggle label="Auto-Publish" description="Automatically publish new automation flows" value={s.auto_publish} onChange={(v) => updateField("automation", "auto_publish", v)} />
-                        <Field label="Draft Expiry (days)" type="number" value={s.draft_expiry_days} onChange={(v) => updateField("automation", "draft_expiry_days", Number(v))} />
-                    </>
-                )}
-                {activeTab === "notifications" && (
-                    <>
-                        <Toggle label="Email Notifications Enabled" description="Receive email notifications for important workspace events" value={s.email_notifications_enabled} onChange={(v) => updateField("notifications", "email_notifications_enabled", v)} />
-                        <Field label="Webhook URL" type="text" value={s.webhook_url ?? ""} onChange={(v) => updateField("notifications", "webhook_url", v || null)} placeholder="https://example.com/webhook" />
-                    </>
-                )}
-            </div>
+            {/* Profile Section */}
+            {section === "profile" && profile && (
+                <div className="bg-white p-6 md:p-8 rounded-xl border border-slate-100 shadow-sm space-y-6">
+                    <div>
+                        <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Email</label>
+                        <input
+                            type="text"
+                            value={profile.email}
+                            disabled
+                            className="w-full p-2.5 bg-slate-100 border border-slate-200 rounded-lg text-sm text-slate-500 cursor-not-allowed"
+                        />
+                    </div>
+                    <Field label="Full Name" type="text" value={profileName} onChange={setProfileName} placeholder="Enter your full name" />
+                    <div className="flex items-center gap-3">
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Email Verification</span>
+                        {profile.email_verified_at ? (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">Verified</span>
+                        ) : (
+                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">Unverified</span>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {/* Workspace Section */}
+            {section === "workspace" && settings && (
+                <>
+                    {/* Tabs */}
+                    <div className="flex border-b border-slate-100 bg-slate-50/50 rounded-t-xl">
+                        {TABS.map((tab) => (
+                            <button
+                                key={tab.key}
+                                onClick={() => setActiveTab(tab.key)}
+                                className={`flex items-center gap-2 px-6 py-3.5 text-sm font-bold border-b-2 transition-all ${
+                                    activeTab === tab.key
+                                        ? "border-teal-600 text-teal-700 bg-white"
+                                        : "border-transparent text-slate-400 hover:text-slate-600"
+                                }`}
+                            >
+                                <tab.icon className="w-4 h-4" />
+                                {tab.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Fields */}
+                    <div className="bg-white p-6 md:p-8 rounded-xl border border-slate-100 shadow-sm space-y-6">
+                        {activeTab === "general" && (
+                            <>
+                                <Field label="Name Override" type="text" value={s.name_override ?? ""} onChange={(v) => updateField("general", "name_override", v || null)} placeholder="Leave empty to use workspace name" />
+                                <Field label="Logo URL" type="text" value={s.logo_url ?? ""} onChange={(v) => updateField("general", "logo_url", v || null)} placeholder="https://example.com/logo.png" />
+                                <CatalogSelectField label="Timezone" value={s.timezone} items={lookups.timezones} onChange={(v) => updateField("general", "timezone", v)} />
+                                <CatalogSelectField label="Default Language" value={s.default_language} items={lookups.languages} onChange={(v) => updateField("general", "default_language", v)} />
+                            </>
+                        )}
+                        {activeTab === "messaging" && (
+                            <>
+                                <Field label="Default Reply Delay (seconds)" type="number" value={s.default_reply_delay_seconds} onChange={(v) => updateField("messaging", "default_reply_delay_seconds", Number(v))} />
+                                <Toggle label="Fallback Message Enabled" description="Send a fallback message when AI cannot generate a response" value={s.fallback_message_enabled} onChange={(v) => updateField("messaging", "fallback_message_enabled", v)} />
+                                <Toggle label="Auto-Retry Failed Dispatch" description="Automatically retry failed message deliveries with exponential backoff" value={s.auto_retry_failed_dispatch} onChange={(v) => updateField("messaging", "auto_retry_failed_dispatch", v)} />
+                            </>
+                        )}
+                        {activeTab === "ai" && (
+                            <>
+                                <CatalogSelectField label="Default Model" value={s.default_model} items={lookups.aiModels} onChange={(v) => updateField("ai", "default_model", v)} />
+                                <Field label="Temperature" type="number" value={s.temperature} step="0.1" min="0" max="2" onChange={(v) => updateField("ai", "temperature", Number(v))} />
+                                <Field label="Max Tokens" type="number" value={s.max_tokens} onChange={(v) => updateField("ai", "max_tokens", Number(v))} />
+                                <Toggle label="Guardrails Enabled" description="Enforce safety guardrails on AI-generated responses" value={s.guardrails_enabled} onChange={(v) => updateField("ai", "guardrails_enabled", v)} />
+                            </>
+                        )}
+                        {activeTab === "automation" && (
+                            <>
+                                <Toggle label="Auto-Publish" description="Automatically publish new automation flows" value={s.auto_publish} onChange={(v) => updateField("automation", "auto_publish", v)} />
+                                <Field label="Draft Expiry (days)" type="number" value={s.draft_expiry_days} onChange={(v) => updateField("automation", "draft_expiry_days", Number(v))} />
+                            </>
+                        )}
+                        {activeTab === "notifications" && (
+                            <>
+                                <Toggle label="Email Notifications Enabled" description="Receive email notifications for important workspace events" value={s.email_notifications_enabled} onChange={(v) => updateField("notifications", "email_notifications_enabled", v)} />
+                                <Field label="Webhook URL" type="text" value={s.webhook_url ?? ""} onChange={(v) => updateField("notifications", "webhook_url", v || null)} placeholder="https://example.com/webhook" />
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
         </div>
     );
 }
@@ -195,7 +306,7 @@ function Field({ label, type, value, onChange, ...props }: { label: string; type
     );
 }
 
-function SelectField({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+function CatalogSelectField({ label, value, items, onChange }: { label: string; value: string; items: { key: string; label: string }[]; onChange: (v: string) => void }) {
     return (
         <div>
             <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{label}</label>
@@ -204,8 +315,8 @@ function SelectField({ label, value, options, onChange }: { label: string; value
                 onChange={(e) => onChange(e.target.value)}
                 className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm text-slate-900 focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all"
             >
-                {options.map((o) => (
-                    <option key={o} value={o}>{o}</option>
+                {items.map((item) => (
+                    <option key={item.key} value={item.key}>{item.label}</option>
                 ))}
             </select>
         </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { apiClient } from "@/lib/api";
+import { useLookups } from "@/lib/lookups";
 import { Loader2, AlertCircle, ChevronLeft, ChevronRight, Search, Filter } from "lucide-react";
 
 interface AuditEntry {
@@ -67,6 +68,7 @@ function ActionBadge({ action }: { action: string }) {
 const PAGE_SIZE = 25;
 
 export default function LogsPage() {
+    const lookups = useLookups();
     const [entries, setEntries] = useState<AuditEntry[]>([]);
     const [total, setTotal] = useState(0);
     const [page, setPage] = useState(0);
@@ -116,18 +118,9 @@ export default function LogsPage() {
                     className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                     <option value="">All Actions</option>
-                    <option value="workspace_create">Workspace Create</option>
-                    <option value="workspace_invite">Workspace Invite</option>
-                    <option value="workspace_member_remove">Member Remove</option>
-                    <option value="workspace_role_change">Role Change</option>
-                    <option value="automation_create">Automation Create</option>
-                    <option value="automation_publish">Automation Publish</option>
-                    <option value="integration_connect">Integration Connect</option>
-                    <option value="integration_disconnect">Integration Disconnect</option>
-                    <option value="dispatch_trigger">Dispatch Trigger</option>
-                    <option value="inbox_reply">Inbox Reply</option>
-                    <option value="inbox_status_change">Inbox Status Change</option>
-                    <option value="update_workspace_settings">Settings Update</option>
+                    {lookups.auditActions.map((a) => (
+                        <option key={a.key} value={a.key}>{a.label}</option>
+                    ))}
                 </select>
                 <select
                     value={outcomeFilter}
@@ -135,8 +128,9 @@ export default function LogsPage() {
                     className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm text-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                     <option value="">All Outcomes</option>
-                    <option value="success">Success</option>
-                    <option value="failure">Failure</option>
+                    {lookups.eventOutcomes.map((o) => (
+                        <option key={o.key} value={o.key}>{o.label}</option>
+                    ))}
                 </select>
             </div>
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getSystemSettings, patchSystemSettings } from "@/lib/admin-api";
+import { useCatalog, type CatalogEntry, type PlanCatalogEntry } from "@/lib/catalog";
 import {
     Settings,
     Loader2,
@@ -14,6 +15,7 @@ import {
 type SettingsData = Record<string, any>;
 
 export default function SystemSettingsPage() {
+    const { data: plans } = useCatalog<PlanCatalogEntry[]>("plans");
     const [settings, setSettings] = useState<SettingsData | null>(null);
     const [version, setVersion] = useState(0);
     const [loading, setLoading] = useState(true);
@@ -154,8 +156,8 @@ export default function SystemSettingsPage() {
                                 onChange={(e) => updateNested("defaults", "default_workspace_plan", e.target.value)}
                                 className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-violet-500/50"
                             >
-                                {["free", "starter", "growth", "enterprise"].map((p) => (
-                                    <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                                {(plans || []).map((p) => (
+                                    <option key={p.name} value={p.name}>{p.display_name}</option>
                                 ))}
                             </select>
                         </div>
