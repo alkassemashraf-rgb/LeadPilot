@@ -39,6 +39,9 @@ backend/alembic/versions/*.pyc
 **/.env*.local
 **/dist/
 
+# Runtime storage (user uploads)
+backend/storage/
+
 # Project Specific
 Website/node_modules/
 Website/.next/
