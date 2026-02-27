@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 from app.core.config import settings
 
 celery_app = Celery(
@@ -25,6 +26,10 @@ celery_app.conf.beat_schedule = {
     "process_email_outbox_every_minute": {
         "task": "app.workers.email_tasks.process_email_outbox",
         "schedule": 60.0,
+    },
+    "purge_runtime_events_daily_0300": {
+        "task": "app.workers.tasks.purge_runtime_events_task",
+        "schedule": crontab(hour=3, minute=0),
     },
 }
 

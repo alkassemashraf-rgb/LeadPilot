@@ -111,6 +111,21 @@ export interface AuditLogEntry {
     created_at: string;
 }
 
+export interface RuntimeEventEntry {
+    id: string;
+    workspace_id?: string | null;
+    event_type: string;
+    source: string;
+    correlation_id?: string | null;
+    related_ids?: Record<string, string> | null;
+    actor_user_id?: string | null;
+    payload?: Record<string, unknown> | null;
+    outcome?: string | null;
+    error_message?: string | null;
+    duration_ms?: number | null;
+    created_at: string;
+}
+
 // ---- Admin API methods ------------------------------------------------------
 
 export const adminApi = {
@@ -186,6 +201,29 @@ export const adminApi = {
     },
     getAuditLogDetail: (logId: string) =>
         adminClient.get<AuditLogEntry>(`/admin/audit-log/${logId}`),
+
+    // Runtime events (Mission 18)
+    getRuntimeEvents: (params?: {
+        skip?: number; limit?: number; source?: string; event_type?: string;
+        outcome?: string; workspace_id?: string; correlation_id?: string;
+        date_from?: string; date_to?: string;
+    }) => {
+        const qs = new URLSearchParams();
+        if (params?.skip !== undefined) qs.set("skip", String(params.skip));
+        if (params?.limit !== undefined) qs.set("limit", String(params.limit));
+        if (params?.source) qs.set("source", params.source);
+        if (params?.event_type) qs.set("event_type", params.event_type);
+        if (params?.outcome) qs.set("outcome", params.outcome);
+        if (params?.workspace_id) qs.set("workspace_id", params.workspace_id);
+        if (params?.correlation_id) qs.set("correlation_id", params.correlation_id);
+        if (params?.date_from) qs.set("date_from", params.date_from);
+        if (params?.date_to) qs.set("date_to", params.date_to);
+        return adminClient.get<{ items: RuntimeEventEntry[]; total: number; skip: number; limit: number }>(
+            `/admin/runtime-events?${qs.toString()}`
+        );
+    },
+    getRuntimeEventDetail: (eventId: string) =>
+        adminClient.get<RuntimeEventEntry>(`/admin/runtime-events/${eventId}`),
 
     // Email logs + retry
     getEmailLogs: (params?: { status?: string; email_type?: string; skip?: number; limit?: number }) => {

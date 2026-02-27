@@ -244,8 +244,13 @@ def send_email_task_v2(self, outbox_id: str):
             # --- PRE-SEND STATE (Two-Phase Commit) ---
             email_log.status = EmailStatus.SENDING
             email_log.provider_message_id = message_id
+            from app.services.runtime_event_service import log_event as _log_rt_event
+            await _log_rt_event(db, event_type="email.send_started", source="email",
+                                workspace_id=email_log.workspace_id,
+                                related_ids={"email_outbox_id": outbox_id},
+                                payload={"email_type": email_type, "to_email": to_email})
             await db.commit()
-            
+
             # --- DISPATCH ---
             try:
                 success = False
@@ -262,21 +267,32 @@ def send_email_task_v2(self, outbox_id: str):
 
                 if not success:
                     raise Exception("EmailService returned False indicating failure.")
-                
+
                 # --- DB ATOMIC UPDATE ON SUCCESS ---
                 email_log.status = EmailStatus.SENT
                 email_log.sent_at = datetime.utcnow()
                 email_log.attempt_count = outbox.attempt_count + 1
                 email_log.error_message = None
-                
+
                 outbox.status = EmailOutboxStatus.SENT
                 outbox.attempt_count += 1
                 outbox.last_error = None
+                await _log_rt_event(db, event_type="email.send_succeeded", source="email",
+                                    workspace_id=email_log.workspace_id,
+                                    related_ids={"email_outbox_id": outbox_id})
                 await db.commit()
-                
+
             except Exception as exc:
                 await db.rollback() # Rollback anything in transit
                 
+                # Log runtime event for failure
+                async with SessionLocal() as db_rt:
+                    from app.services.runtime_event_service import log_event as _log_rt_event2
+                    await _log_rt_event2(db_rt, event_type="email.send_failed", source="email",
+                                         outcome="failure", error_message=str(exc),
+                                         related_ids={"email_outbox_id": outbox_id})
+                    await db_rt.commit()
+
                 # Safe atomic update for failure status
                 async with SessionLocal() as db_err:
                     import uuid

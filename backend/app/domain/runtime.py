@@ -25,6 +25,7 @@ from app.models.models import (
     ZohoLeadMapping
 )
 from app.integrations.zoho.adapter import ZohoAdapter
+from app.services.runtime_event_service import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -106,6 +107,11 @@ async def execute_instance(instance_id: UUID):
                     instance.abort_reason = f"conversation_{conversation.status.value}"
                     instance.aborted_at = datetime.utcnow()
                     session.add(instance)
+                    await log_event(session, event_type="runtime.aborted_human_takeover", source="runtime",
+                                    workspace_id=instance.workspace_id, outcome="skipped",
+                                    related_ids={"execution_instance_id": str(instance_id),
+                                                 "conversation_id": str(conversation.id) if conversation else None},
+                                    payload={"reason": instance.abort_reason})
                     await session.commit()
                     return
 
@@ -114,12 +120,17 @@ async def execute_instance(instance_id: UUID):
                 execution_instance_id=instance.id,
                 node_id=UUID(current_node_id)
             )
-            
+
+            await log_event(session, event_type="runtime.step_started", source="runtime",
+                            workspace_id=instance.workspace_id,
+                            related_ids={"execution_instance_id": str(instance_id)},
+                            payload={"node_type": node_type, "node_id": current_node_id})
+
             try:
                 # Execution Logic per Node Type
                 output_data = {}
                 node_config = node.get("config", {})
-                
+
                 if node_type == "AI_REPLY":
                     output_data = await handle_ai_reply(session, instance, node_config)
                 elif node_type == "SEND_MESSAGE":
@@ -129,10 +140,16 @@ async def execute_instance(instance_id: UUID):
                 else:
                     logger.warning(f"Unknown node type: {node_type}")
 
+                step_duration_ms = int((time.time() - start_time) * 1000)
                 step_log.output_data = output_data
-                step_log.duration_ms = int((time.time() - start_time) * 1000)
+                step_log.duration_ms = step_duration_ms
                 session.add(step_log)
-                
+
+                await log_event(session, event_type="runtime.step_completed", source="runtime",
+                                workspace_id=instance.workspace_id, duration_ms=step_duration_ms,
+                                related_ids={"execution_instance_id": str(instance_id)},
+                                payload={"node_type": node_type, "node_id": current_node_id})
+
                 # Move to next node
                 next_nodes = edge_map.get(current_node_id, [])
                 if next_nodes:
@@ -141,16 +158,21 @@ async def execute_instance(instance_id: UUID):
                 else:
                     current_node_id = None
                     instance.status = ExecutionStatus.COMPLETED
-                
+
                 session.add(instance)
                 await session.commit()
-                
+
             except Exception as e:
                 logger.exception(f"Error executing node {current_node_id}")
                 step_log.error_message = str(e)
                 instance.status = ExecutionStatus.FAILED
                 session.add(step_log)
                 session.add(instance)
+                await log_event(session, event_type="runtime.step_failed", source="runtime",
+                                workspace_id=instance.workspace_id, outcome="failure",
+                                error_message=str(e), duration_ms=int((time.time() - start_time) * 1000),
+                                related_ids={"execution_instance_id": str(instance_id)},
+                                payload={"node_type": node_type, "node_id": current_node_id})
                 await session.commit()
                 break
 
@@ -179,6 +201,10 @@ async def handle_zoho_upsert(session: AsyncSession, instance: ExecutionInstance,
     contact = await session.get(Contact, instance.contact_id)
     if not contact:
         raise Exception("Contact not found")
+
+    await log_event(session, event_type="zoho.sync_started", source="zoho",
+                    workspace_id=instance.workspace_id,
+                    related_ids={"execution_instance_id": str(instance.id), "contact_id": str(instance.contact_id)})
 
     # 4. Prepare Payload via Service
     from app.services.zoho_payload_builder import build_zoho_payload
@@ -232,6 +258,10 @@ async def handle_zoho_upsert(session: AsyncSession, instance: ExecutionInstance,
                 await asyncio.sleep(wait_time)
                 continue
             else:
+                await log_event(session, event_type="zoho.sync_failed", source="zoho",
+                                workspace_id=instance.workspace_id, outcome="failure",
+                                error_message=str(e),
+                                related_ids={"execution_instance_id": str(instance.id), "contact_id": str(instance.contact_id)})
                 raise e # Permanent error or max retries
 
     # Check for Token Refresh
@@ -244,7 +274,12 @@ async def handle_zoho_upsert(session: AsyncSession, instance: ExecutionInstance,
     contact.zoho_lead_id = zoho_id
     contact.zoho_last_synced_at = datetime.utcnow()
     session.add(contact)
-    
+
+    await log_event(session, event_type="zoho.sync_succeeded", source="zoho",
+                    workspace_id=instance.workspace_id,
+                    related_ids={"execution_instance_id": str(instance.id), "contact_id": str(instance.contact_id)},
+                    payload={"zoho_lead_id": zoho_id, "action": action})
+
     return {"zoho_lead_id": zoho_id, "action": action}
 
 async def handle_ai_reply(session: AsyncSession, instance: ExecutionInstance, config: Dict[str, Any]) -> Dict[str, Any]:
@@ -322,6 +357,11 @@ async def handle_ai_reply(session: AsyncSession, instance: ExecutionInstance, co
     )
     session.add(new_msg)
     await session.flush() # Get the ID for Celery
+
+    await log_event(session, event_type="runtime.ai_reply_generated", source="runtime",
+                    workspace_id=instance.workspace_id,
+                    related_ids={"execution_instance_id": str(instance.id), "message_id": str(new_msg.id)},
+                    payload={"content_length": len(reply_text), "platform": platform})
 
     # 6. Trigger Dispatch (Mission 6)
     try:

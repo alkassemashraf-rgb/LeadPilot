@@ -38,6 +38,7 @@ const adminNavItems = [
     { name: "Zoho Health",   href: "/admin/zoho-health",   icon: Database },
     { name: "Monitoring",    href: "/admin/monitoring",    icon: Activity },
     { name: "Audit Log",     href: "/admin/audit-log",     icon: ScrollText },
+    { name: "Runtime Events",href: "/admin/runtime-events",icon: Activity },
 ];
 
 interface AdminSidebarProps {

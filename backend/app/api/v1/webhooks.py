@@ -15,6 +15,7 @@ from app.models.models import Integration, WebhookEventLog, WebhookStatus
 from app.workers.tasks import process_webhook_event
 from app.core.modules import require_module_enabled, MODULE_WEBHOOKS_INGESTION
 from app.services.entitlements import require_entitlement
+from app.services.runtime_event_service import log_event
 
 router = APIRouter()
 
@@ -81,14 +82,14 @@ async def whatsapp_webhook(
     # 1. Extract IDs
     phone_number_id = None
     event_id = None
-    
+
     try:
         entry = payload.get("entry", [])[0]
         change = entry.get("changes", [])[0]
         value = change.get("value", {})
         metadata = value.get("metadata", {})
         phone_number_id = metadata.get("phone_number_id")
-        
+
         messages = value.get("messages", [])
         if messages:
             event_id = messages[0].get("id")
@@ -97,9 +98,19 @@ async def whatsapp_webhook(
     except (IndexError, AttributeError):
         pass
 
+    await log_event(db, event_type="webhook.received", source="webhook",
+                    payload={"provider": "whatsapp", "phone_number_id": phone_number_id})
+
     # 2. Resolve Workspace
     workspace_id = await resolve_workspace(db, "whatsapp", phone_number_id) if phone_number_id else None
-    
+
+    if workspace_id:
+        await log_event(db, event_type="webhook.workspace_resolved", source="webhook",
+                        workspace_id=workspace_id, payload={"provider": "whatsapp"})
+    else:
+        await log_event(db, event_type="webhook.workspace_not_found", source="webhook",
+                        outcome="failure", payload={"provider": "whatsapp", "phone_number_id": phone_number_id})
+
     # 3. Store Event Log
     correlation_id = uuid4()
     event_log = WebhookEventLog(
@@ -110,11 +121,11 @@ async def whatsapp_webhook(
         correlation_id=correlation_id,
         status=WebhookStatus.RECEIVED
     )
-    
+
     if not workspace_id:
         event_log.status = WebhookStatus.FAILED
         event_log.last_error = "workspace_not_found"
-    
+
     try:
         db.add(event_log)
         await db.commit()
@@ -125,7 +136,11 @@ async def whatsapp_webhook(
     # 4. Dispatch Task ONLY if resolved
     if workspace_id:
         process_webhook_event.delay(str(event_log.id))
-        
+        await log_event(db, event_type="webhook.queued", source="webhook",
+                        workspace_id=workspace_id, correlation_id=str(correlation_id),
+                        related_ids={"webhook_event_id": str(event_log.id)})
+        await db.commit()
+
     return {"status": "ok", "correlation_id": str(correlation_id)}
 
 @router.post("/meta", dependencies=[Depends(require_module_enabled(MODULE_WEBHOOKS_INGESTION, "write"))])
@@ -137,15 +152,21 @@ async def meta_webhook(
 ):
     """Inbound Meta Webhook."""
     payload_bytes = await request.body()
-    
+
     # 1. Signature Check (SHA-256 preferred, fallback to SHA-1)
     if x_hub_signature_256:
         if not verify_meta_signature(payload_bytes, x_hub_signature_256, algorithm="sha256"):
             if settings.META_APP_SECRET:
+                await log_event(db, event_type="webhook.signature_invalid", source="webhook",
+                                outcome="failure", payload={"provider": "meta", "algorithm": "sha256"})
+                await db.commit()
                 raise HTTPException(status_code=403, detail="Invalid SHA-256 signature")
     elif x_hub_signature:
         if not verify_meta_signature(payload_bytes, x_hub_signature, algorithm="sha1"):
             if settings.META_APP_SECRET:
+                await log_event(db, event_type="webhook.signature_invalid", source="webhook",
+                                outcome="failure", payload={"provider": "meta", "algorithm": "sha1"})
+                await db.commit()
                 raise HTTPException(status_code=403, detail="Invalid SHA-1 signature")
 
     try:
@@ -156,27 +177,37 @@ async def meta_webhook(
     # 2. Extract IDs
     page_id = None
     event_id = None
-    
+
     try:
         entry = payload.get("entry", [])[0]
         page_id = entry.get("id")
-        
+
         messaging = entry.get("messaging", [])
         if messaging:
             event_id = messaging[0].get("message", {}).get("mid")
-        
+
         changes = entry.get("changes", [])
         if changes:
             event_id = changes[0].get("value", {}).get("leadgen_id")
-            
+
         if not event_id:
             event_id = f"meta_{hashlib.md5(payload_bytes).hexdigest()}"
     except (IndexError, AttributeError):
         pass
 
+    await log_event(db, event_type="webhook.received", source="webhook",
+                    payload={"provider": "meta", "page_id": page_id})
+
     # 3. Resolve Workspace
     workspace_id = await resolve_workspace(db, "meta", page_id) if page_id else None
-    
+
+    if workspace_id:
+        await log_event(db, event_type="webhook.workspace_resolved", source="webhook",
+                        workspace_id=workspace_id, payload={"provider": "meta"})
+    else:
+        await log_event(db, event_type="webhook.workspace_not_found", source="webhook",
+                        outcome="failure", payload={"provider": "meta", "page_id": page_id})
+
     # 4. Store & Dispatch
     correlation_id = uuid4()
     event_log = WebhookEventLog(
@@ -187,11 +218,11 @@ async def meta_webhook(
         correlation_id=correlation_id,
         status=WebhookStatus.RECEIVED
     )
-    
+
     if not workspace_id:
         event_log.status = WebhookStatus.FAILED
         event_log.last_error = "workspace_not_found"
-        
+
     try:
         db.add(event_log)
         await db.commit()
@@ -202,5 +233,9 @@ async def meta_webhook(
     # Dispatch ONLY if resolved
     if workspace_id:
         process_webhook_event.delay(str(event_log.id))
-        
+        await log_event(db, event_type="webhook.queued", source="webhook",
+                        workspace_id=workspace_id, correlation_id=str(correlation_id),
+                        related_ids={"webhook_event_id": str(event_log.id)})
+        await db.commit()
+
     return {"status": "ok", "correlation_id": str(correlation_id)}

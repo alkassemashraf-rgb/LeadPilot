@@ -25,6 +25,7 @@ from app.models.models import (
     Plan, PlanEntitlement, WorkspacePlan,
     WorkspaceEntitlementOverride, UsageMeter,
     AgencyAccount, AgencyMember, AgencyStatus, WorkspaceOwnership,
+    RuntimeEventLog,
 )
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.modules import module_cache, ALL_MODULES, MODULE_ADMIN_PORTAL
@@ -354,6 +355,92 @@ async def get_audit_log_detail(
         "error_message": entry.error_message,
         "created_at": entry.created_at.isoformat(),
     })
+
+
+# ─── Runtime Events Endpoints (Mission 18) ────────────────────────────────────
+
+def _rt_event_to_dict(e: RuntimeEventLog) -> dict:
+    return {
+        "id": str(e.id),
+        "workspace_id": str(e.workspace_id) if e.workspace_id else None,
+        "event_type": e.event_type,
+        "source": e.source,
+        "correlation_id": e.correlation_id,
+        "related_ids": e.related_ids,
+        "actor_user_id": str(e.actor_user_id) if e.actor_user_id else None,
+        "payload": e.payload,
+        "outcome": e.outcome,
+        "error_message": e.error_message,
+        "duration_ms": e.duration_ms,
+        "created_at": e.created_at.isoformat() if e.created_at else None,
+    }
+
+
+@router.get("/runtime-events", response_model=ResponseEnvelope[dict])
+async def list_runtime_events(
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=200),
+    workspace_id: Optional[str] = None,
+    source: Optional[str] = None,
+    event_type: Optional[str] = None,
+    outcome: Optional[str] = None,
+    correlation_id: Optional[str] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+) -> Any:
+    """List all runtime events (admin only)."""
+    from datetime import datetime
+    query = select(RuntimeEventLog)
+
+    if workspace_id:
+        query = query.where(RuntimeEventLog.workspace_id == UUID(workspace_id))
+    if source:
+        query = query.where(RuntimeEventLog.source == source)
+    if event_type:
+        query = query.where(RuntimeEventLog.event_type == event_type)
+    if outcome:
+        query = query.where(RuntimeEventLog.outcome == outcome)
+    if correlation_id:
+        query = query.where(RuntimeEventLog.correlation_id == correlation_id)
+    if date_from:
+        try:
+            query = query.where(RuntimeEventLog.created_at >= datetime.fromisoformat(date_from))
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            query = query.where(RuntimeEventLog.created_at <= datetime.fromisoformat(date_to))
+        except ValueError:
+            pass
+
+    count_query = select(func.count()).select_from(query.subquery())
+    total = (await db.execute(count_query)).scalar_one()
+
+    query = query.order_by(RuntimeEventLog.created_at.desc()).offset(skip).limit(limit)
+    entries = (await db.execute(query)).scalars().all()
+
+    return wrap_data({
+        "items": [_rt_event_to_dict(e) for e in entries],
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+    })
+
+
+@router.get("/runtime-events/{event_id}", response_model=ResponseEnvelope[dict])
+async def get_runtime_event_detail(
+    event_id: str,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Get a single runtime event by ID (admin only)."""
+    entry = await db.get(RuntimeEventLog, UUID(event_id))
+    if not entry:
+        return wrap_error("Runtime event not found")
+
+    return wrap_data(_rt_event_to_dict(entry))
 
 
 # ─── Users Endpoints ─────────────────────────────────────────────────────────

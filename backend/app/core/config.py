@@ -60,6 +60,9 @@ class Settings(BaseSettings):
     APP_BASE_URL: Optional[str] = None # For constructing links
     EMAIL_VERIFICATION_GRACE_DAYS: int = 7
 
+    # Runtime Event Trail
+    RUNTIME_EVENT_RETENTION_DAYS: int = 30
+
     @model_validator(mode="after")
     def validate_email_settings(self) -> "Settings":
         import logging

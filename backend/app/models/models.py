@@ -406,6 +406,29 @@ class EmailOutbox(BaseIDModel, table=True):
     locked_at: Optional[datetime] = None
     last_error: Optional[str] = None
 
+# --- Runtime Event Trail (Mission 18) ---
+
+class RuntimeEventLog(SQLModel, table=True):
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    workspace_id: Optional[UUID] = Field(default=None, index=True)
+    event_type: str = Field(index=True)
+    source: str = Field(index=True)
+    correlation_id: Optional[str] = Field(default=None, index=True)
+    related_ids: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    actor_user_id: Optional[UUID] = Field(default=None)
+    payload: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
+    outcome: Optional[str] = Field(default=None)
+    error_message: Optional[str] = Field(default=None)
+    duration_ms: Optional[int] = Field(default=None)
+    created_at: datetime = Field(default_factory=datetime.utcnow, index=True)
+
+    __table_args__ = (
+        Index("idx_rte_ws_created", "workspace_id", "created_at"),
+        Index("idx_rte_correlation", "correlation_id"),
+        Index("idx_rte_type_created", "event_type", "created_at"),
+        Index("idx_rte_source_created", "source", "created_at"),
+    )
+
 # --- Plans & Entitlements (Mission 14) ---
 
 class Plan(BaseIDModel, table=True):

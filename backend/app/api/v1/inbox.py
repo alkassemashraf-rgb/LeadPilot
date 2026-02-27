@@ -24,6 +24,7 @@ from app.services.dispatch_service import DispatchService
 from app.workers.tasks import dispatch_message_task
 from app.services.entitlements import require_entitlement
 from app.services.audit_service import audit_event
+from app.services.runtime_event_service import log_event
 
 router = APIRouter()
 
@@ -196,6 +197,10 @@ async def reply_to_conversation(
         entity_id=str(conversation_id), actor_user_id=current_user.id,
         outcome="success", workspace_id=workspace.id, request=request,
     )
+    await log_event(db, event_type="inbox.manual_reply", source="inbox",
+                    workspace_id=workspace.id, actor_user_id=current_user.id,
+                    related_ids={"conversation_id": str(conversation_id), "message_id": str(new_msg.id)},
+                    payload={"content_length": len(content), "platform": platform})
     await db.commit()
 
     # Enqueue dispatch
@@ -224,6 +229,7 @@ async def update_conversation_status(
     if not conv or conv.workspace_id != workspace.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
         
+    old_status = conv.status.value if conv.status else None
     conv.status = ConversationStatus(new_status)
     conv.updated_at = datetime.utcnow()
     db.add(conv)
@@ -233,6 +239,10 @@ async def update_conversation_status(
         outcome="success", workspace_id=workspace.id, request=request,
         metadata={"new_status": new_status},
     )
+    await log_event(db, event_type="inbox.status_changed", source="inbox",
+                    workspace_id=workspace.id, actor_user_id=current_user.id,
+                    related_ids={"conversation_id": str(conversation_id)},
+                    payload={"old_status": old_status, "new_status": new_status})
     await db.commit()
 
     return wrap_data({"conversation_id": str(conv.id), "status": conv.status})

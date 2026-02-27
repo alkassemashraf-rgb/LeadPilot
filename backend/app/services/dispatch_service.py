@@ -13,6 +13,7 @@ from app.models.models import Message, DeliveryStatus, Integration, ChannelIdent
 from app.core.security import decrypt_data
 from app.integrations.whatsapp.adapter import WhatsAppAdapter
 from app.integrations.meta.adapter import MetaAdapter
+from app.services.runtime_event_service import log_event
 
 logger = logging.getLogger(__name__)
 
@@ -89,6 +90,9 @@ class DispatchService:
 
             if not lock_acquired:
                 logger.warning(f"Message {msg.id} is already being dispatched (locked). Skipping.")
+                await log_event(db, event_type="dispatch.lock_skipped", source="dispatch",
+                                workspace_id=msg.workspace_id, outcome="skipped",
+                                related_ids={"message_id": str(msg.id)})
                 continue
             
             try:
@@ -124,6 +128,9 @@ class DispatchService:
             msg.delivery_status = DeliveryStatus.SENT
             msg.sent_at = msg.sent_at or datetime.utcnow()
             db.add(msg)
+            await log_event(db, event_type="dispatch.skipped_already_sent", source="dispatch",
+                            workspace_id=msg.workspace_id, outcome="skipped",
+                            related_ids={"message_id": str(msg.id)})
             await db.commit()
             return
 
@@ -144,6 +151,9 @@ class DispatchService:
                 msg.sent_at = datetime.utcnow()
                 msg.last_error = "Skipped by idempotency guard"
                 db.add(msg)
+                await log_event(db, event_type="dispatch.skipped_idempotency", source="dispatch",
+                                workspace_id=msg.workspace_id, outcome="skipped",
+                                related_ids={"message_id": str(msg.id)})
                 await db.commit()
                 return
 
@@ -152,6 +162,10 @@ class DispatchService:
         msg.last_attempt_at = datetime.utcnow()
         msg.attempt_count += 1
         db.add(msg)
+        await log_event(db, event_type="dispatch.attempt_started", source="dispatch",
+                        workspace_id=msg.workspace_id,
+                        related_ids={"message_id": str(msg.id), "conversation_id": str(msg.conversation_id)},
+                        payload={"platform": msg.platform, "attempt_count": msg.attempt_count})
         await db.commit()
         await db.refresh(msg)
 
@@ -215,20 +229,31 @@ class DispatchService:
             msg.sent_at = datetime.utcnow()
             msg.last_error = None
             logger.info(f"Successfully sent message {msg.id}", extra=log_ctx)
-            
+            await log_event(db, event_type="dispatch.attempt_succeeded", source="dispatch",
+                            workspace_id=msg.workspace_id,
+                            related_ids={"message_id": str(msg.id)},
+                            payload={"provider_message_id": provider_message_id, "platform": msg.platform})
+
         except Exception as e:
             error_str = str(e)
             is_permanent = "PERMANENT_FAILURE" in error_str
-            
+
             logger.error(f"Dispatch error for message {msg.id}: {error_str}", extra=log_ctx)
             msg.last_error = error_str
-            
+
             if is_permanent or msg.attempt_count >= 5:
                 msg.delivery_status = DeliveryStatus.FAILED
             else:
                 # Set back to FAILED for retry polling
-                msg.delivery_status = DeliveryStatus.FAILED 
-            
+                msg.delivery_status = DeliveryStatus.FAILED
+
+            await log_event(db, event_type="dispatch.attempt_failed", source="dispatch",
+                            workspace_id=msg.workspace_id,
+                            outcome="failure" if is_permanent or msg.attempt_count >= 5 else "skipped",
+                            error_message=error_str,
+                            related_ids={"message_id": str(msg.id)},
+                            payload={"platform": msg.platform, "attempt_count": msg.attempt_count})
+
             raise e
         finally:
             db.add(msg)

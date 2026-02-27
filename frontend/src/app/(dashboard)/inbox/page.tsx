@@ -15,13 +15,15 @@ import {
     Bot,
     UserCircle,
     Archive,
-    CloudUpload
+    CloudUpload,
+    Clock
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api";
 import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
+import TimelinePanel from "@/components/inbox/TimelinePanel";
 
 // --- Types ---
 
@@ -59,6 +61,7 @@ export default function InboxPage() {
     const [replyContent, setReplyContent] = useState("");
     const [sending, setSending] = useState(false);
     const [syncingZoho, setSyncingZoho] = useState(false);
+    const [showTimeline, setShowTimeline] = useState(false);
 
     // Filters
     const [searchQuery, setSearchQuery] = useState("");
@@ -239,7 +242,7 @@ export default function InboxPage() {
             </div>
 
             {/* Right Panel: Thread & Composer */}
-            <div className="flex-1 flex flex-col bg-white">
+            <div className={cn("flex flex-col bg-white", showTimeline ? "flex-1 min-w-0" : "flex-1")}>
                 {selectedId && thread ? (
                     <>
                         {/* Header */}
@@ -273,6 +276,18 @@ export default function InboxPage() {
                                         Return to AI
                                     </button>
                                 )}
+                                <button
+                                    onClick={() => setShowTimeline(!showTimeline)}
+                                    className={cn(
+                                        "flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors",
+                                        showTimeline
+                                            ? "bg-blue-100 text-blue-700 border border-blue-200"
+                                            : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                                    )}
+                                >
+                                    <Clock className="w-3.5 h-3.5" />
+                                    Timeline
+                                </button>
                                 <button
                                     onClick={() => handleUpdateStatus(selectedId, thread.status === "closed" ? "bot_active" : "closed")}
                                     className={cn(
@@ -369,6 +384,13 @@ export default function InboxPage() {
                     </div>
                 )}
             </div>
+
+            {/* Timeline Side Panel */}
+            {showTimeline && selectedId && (
+                <div className="w-80 border-l border-slate-200 bg-white overflow-y-auto">
+                    <TimelinePanel conversationId={selectedId} />
+                </div>
+            )}
         </div>
     );
 }
