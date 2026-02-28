@@ -25,9 +25,9 @@ WORKDIR /app
 
 # Copy Backend
 COPY --chown=user:user backend/ /app/backend/
-# Minimal .env with non-secret defaults only.
-# All secrets MUST be set via HuggingFace Space Secrets (environment variables).
-RUN printf 'EMAIL_PROVIDER=console\nJWT_ALGORITHM=HS256\n' > /app/backend/.env && chown user:user /app/backend/.env
+# Build-time .env with placeholder values so Pydantic Settings validation passes during pip install.
+# All secrets are overridden at runtime via HuggingFace Space Secrets (environment variables).
+RUN printf 'DATABASE_URL=sqlite+aiosqlite:///./leadpilot.db\nREDIS_URL=redis://localhost:6379/0\nJWT_SECRET=build_time_placeholder\nJWT_ALGORITHM=HS256\nENCRYPTION_KEY_FERNET=ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=\nEMAIL_PROVIDER=console\n' > /app/backend/.env && chown user:user /app/backend/.env
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 # Ensure SQLite DB is writeable by the user
 RUN touch /app/backend/leadpilot.db && chown user:user /app/backend/leadpilot.db
