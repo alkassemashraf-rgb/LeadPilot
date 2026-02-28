@@ -133,7 +133,9 @@ class Flow(WorkspaceScopedModel, table=True):
     name: str = Field(index=True)
     description: Optional[str] = None
     status: FlowStatus = Field(default=FlowStatus.DRAFT)
-    
+    # Points to the active published FlowVersion; FK constraint added by Alembic migration
+    published_version_id: Optional[UUID] = Field(default=None, index=True)
+
     # Relationships
     nodes: List["FlowNode"] = Relationship(back_populates="flow")
     edges: List["FlowEdge"] = Relationship(back_populates="flow")
@@ -525,3 +527,60 @@ class SystemSettings(BaseIDModel, table=True):
     settings_json: Dict[str, Any] = Field(sa_column=Column(JSON))
     version: int = Field(default=1)
     updated_by_user_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+
+
+# --- Builder v2: Draft Storage (Mission 27) ---
+
+class FlowDraft(BaseIDModel, table=True):
+    """Editable builder graph for a flow. One draft per flow. Not used by runtime."""
+    workspace_id: UUID = Field(index=True)
+    flow_id: UUID = Field(foreign_key="flow.id")
+    builder_graph_json: Dict[str, Any] = Field(sa_column=Column(JSON))
+    updated_by_user_id: Optional[UUID] = Field(default=None)
+    last_validation_errors: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+
+    __table_args__ = (
+        UniqueConstraint("flow_id", name="uq_flowdraft_flow_id"),
+        Index("idx_flowdraft_ws_updated", "workspace_id", "updated_at"),
+    )
+
+
+# --- Template Catalog (Mission 27) ---
+
+class AutomationTemplate(BaseIDModel, table=True):
+    """Global, admin-managed automation template. Workspace users can browse and clone."""
+    slug: str = Field(unique=True, index=True)
+    name: str = Field(index=True)
+    description: Optional[str] = None
+    category: str = Field(default="general", index=True)
+    industry_tags: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    platforms: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    required_integrations: List[str] = Field(default_factory=list, sa_column=Column(JSON))
+    is_featured: bool = Field(default=False, index=True)
+    is_active: bool = Field(default=True, index=True)
+    created_by_admin_id: Optional[UUID] = Field(default=None)
+
+    __table_args__ = (
+        Index("idx_template_active_featured", "is_active", "is_featured"),
+    )
+
+
+class AutomationTemplateVersion(BaseIDModel, table=True):
+    """Immutable snapshot of a template version. Published versions are cloneable."""
+    template_id: UUID = Field(foreign_key="automationtemplate.id", index=True)
+    version_number: int
+    builder_graph_json: Dict[str, Any] = Field(sa_column=Column(JSON))
+    translated_definition_json: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+    changelog: Optional[str] = None
+    created_by_admin_id: Optional[UUID] = Field(default=None)
+    is_published: bool = Field(default=False, index=True)
+    published_at: Optional[datetime] = Field(default=None)
+
+    __table_args__ = (
+        Index("idx_atv_template_ver", "template_id", "version_number"),
+        Index("idx_atv_template_published", "template_id", "is_published"),
+    )

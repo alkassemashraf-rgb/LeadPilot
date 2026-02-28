@@ -54,28 +54,54 @@ AUTOMATION_NODE_TYPES: List[Dict[str, Any]] = [
         "label": "AI Reply",
         "description": "Generate AI-powered response using workspace prompt config.",
         "icon_hint": "bot",
+        "runtime_supported": True,
     },
     {
         "key": "SEND_MESSAGE",
         "label": "Send Message",
         "description": "Send a message via the connected platform.",
         "icon_hint": "send",
+        "runtime_supported": True,
     },
     {
         "key": "HUMAN_HANDOVER",
         "label": "Human Handover",
         "description": "Transfer conversation to a human agent.",
         "icon_hint": "user",
+        "runtime_supported": True,
     },
     {
         "key": "TAG_CONTACT",
         "label": "Tag Contact",
         "description": "Apply a tag to the contact for segmentation.",
         "icon_hint": "tag",
+        "runtime_supported": True,
+    },
+    {
+        "key": "ZOHO_UPSERT_LEAD",
+        "label": "Zoho: Upsert Lead",
+        "description": "Sync contact as a lead in Zoho CRM.",
+        "icon_hint": "database",
+        "runtime_supported": True,
+    },
+    {
+        "key": "CONDITION",
+        "label": "Condition (Branch)",
+        "description": "Branch the flow based on a condition. (Coming soon — cannot publish yet)",
+        "icon_hint": "git-branch",
+        "runtime_supported": False,
+    },
+    {
+        "key": "WAIT_DELAY",
+        "label": "Wait / Delay",
+        "description": "Pause the flow for a set duration. (Coming soon — cannot publish yet)",
+        "icon_hint": "clock",
+        "runtime_supported": False,
     },
 ]
 
-VALID_NODE_TYPES = {n["key"] for n in AUTOMATION_NODE_TYPES}
+# Node types supported by the runtime engine (subset of builder palette)
+VALID_NODE_TYPES = {n["key"] for n in AUTOMATION_NODE_TYPES if n.get("runtime_supported", True)}
 
 
 # ── Automation Trigger Types ─────────────────────────────────────────

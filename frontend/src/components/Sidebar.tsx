@@ -17,6 +17,7 @@ import {
     SendHorizontal,
     Inbox,
     Landmark,
+    LayoutTemplate,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api";
@@ -26,6 +27,7 @@ const navItems = [
     { name: "Inbox", href: "/inbox", icon: Inbox },
     { name: "Contacts", href: "/contacts", icon: Users },
     { name: "Automations", href: "/automations", icon: Zap },
+    { name: "Templates", href: "/templates", icon: LayoutTemplate },
     { name: "Outbound Queue", href: "/dispatch", icon: SendHorizontal },
     { name: "Prompt Studio", href: "/prompt-studio", icon: Sparkles },
     { name: "Test Chat", href: "/test-chat", icon: MessageSquare },

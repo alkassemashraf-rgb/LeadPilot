@@ -4,16 +4,15 @@ import { useState, useEffect } from "react";
 import {
     Zap,
     Plus,
-    Play,
-    Pause,
-    MoreHorizontal,
     ChevronRight,
     Loader2,
-    FileCode
+    LayoutTemplate,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiClient } from "@/lib/api";
+import { createFlow } from "@/lib/automations-api";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Flow {
     id: string;
@@ -24,8 +23,10 @@ interface Flow {
 }
 
 export default function AutomationsPage() {
+    const router = useRouter();
     const [flows, setFlows] = useState<Flow[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [creating, setCreating] = useState(false);
 
     // Fetch flows from backend
     useEffect(() => {
@@ -39,6 +40,15 @@ export default function AutomationsPage() {
         fetchFlows();
     }, []);
 
+    const handleCreateBlank = async () => {
+        setCreating(true);
+        const res = await createFlow("Untitled Automation");
+        if (res.success && res.data) {
+            router.push(`/automations/${res.data.flow_id}`);
+        }
+        setCreating(false);
+    };
+
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8">
             {/* Header */}
@@ -49,13 +59,23 @@ export default function AutomationsPage() {
                         Build and manage your AI-driven workflows.
                     </p>
                 </div>
-                <Link
-                    href="/automations/new"
-                    className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm"
-                >
-                    <Plus className="w-4 h-4" />
-                    Create Flow
-                </Link>
+                <div className="flex items-center gap-2">
+                    <Link
+                        href="/templates"
+                        className="flex items-center gap-2 border border-border hover:border-teal-400 text-foreground px-4 py-2 rounded-lg font-medium transition-colors"
+                    >
+                        <LayoutTemplate className="w-4 h-4" />
+                        Templates
+                    </Link>
+                    <button
+                        onClick={handleCreateBlank}
+                        disabled={creating}
+                        className="flex items-center gap-2 bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg font-medium transition-colors shadow-sm disabled:opacity-50"
+                    >
+                        {creating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                        Create Blank
+                    </button>
+                </div>
             </div>
 
             {/* Stats/Badges Placeholder */}
@@ -88,9 +108,9 @@ export default function AutomationsPage() {
                             <h3 className="font-semibold text-lg">No automations yet</h3>
                             <p className="text-muted-foreground">Get started by creating your first AI workflow.</p>
                         </div>
-                        <button className="text-teal-600 font-medium hover:underline">
-                            View templates
-                        </button>
+                        <Link href="/templates" className="text-teal-600 font-medium hover:underline">
+                            Browse templates
+                        </Link>
                     </div>
                 ) : (
                     <div className="grid gap-3">

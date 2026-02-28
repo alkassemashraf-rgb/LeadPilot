@@ -361,3 +361,93 @@ export async function patchSystemSettings(settings: Record<string, any>) {
         body: JSON.stringify({ settings }),
     });
 }
+
+// ---- Template Catalog Admin (Mission 27) -----------------------------------
+
+export interface AdminTemplateItem {
+    id: string;
+    slug: string;
+    name: string;
+    description: string | null;
+    category: string;
+    industry_tags: string[];
+    platforms: string[];
+    required_integrations: string[];
+    is_featured: boolean;
+    is_active: boolean;
+    created_at: string;
+}
+
+export interface AdminTemplateVersionItem {
+    id: string;
+    version_number: number;
+    changelog: string | null;
+    is_published: boolean;
+    published_at: string | null;
+    created_at: string;
+}
+
+export async function getAdminTemplates(skip = 0, limit = 50) {
+    return adminRequest<{ items: AdminTemplateItem[]; total: number }>(
+        `/admin/templates?skip=${skip}&limit=${limit}`
+    );
+}
+
+export async function createAdminTemplate(payload: {
+    slug: string;
+    name: string;
+    description?: string;
+    category?: string;
+    industry_tags?: string[];
+    platforms?: string[];
+    required_integrations?: string[];
+    is_featured?: boolean;
+}) {
+    return adminRequest<{ id: string; slug: string; name: string }>("/admin/templates", {
+        method: "POST",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function patchAdminTemplate(
+    templateId: string,
+    payload: {
+        name?: string;
+        description?: string;
+        category?: string;
+        is_featured?: boolean;
+        is_active?: boolean;
+        industry_tags?: string[];
+        platforms?: string[];
+        required_integrations?: string[];
+    }
+) {
+    return adminRequest<{ id: string; updated: boolean }>(`/admin/templates/${templateId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+    });
+}
+
+export async function createTemplateVersion(
+    templateId: string,
+    payload: { builder_graph_json: Record<string, any>; changelog?: string }
+) {
+    return adminRequest<{ valid: boolean; id?: string; version_number?: number; errors?: any[] }>(
+        `/admin/templates/${templateId}/versions`,
+        {
+            method: "POST",
+            body: JSON.stringify(payload),
+        }
+    );
+}
+
+export async function publishTemplateVersion(templateId: string) {
+    return adminRequest<{ published: boolean; version_number: number; published_at: string }>(
+        `/admin/templates/${templateId}/publish`,
+        { method: "POST" }
+    );
+}
+
+export async function getTemplateVersions(templateId: string) {
+    return adminRequest<AdminTemplateVersionItem[]>(`/admin/templates/${templateId}/versions`);
+}

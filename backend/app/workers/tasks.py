@@ -155,18 +155,34 @@ def process_webhook_event(event_id: str):
                     )
                     session.add(inbound_msg)
 
-                # 3. Find Matching Published Flow
-                flow_query = select(FlowVersion).join(Flow).where(
+                # 3. Find Matching Published Flow (prefer published_version_id pointer)
+                flow_version = None
+                flow_query = select(Flow).where(
                     Flow.workspace_id == event.workspace_id,
-                    FlowVersion.is_published == True
-                ).order_by(FlowVersion.created_at.desc())
+                    Flow.status == "published",
+                    Flow.published_version_id != None,  # noqa: E711
+                ).limit(1)
+                flow_result = (await session.execute(flow_query)).scalars().first()
+                if flow_result and flow_result.published_version_id:
+                    flow_version = await session.get(FlowVersion, flow_result.published_version_id)
 
-                flow_version = (await session.execute(flow_query)).scalars().first()
+                # Fallback: legacy flows published before Mission 27 (published_version_id not set)
+                if not flow_version:
+                    legacy_query = select(FlowVersion).join(Flow).where(
+                        Flow.workspace_id == event.workspace_id,
+                        FlowVersion.is_published == True
+                    ).order_by(FlowVersion.created_at.desc())
+                    flow_version = (await session.execute(legacy_query)).scalars().first()
 
                 if flow_version:
                     # 4. Create Execution Instance
                     nodes = flow_version.definition_json.get("nodes", [])
-                    start_node = next((n for n in nodes if n.get("type") == "TRIGGER"), None)
+                    # Use start_node_id if available (Mission 27 format), else find TRIGGER node
+                    start_node_id = flow_version.definition_json.get("start_node_id")
+                    if start_node_id:
+                        start_node = next((n for n in nodes if n.get("id") == start_node_id), None)
+                    else:
+                        start_node = next((n for n in nodes if n.get("type") == "TRIGGER"), None)
                     if not start_node and nodes:
                         start_node = nodes[0]
 

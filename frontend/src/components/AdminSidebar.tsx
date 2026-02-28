@@ -19,6 +19,7 @@ import {
     CreditCard,
     Landmark,
     SlidersHorizontal,
+    LayoutTemplate,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { adminAuth } from "@/lib/admin-auth";
@@ -34,6 +35,7 @@ const adminNavItems = [
     { name: "Email Logs",    href: "/admin/email-logs",    icon: Mail },
     { name: "Dispatch",      href: "/admin/dispatch",      icon: Send },
     { name: "Automations",   href: "/admin/automations",   icon: Zap },
+    { name: "Templates",     href: "/admin/templates",     icon: LayoutTemplate },
     { name: "Prompt Configs",href: "/admin/prompt-configs",icon: FileText },
     { name: "Zoho Health",   href: "/admin/zoho-health",   icon: Database },
     { name: "Monitoring",    href: "/admin/monitoring",    icon: Activity },

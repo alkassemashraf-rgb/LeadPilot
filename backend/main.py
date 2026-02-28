@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel
 from app.core.config import settings
 from app.core.db import engine
-from app.api.v1 import auth, workspaces, health, prompt_config, test_chat, integrations, webhooks, automations, knowledge, analytics
+from app.api.v1 import auth, workspaces, health, prompt_config, test_chat, integrations, webhooks, automations, knowledge, analytics, templates
 from app.core.seed import seed_modules, seed_plans, seed_system_settings
 from app.api.v1.dispatch import router as dispatch_router
 from app.api.v1.inbox import router as inbox_router
@@ -147,6 +147,7 @@ app.include_router(test_chat.router, prefix=f"{settings.API_V1_STR}/test-chat", 
 app.include_router(integrations.router, prefix=f"{settings.API_V1_STR}/integrations", tags=["integrations"])
 app.include_router(webhooks.router, prefix=f"{settings.API_V1_STR}/webhooks", tags=["webhooks"])
 app.include_router(automations.router, prefix=f"{settings.API_V1_STR}/automations", tags=["automations"])
+app.include_router(templates.router, prefix=f"{settings.API_V1_STR}/templates", tags=["templates"])
 app.include_router(knowledge.router, prefix=f"{settings.API_V1_STR}/knowledge", tags=["knowledge"])
 app.include_router(dispatch_router, prefix=f"{settings.API_V1_STR}/dispatch", tags=["dispatch"])
 app.include_router(inbox_router, prefix=f"{settings.API_V1_STR}/inbox", tags=["inbox"])

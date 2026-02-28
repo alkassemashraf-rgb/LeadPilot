@@ -5,7 +5,7 @@ from sqlmodel import select, func
 from pydantic import BaseModel
 import platform
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from app.core.db import get_db
@@ -27,7 +27,9 @@ from app.models.models import (
     AgencyAccount, AgencyMember, AgencyStatus, WorkspaceOwnership,
     RuntimeEventLog,
     QualificationConfig,
+    AutomationTemplate, AutomationTemplateVersion,
 )
+from app.domain.builder_translator import validate_graph, translate
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.modules import module_cache, ALL_MODULES, MODULE_ADMIN_PORTAL
 from app.core.audit import log_admin_action
@@ -1795,3 +1797,296 @@ async def reset_workspace_qualification(
         "qualification_questions": config.qualification_questions,
         "qualification_statuses": config.qualification_statuses,
     })
+
+
+# ─── Template Catalog Admin Endpoints (Mission 27) ────────────────────────────
+
+class CreateTemplatePayload(BaseModel):
+    slug: str
+    name: str
+    description: Optional[str] = None
+    category: str = "general"
+    industry_tags: List[str] = []
+    platforms: List[str] = []
+    required_integrations: List[str] = []
+    is_featured: bool = False
+
+
+class PatchTemplatePayload(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    category: Optional[str] = None
+    is_featured: Optional[bool] = None
+    is_active: Optional[bool] = None
+    industry_tags: Optional[List[str]] = None
+    platforms: Optional[List[str]] = None
+    required_integrations: Optional[List[str]] = None
+
+
+class CreateTemplateVersionPayload(BaseModel):
+    builder_graph_json: Dict[str, Any]
+    changelog: Optional[str] = None
+
+
+@router.get("/templates", response_model=ResponseEnvelope[dict])
+async def admin_list_templates(
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+) -> Any:
+    """List all automation templates (admin view, includes inactive)."""
+    count_res = await db.execute(select(func.count(AutomationTemplate.id)))
+    total = count_res.scalar_one() or 0
+
+    result = await db.execute(
+        select(AutomationTemplate)
+        .order_by(AutomationTemplate.created_at.desc())
+        .offset(skip).limit(limit)
+    )
+    templates = result.scalars().all()
+
+    return wrap_data({
+        "items": [
+            {
+                "id": str(t.id),
+                "slug": t.slug,
+                "name": t.name,
+                "description": t.description,
+                "category": t.category,
+                "industry_tags": t.industry_tags or [],
+                "platforms": t.platforms or [],
+                "required_integrations": t.required_integrations or [],
+                "is_featured": t.is_featured,
+                "is_active": t.is_active,
+                "created_at": t.created_at.isoformat(),
+            }
+            for t in templates
+        ],
+        "total": total,
+    })
+
+
+@router.post("/templates", response_model=ResponseEnvelope[dict])
+async def admin_create_template(
+    payload: CreateTemplatePayload,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Create a new automation template."""
+    # Check slug uniqueness
+    existing = await db.execute(
+        select(AutomationTemplate).where(AutomationTemplate.slug == payload.slug)
+    )
+    if existing.scalars().first():
+        return wrap_error(f"Template with slug '{payload.slug}' already exists")
+
+    now = datetime.utcnow()
+    template = AutomationTemplate(
+        slug=payload.slug,
+        name=payload.name,
+        description=payload.description,
+        category=payload.category,
+        industry_tags=payload.industry_tags,
+        platforms=payload.platforms,
+        required_integrations=payload.required_integrations,
+        is_featured=payload.is_featured,
+        is_active=True,
+        created_by_admin_id=admin_user.id,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(template)
+    await audit_event(
+        db, action="template_create", entity_type="automation_template",
+        entity_id=payload.slug, actor_user_id=admin_user.id,
+        actor_type="admin", outcome="success", request=request,
+        metadata={"name": payload.name},
+    )
+    await db.commit()
+    await db.refresh(template)
+
+    return wrap_data({"id": str(template.id), "slug": template.slug, "name": template.name})
+
+
+@router.patch("/templates/{template_id}", response_model=ResponseEnvelope[dict])
+async def admin_patch_template(
+    template_id: UUID,
+    payload: PatchTemplatePayload,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Update template metadata."""
+    template = await db.get(AutomationTemplate, template_id)
+    if not template:
+        return wrap_error("Template not found")
+
+    if payload.name is not None:
+        template.name = payload.name
+    if payload.description is not None:
+        template.description = payload.description
+    if payload.category is not None:
+        template.category = payload.category
+    if payload.is_featured is not None:
+        template.is_featured = payload.is_featured
+    if payload.is_active is not None:
+        template.is_active = payload.is_active
+    if payload.industry_tags is not None:
+        template.industry_tags = payload.industry_tags
+    if payload.platforms is not None:
+        template.platforms = payload.platforms
+    if payload.required_integrations is not None:
+        template.required_integrations = payload.required_integrations
+
+    template.updated_at = datetime.utcnow()
+    db.add(template)
+
+    await audit_event(
+        db, action="template_update", entity_type="automation_template",
+        entity_id=str(template_id), actor_user_id=admin_user.id,
+        actor_type="admin", outcome="success", request=request,
+    )
+    await db.commit()
+    return wrap_data({"id": str(template.id), "updated": True})
+
+
+@router.post("/templates/{template_id}/versions", response_model=ResponseEnvelope[dict])
+async def admin_create_template_version(
+    template_id: UUID,
+    payload: CreateTemplateVersionPayload,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Create a new draft version for a template (validates the graph)."""
+    template = await db.get(AutomationTemplate, template_id)
+    if not template:
+        return wrap_error("Template not found")
+
+    # Validate the graph
+    errors = validate_graph(payload.builder_graph_json)
+    if errors:
+        return wrap_data({"valid": False, "errors": errors})
+
+    # Translate to runtime contract for audit/preview
+    try:
+        translated = translate(payload.builder_graph_json)
+    except Exception as e:
+        translated = None
+
+    # Get next version number
+    version_result = await db.execute(
+        select(func.max(AutomationTemplateVersion.version_number))
+        .where(AutomationTemplateVersion.template_id == template_id)
+    )
+    max_ver = version_result.scalar() or 0
+    new_ver_num = max_ver + 1
+
+    now = datetime.utcnow()
+    version = AutomationTemplateVersion(
+        template_id=template_id,
+        version_number=new_ver_num,
+        builder_graph_json=payload.builder_graph_json,
+        translated_definition_json=translated,
+        changelog=payload.changelog,
+        created_by_admin_id=admin_user.id,
+        is_published=False,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(version)
+
+    await audit_event(
+        db, action="template_version_create", entity_type="automation_template_version",
+        entity_id=str(template_id), actor_user_id=admin_user.id,
+        actor_type="admin", outcome="success", request=request,
+        metadata={"version_number": new_ver_num},
+    )
+    await db.commit()
+    await db.refresh(version)
+
+    return wrap_data({
+        "valid": True,
+        "id": str(version.id),
+        "version_number": version.version_number,
+    })
+
+
+@router.post("/templates/{template_id}/publish", response_model=ResponseEnvelope[dict])
+async def admin_publish_template(
+    template_id: UUID,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Publish the latest draft version of a template."""
+    template = await db.get(AutomationTemplate, template_id)
+    if not template:
+        return wrap_error("Template not found")
+
+    # Get latest unpublished version
+    result = await db.execute(
+        select(AutomationTemplateVersion)
+        .where(
+            AutomationTemplateVersion.template_id == template_id,
+            AutomationTemplateVersion.is_published == False,
+        )
+        .order_by(AutomationTemplateVersion.version_number.desc())
+        .limit(1)
+    )
+    version = result.scalars().first()
+    if not version:
+        return wrap_error("No unpublished version found to publish")
+
+    now = datetime.utcnow()
+    version.is_published = True
+    version.published_at = now
+    version.updated_at = now
+    db.add(version)
+
+    await audit_event(
+        db, action="template_publish", entity_type="automation_template_version",
+        entity_id=str(template_id), actor_user_id=admin_user.id,
+        actor_type="admin", outcome="success", request=request,
+        metadata={"version_number": version.version_number},
+    )
+    await db.commit()
+
+    return wrap_data({
+        "published": True,
+        "version_number": version.version_number,
+        "published_at": now.isoformat(),
+    })
+
+
+@router.get("/templates/{template_id}/versions", response_model=ResponseEnvelope[list])
+async def admin_list_template_versions(
+    template_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """List all versions for a template."""
+    template = await db.get(AutomationTemplate, template_id)
+    if not template:
+        return wrap_error("Template not found")
+
+    result = await db.execute(
+        select(AutomationTemplateVersion)
+        .where(AutomationTemplateVersion.template_id == template_id)
+        .order_by(AutomationTemplateVersion.version_number.desc())
+    )
+    versions = result.scalars().all()
+
+    return wrap_data([
+        {
+            "id": str(v.id),
+            "version_number": v.version_number,
+            "changelog": v.changelog,
+            "is_published": v.is_published,
+            "published_at": v.published_at.isoformat() if v.published_at else None,
+            "created_at": v.created_at.isoformat(),
+        }
+        for v in versions
+    ])
