@@ -31,7 +31,6 @@ test:
 	  DATABASE_URL="sqlite+aiosqlite:///./test.db" \
 	  REDIS_URL="redis://localhost:6379/0" \
 	  JWT_SECRET="test_jwt_secret_ci_only" \
-	  ADMIN_JWT_SECRET="test_admin_jwt_secret_ci_only" \
 	  ENCRYPTION_KEY_FERNET="$(TEST_FERNET_KEY)" \
 	  python -m pytest tests/ -v
 

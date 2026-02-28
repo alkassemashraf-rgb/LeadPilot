@@ -25,7 +25,9 @@ WORKDIR /app
 
 # Copy Backend
 COPY --chown=user:user backend/ /app/backend/
-RUN cp /app/backend/.env.example /app/backend/.env && chown user:user /app/backend/.env
+# Minimal .env with non-secret defaults only.
+# All secrets MUST be set via HuggingFace Space Secrets (environment variables).
+RUN printf 'EMAIL_PROVIDER=console\nJWT_ALGORITHM=HS256\n' > /app/backend/.env && chown user:user /app/backend/.env
 RUN pip install --no-cache-dir -r /app/backend/requirements.txt
 # Ensure SQLite DB is writeable by the user
 RUN touch /app/backend/leadpilot.db && chown user:user /app/backend/leadpilot.db

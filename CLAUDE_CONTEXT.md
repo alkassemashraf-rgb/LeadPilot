@@ -8,11 +8,11 @@
 ## Project Overview
 
 **LeadPilot** is a multi-tenant SaaS platform for lead capture + automation via
-WhatsApp/Meta + CRM (Zoho). Built across 13 missions (all complete as of 2026-02-25).
+WhatsApp/Meta + CRM (Zoho). Built across 27 missions (as of 2026-02-28).
 
 | Layer | Stack |
 |---|---|
-| Backend | FastAPI + SQLModel + Alembic, Python 3.9, async |
+| Backend | FastAPI + SQLModel + Alembic, Python 3.11, async |
 | Frontend | Next.js 16.1.6 + React 19 + TypeScript + Tailwind 4 |
 | DB | SQLite (dev/HuggingFace) / PostgreSQL-ready |
 | Queue | Celery + Redis |
@@ -25,11 +25,11 @@ WhatsApp/Meta + CRM (Zoho). Built across 13 missions (all complete as of 2026-02
 ## Git Remotes
 
 ```
-origin  https://github.com/alkassemashraf-rgb/LeadPilot.git
-hf      https://huggingface.co/spaces/ashrafkassem/LeadPilot.git
+origin  git@github.com:alkassemashraf-rgb/LeadPilot.git
+hf      https://huggingface.co/spaces/ashrafkassem/LeadPilot
 ```
 
-**Current HEAD (both remotes):** `8d7950f` — single clean root commit with full project.
+**Current HEAD (both remotes):** `d4d1956` — Mission 27 (Automation Builder v2 + Template Catalog Foundation).
 
 ### Important git notes
 - The project lives in iCloud Drive (`~/Library/Mobile Documents/com~apple~CloudDocs/Personal Projects/LeadPilot`).
@@ -62,7 +62,13 @@ hf      https://huggingface.co/spaces/ashrafkassem/LeadPilot.git
 | 11 | OAuth (Google), RBAC groundwork | ✅ |
 | 12 | Module system (feature flags per workspace) | ✅ |
 | 13 | Admin control plane (SuperAdmin portal, RBAC, impersonation) | ✅ |
-| **14** | **Billing + Subscriptions (Stripe)** | **Next** |
+| 14+15 | Commercial entitlements + agency reseller model | ✅ |
+| 17 | Enterprise Audit Logging Framework | ✅ |
+| 18 | High-Volume Runtime Event Trail | ✅ |
+| 19+20 | Catalog Standardization + Prompt Studio KB v2 + Dynamic Lead Qualification | ✅ |
+| 21 | Settings Center + Data-Driven Dropdowns | ✅ |
+| 27 | Automation Builder v2 + Template Catalog Foundation | ✅ |
+| **28** | **Next mission** | **Next** |
 
 ---
 
@@ -75,14 +81,13 @@ cd backend
 DATABASE_URL="sqlite+aiosqlite:///./test.db" \
 REDIS_URL="redis://localhost:6379/0" \
 JWT_SECRET="test_jwt_secret_ci_only" \
-ADMIN_JWT_SECRET="test_admin_jwt_secret_ci_only" \
 ENCRYPTION_KEY_FERNET="ZmDfcTF7_60GrrY167zsiPd67pEvs0aGOv2oasOM1Pg=" \
 python -m pytest tests/ -v
-# Expected: 57 passed (full suite ~3 min with fresh test.db)
+# Expected: 57+ passed (full suite ~3 min with fresh test.db)
 ```
 
 ### Required env vars (no defaults)
-`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `ADMIN_JWT_SECRET`, `ENCRYPTION_KEY_FERNET`
+`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, `ENCRYPTION_KEY_FERNET`
 
 ### Makefile shortcuts
 ```bash
@@ -100,11 +105,10 @@ make dev         # start backend dev server
 
 ## Critical Architecture
 
-### Dual JWT Isolation (Mission 13)
-- Product routes: `get_current_user` from `app.api.deps` — signed with `JWT_SECRET`
-- Admin routes: `get_current_admin_user` from `app.api.deps` — signed with `ADMIN_JWT_SECRET`, validates `token_type="admin"` claim
-- Tokens are **cryptographically incompatible** — admin JWT rejected by product routes and vice versa
-- Admin token stored in `localStorage["leadpilot_admin_token"]` (NOT `"leadpilot_token"`)
+### Auth (Single JWT)
+- All routes (product + admin) use `get_current_user` from `app.api.deps` — signed with `JWT_SECRET`
+- Admin routes (`admin_auth.py`) check `user.is_superadmin` after standard JWT auth
+- Admin token stored in `localStorage["leadpilot_admin_token"]` on the frontend (separate from product `"leadpilot_token"`)
 
 ### ResponseEnvelope Contract
 ALL endpoints return:
@@ -141,12 +145,13 @@ SQLModel ORM objects need `ConfigDict(from_attributes=True)` on Pydantic respons
 | File | Purpose |
 |---|---|
 | `backend/main.py` | FastAPI app entrypoint, middleware, exception handlers |
-| `backend/app/api/deps.py` | Auth dependencies (`get_current_user`, `get_current_admin_user`) |
-| `backend/app/api/v1/admin.py` | 26+ admin action endpoints |
-| `backend/app/api/v1/admin_auth.py` | Admin login/invite/me |
+| `backend/app/api/deps.py` | Auth dependencies (`get_current_user`) |
+| `backend/app/api/v1/admin.py` | Admin action endpoints |
+| `backend/app/api/v1/admin_auth.py` | Admin login/me (uses `get_current_user` + superadmin check) |
 | `backend/app/api/v1/auth.py` | Product auth (signup, login, verify, reset) |
-| `backend/app/models/admin_models.py` | AdminUser, AdminRole, WorkspaceModuleOverride, AdminAuditLog |
-| `backend/app/models/models.py` | All product models (User, Workspace, etc.) |
+| `backend/app/api/v1/automations.py` | Automation builder CRUD + execution |
+| `backend/app/api/v1/templates.py` | Template catalog endpoints |
+| `backend/app/models/models.py` | All models (User, Workspace, AdminUser, AdminRole, etc.) |
 | `backend/app/core/modules.py` | Module cache + `check_module_enabled()` |
 | `backend/app/core/audit.py` | `redact_metadata()` for audit log |
 | `backend/app/core/seed.py` | Self-healing superadmin seeding on startup |
@@ -190,40 +195,9 @@ SQLModel ORM objects need `ConfigDict(from_attributes=True)` on Pydantic respons
 
 ---
 
-## Mission 14: Billing + Subscriptions (Next)
-
-### Planned scope
-**Backend:**
-- Models: `Plan`, `Subscription`, `Invoice` in `backend/app/models/billing_models.py`
-- Endpoints in `backend/app/api/v1/billing.py`:
-  - `GET /billing/plans` — public
-  - `GET /billing/subscription` — current workspace plan
-  - `POST /billing/checkout` — create Stripe Checkout session
-  - `POST /billing/portal` — Stripe Customer Portal
-  - `GET /billing/invoices` — invoice history
-  - `POST /billing/webhooks/stripe` — Stripe webhook (signature validation required)
-- Stripe webhook events: `checkout.session.completed`, `customer.subscription.updated`,
-  `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`
-- `require_plan(feature_slug)` dependency for feature gating
-- Admin endpoints: `GET /admin/billing`, `PATCH /admin/billing/{workspace_id}/override`
-- Alembic migration: `billing_tables`
-
-**Frontend:**
-- `/settings/billing` — current plan, usage, upgrade button
-- `/pricing` — public pricing page (Free, Pro, Enterprise)
-- `/settings/billing/success` — post-checkout confirmation
-- `frontend/src/lib/billing-api.ts`
-
-**Env vars needed:**
-- `STRIPE_SECRET_KEY`
-- `STRIPE_WEBHOOK_SECRET`
-- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
-
----
-
 ## CI/CD Notes
 
-- **GitHub Actions** (`.github/workflows/ci.yml`): runs `ruff check .` + `pytest`
+- **GitHub Actions** (`.github/workflows/ci.yml`): runs `ruff check .` + `pytest` on push/PR to `main`
 - **Ruff config** in `backend/pyproject.toml` — all 187 violations were fixed; CI passes
 - **Critical ruff rule:** E711 auto-fix changes `== None` to `is None` in SQLAlchemy queries
   which BREAKS them. If ruff is upgraded, re-check for this regression.
@@ -232,7 +206,4 @@ SQLModel ORM objects need `ConfigDict(from_attributes=True)` on Pydantic respons
 
 ## Docs Location
 
-Project docs (mission notes, state snapshots): `docs/claude/`
-- `docs/PROJECT_STATE.md` — overall state tracker
-- `docs/claude/00_CONTEXT.md` — architectural context
-- `docs/claude/` — per-mission implementation notes
+Project docs (mission notes): `docs/missions/`
