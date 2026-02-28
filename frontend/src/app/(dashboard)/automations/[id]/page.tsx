@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
-import ReactFlow, {
+import {
+    ReactFlow,
     Background,
     Controls,
     MiniMap,
@@ -515,7 +516,7 @@ function CanvasEditor({ flowId }: { flowId: string }) {
     // Drop handler (from palette)
     // ---------------------------------------------------------------------------
 
-    const onDrop: OnDrop = useCallback(
+    const onDrop = useCallback(
         (event) => {
             event.preventDefault();
             const raw = event.dataTransfer.getData("application/reactflow-node");
