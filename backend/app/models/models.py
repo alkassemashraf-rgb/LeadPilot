@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Optional, Union, Dict, Any
+from typing import List, Optional, Dict, Any
 from uuid import UUID, uuid4
 from enum import Enum
 from sqlmodel import SQLModel, Field, Relationship, JSON

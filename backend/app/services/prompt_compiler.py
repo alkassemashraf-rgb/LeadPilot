@@ -5,7 +5,7 @@ Used by Test Chat AND Runtime AI_REPLY.
 """
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 

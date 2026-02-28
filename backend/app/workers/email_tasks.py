@@ -2,7 +2,6 @@ import logging
 import asyncio
 import json
 from typing import Any, Dict
-from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.core.celery_app import celery_app
@@ -10,7 +9,7 @@ from app.services.email_service import EmailService
 from app.core.config import settings
 from app.core.db import SessionLocal
 from app.models.models import EmailLog, EmailStatus, SystemModuleConfig, EmailOutbox, EmailOutboxStatus
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from sqlalchemy import or_, and_
 import hashlib
 

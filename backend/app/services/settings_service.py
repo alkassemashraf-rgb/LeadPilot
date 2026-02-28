@@ -14,7 +14,7 @@ rejected), and deep-merged on PATCH.
 import copy
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from uuid import UUID

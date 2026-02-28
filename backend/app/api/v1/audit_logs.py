@@ -13,7 +13,7 @@ from sqlmodel import select, func
 from app.core.db import get_db
 from app.api.deps import get_active_workspace
 from app.models.models import Workspace, AdminAuditLog
-from app.schemas.envelope import wrap_data, wrap_error
+from app.schemas.envelope import wrap_data
 
 router = APIRouter()
 

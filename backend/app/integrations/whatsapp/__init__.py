@@ -1,1 +1,1 @@
-from .adapter import WhatsAppAdapter
+from .adapter import WhatsAppAdapter as WhatsAppAdapter

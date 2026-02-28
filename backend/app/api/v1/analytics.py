@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta
-from typing import List, Optional, Dict, Any
-from uuid import UUID
+from typing import Dict
 
-from fastapi import APIRouter, Depends, Query, HTTPException
-from sqlmodel import select, func, text, case, and_
+from fastapi import APIRouter, Depends, Query
+from sqlmodel import select, func, case
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import Date, cast, String
 
 from app.core.db import get_db
 from app.api import deps
@@ -13,7 +11,7 @@ from app.schemas.envelope import ResponseEnvelope, wrap_data
 from app.models.models import (
     User, Workspace, Conversation, Message, Contact, 
     ExecutionInstance, ExecutionStepLog, DeliveryStatus, 
-    ExecutionStatus, WorkspaceRole, FlowNode
+    ExecutionStatus, FlowNode
 )
 from app.core.modules import require_module_enabled, MODULE_ANALYTICS
 from app.services.entitlements import require_entitlement

@@ -1,14 +1,13 @@
 from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List
 from uuid import UUID
-from sqlalchemy import func, case, text, desc, and_
+from sqlalchemy import func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.models.models import (
     Conversation, Message, ExecutionInstance, Contact, 
-    DeliveryStatus, ExecutionStatus, ExecutionStepLog, 
-    ConversationStatus, FlowNode
+    DeliveryStatus, ExecutionStatus, ExecutionStepLog
 )
 
 class AnalyticsService:

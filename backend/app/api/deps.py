@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional
 from uuid import UUID
 from fastapi import Depends, HTTPException, status, Header
 from fastapi.security import OAuth2PasswordBearer
@@ -181,7 +181,7 @@ def require_email_state(action: str = "verified"):
         async def connect(..., _: User = Depends(require_email_state("integrations_connect"))):
             ...
     """
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     async def _check(current_user: User = Depends(get_current_user)) -> User:
         already_verified = current_user.email_verified_at is not None

@@ -5,7 +5,7 @@ Runs once on app startup; idempotent (uses INSERT or IGNORE logic via get-or-cre
 import logging
 from app.core.db import SessionLocal as AsyncSessionLocal
 from app.models.models import SystemModuleConfig, Plan, PlanEntitlement, SystemSettings
-from app.core.modules import ALL_MODULES, MODULE_ADMIN_PORTAL
+from app.core.modules import ALL_MODULES
 from sqlmodel import select
 
 logger = logging.getLogger(__name__)

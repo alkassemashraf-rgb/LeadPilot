@@ -1,11 +1,9 @@
 import logging
-from typing import List, Optional, Any, Tuple
+from typing import Optional, Tuple
 from uuid import UUID
 from datetime import datetime, timedelta
-import json
 import redis
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 from sqlmodel import select, and_, or_
 
 from app.core.config import settings
@@ -104,7 +102,7 @@ class DispatchService:
             finally:
                 try:
                     redis_client.delete(lock_key)
-                except:
+                except Exception:
                     pass
         
         return processed_count, failed_count

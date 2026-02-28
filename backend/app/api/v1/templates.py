@@ -4,8 +4,7 @@ Template Catalog API — Mission 27
 Workspace-facing endpoints for browsing and cloning automation templates.
 Admin-facing endpoints are in admin.py.
 """
-from typing import List, Optional, Dict, Any
-from uuid import UUID
+from typing import Optional
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession

@@ -1,8 +1,8 @@
 from typing import Any, Dict, List, Optional
 from uuid import UUID
 from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session, select
+from fastapi import APIRouter, Depends, HTTPException
+from sqlmodel import select
 from pydantic import BaseModel
 
 from app.core.db import get_db, AsyncSession
@@ -10,7 +10,7 @@ from app.core.db import get_db, AsyncSession
 from app.api import deps
 from app.models.models import (
     User, Workspace, WorkspaceRole, WorkspaceMember, 
-    Integration, Contact, Conversation, Message, ZohoLeadMapping
+    Integration, Contact, ZohoLeadMapping
 )
 from app.integrations.zoho.adapter import ZohoAdapter
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
@@ -145,7 +145,7 @@ async def get_zoho_fields(
         adapter = ZohoAdapter(integration, config=config_dict)
         fields = await adapter.get_fields(module)
         return [ZohoField(**f) for f in fields]
-    except Exception as e:
+    except Exception:
         # Fallback
         return [
             ZohoField(api_name="Last_Name", label="Last Name (Fallback)", data_type="text"),

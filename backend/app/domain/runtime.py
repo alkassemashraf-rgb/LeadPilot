@@ -1,7 +1,7 @@
 import logging
 import time
 import hashlib
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 from uuid import UUID
 from datetime import datetime
 from sqlmodel import select
@@ -19,7 +19,6 @@ from app.models.models import (
     Contact,
     ChannelIdentity,
     ConversationStatus,
-    Flow,
     Integration,
     ZohoLeadMapping
 )

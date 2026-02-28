@@ -1,6 +1,6 @@
 import time
 import logging
-from typing import Dict, Tuple, Optional, Any
+from typing import Dict, Tuple, Optional
 from fastapi import Request, HTTPException, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select

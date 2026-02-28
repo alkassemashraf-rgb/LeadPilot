@@ -1,5 +1,5 @@
 import asyncio
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 from uuid import UUID
 from datetime import datetime
 from celery.utils.log import get_task_logger
@@ -7,7 +7,7 @@ from celery.utils.log import get_task_logger
 from app.core.celery_app import celery_app
 from app.core.db import engine
 from app.models.models import WebhookEventLog, WebhookStatus
-from sqlmodel import Session, select
+from sqlmodel import select
 
 logger = get_task_logger(__name__)
 
@@ -17,14 +17,11 @@ def run_async(coro):
     return loop.run_until_complete(coro)
 
 from app.models.models import (
-    WebhookEventLog,
-    WebhookStatus,
     Message,
     FlowVersion,
     ExecutionInstance,
     ExecutionStatus,
-    Flow,
-    Conversation
+    Flow
 )
 from app.domain.contacts import resolve_or_create_contact
 from app.domain.runtime import execute_instance
@@ -83,7 +80,6 @@ def process_webhook_event(event_id: str):
     """
     async def _run():
         logger.info(f"Processing webhook event: {event_id}")
-        from app.core.db import engine
         from sqlalchemy.ext.asyncio import AsyncSession
         from app.services.runtime_event_service import log_event
 
@@ -229,7 +225,6 @@ def process_webhook_event(event_id: str):
 def dispatch_message_task(message_id: str):
     """Immediate dispatch task for a single outbound message."""
     logger.info(f"Celery: Dispatching message {message_id}")
-    from app.core.db import engine
     from sqlalchemy.ext.asyncio import AsyncSession
     
     async def _run():
@@ -246,7 +241,6 @@ def dispatch_message_task(message_id: str):
 def dispatch_pending_task(workspace_id: Optional[str] = None):
     """Periodic task to poll and dispatch missed outbound intents."""
     logger.info(f"Celery: Polling pending messages (Workspace: {workspace_id})")
-    from app.core.db import engine
     from sqlalchemy.ext.asyncio import AsyncSession
     
     async def _run():
@@ -263,7 +257,6 @@ def dispatch_pending_task(workspace_id: Optional[str] = None):
 def purge_runtime_events_task():
     """Daily task to purge old runtime events based on retention policy."""
     from app.core.config import settings as app_settings
-    from app.core.db import engine
     from sqlalchemy.ext.asyncio import AsyncSession
     from app.models.models import RuntimeEventLog
     from datetime import timedelta

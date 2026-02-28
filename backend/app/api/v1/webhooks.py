@@ -1,9 +1,8 @@
 import hmac
 import hashlib
 import json
-from typing import Any, Dict, Optional
+from typing import Optional
 from uuid import UUID, uuid4
-from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -14,7 +13,6 @@ from app.core.config import settings
 from app.models.models import Integration, WebhookEventLog, WebhookStatus
 from app.workers.tasks import process_webhook_event
 from app.core.modules import require_module_enabled, MODULE_WEBHOOKS_INGESTION
-from app.services.entitlements import require_entitlement
 from app.services.runtime_event_service import log_event
 
 router = APIRouter()

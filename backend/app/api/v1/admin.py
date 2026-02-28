@@ -10,7 +10,6 @@ from uuid import UUID
 
 from app.core.db import get_db
 from app.core import security
-from app.core.config import settings
 from app.api.deps import get_current_user
 from app.models.models import (
     EmailLog, EmailOutbox, EmailOutboxStatus,
@@ -20,8 +19,7 @@ from app.models.models import (
     Message, DeliveryStatus,
     Flow, FlowStatus,
     PromptConfig,
-    Integration, ZohoLeadMapping,
-    ExecutionInstance,
+    Integration, ExecutionInstance,
     Plan, PlanEntitlement, WorkspacePlan,
     WorkspaceEntitlementOverride, UsageMeter,
     AgencyAccount, AgencyMember, AgencyStatus, WorkspaceOwnership,
@@ -1973,7 +1971,7 @@ async def admin_create_template_version(
     # Translate to runtime contract for audit/preview
     try:
         translated = translate(payload.builder_graph_json)
-    except Exception as e:
+    except Exception:
         translated = None
 
     # Get next version number

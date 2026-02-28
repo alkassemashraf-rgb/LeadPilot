@@ -10,7 +10,7 @@ from sqlmodel import select
 from app.api import deps
 from app.core.db import get_db
 from app.models.models import Workspace, QualificationConfig
-from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
+from app.schemas.envelope import ResponseEnvelope, wrap_data
 from app.core.modules import require_module_enabled, MODULE_PROMPT_STUDIO
 from app.services.entitlements import require_entitlement
 

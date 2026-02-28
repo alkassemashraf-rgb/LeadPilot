@@ -1,1 +1,1 @@
-from .adapter import MetaAdapter
+from .adapter import MetaAdapter as MetaAdapter

@@ -2,7 +2,6 @@ import logging
 import httpx
 from datetime import datetime, timedelta
 from typing import Dict, Any, Optional, Tuple, List
-from app.core.config import settings
 from app.models.models import Integration
 
 logger = logging.getLogger(__name__)

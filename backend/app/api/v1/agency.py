@@ -2,7 +2,7 @@
 Agency Router — Mission 15
 Endpoints for creating and managing agency accounts, members, and client workspaces.
 """
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Any, Optional, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, func
@@ -15,7 +15,7 @@ from app.models.models import (
     User, Workspace, WorkspaceMember, WorkspaceRole,
     AgencyAccount, AgencyMember, AgencyStatus, AgencyRole,
     WorkspaceOwnership, OwnerType,
-    Plan, PlanEntitlement, WorkspacePlan,
+    PlanEntitlement, WorkspacePlan,
 )
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.audit import log_admin_action

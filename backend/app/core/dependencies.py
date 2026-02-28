@@ -2,11 +2,11 @@ from fastapi import Depends, HTTPException, Header, status
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from typing import List, Optional
+from typing import List
 from uuid import UUID
 
 from .config import settings
-from ..models.models import User, Workspace, WorkspaceMember, WorkspaceRole
+from ..models.models import User, WorkspaceRole
 
 # Placeholder for DB session
 async def get_db():
@@ -102,8 +102,6 @@ async def require_verified_email(
     - Ready to be plugged into billing upgrade endpoints.
     - Currently applied to integrations/connect.
     """
-    from app.api.deps import get_current_user as deps_get_current_user
-    from fastapi import Depends
     # This function is a factory — actual injection happens below
     if current_user is not None and current_user.email_verified_at is None:
         raise HTTPException(

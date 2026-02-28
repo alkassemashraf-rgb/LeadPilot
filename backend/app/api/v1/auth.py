@@ -3,7 +3,7 @@ import hashlib
 import httpx
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -162,9 +162,8 @@ async def signup(
     if user:
         return wrap_error("A user with this email already exists.")
     
-    now = datetime.now(timezone.utc)
     now_naive = datetime.utcnow()
-    
+
     # Create User
     db_user = User(
         email=user_in.email,
@@ -333,9 +332,8 @@ async def resend_verification(
     if not user or user.email_verified_at is not None:
         return wrap_data(success_msg)
     
-    now = datetime.now(timezone.utc)
     now_naive = datetime.utcnow()
-    
+
     # Generate new token
     verify_token = secrets.token_urlsafe(32)
     verify_token_hash = hashlib.sha256(verify_token.encode()).hexdigest()

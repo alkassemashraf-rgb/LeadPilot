@@ -38,7 +38,8 @@ async def test_signup_creates_verification_outbox(db_session: AsyncSession, asyn
 @pytest.mark.asyncio
 async def test_verify_email_sets_verified_at(db_session: AsyncSession, async_client: AsyncClient):
     """GET /verify-email?token=... must set email_verified_at on user."""
-    import secrets, hashlib
+    import secrets
+    import hashlib
     from app.models.models import User, EmailVerificationToken
     
     # Create user directly  

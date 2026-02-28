@@ -1,6 +1,6 @@
 from typing import List, Any
 from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status, Header, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, delete
 

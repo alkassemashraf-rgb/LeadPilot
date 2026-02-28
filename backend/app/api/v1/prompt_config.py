@@ -1,6 +1,5 @@
-from typing import List, Any, Dict
-from uuid import UUID
-from fastapi import APIRouter, Depends, HTTPException, status
+from typing import Any, Dict
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, desc
 
