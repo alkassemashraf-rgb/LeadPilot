@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { APP_URL } from "@/lib/api";
 
 interface CTASectionProps {
   headline?: string;
@@ -9,13 +10,36 @@ interface CTASectionProps {
   secondaryHref?: string;
 }
 
+function SmartLink({
+  href,
+  className,
+  children,
+}: {
+  href: string;
+  className: string;
+  children: React.ReactNode;
+}) {
+  if (href.startsWith("http")) {
+    return (
+      <a href={href} className={className}>
+        {children}
+      </a>
+    );
+  }
+  return (
+    <Link href={href} className={className}>
+      {children}
+    </Link>
+  );
+}
+
 export default function CTASection({
   headline = "Your leads aren't waiting. Neither should you.",
   subheadline = "Start capturing and qualifying leads today — no credit card required.",
   primaryLabel = "Book a Demo",
   primaryHref = "/contact",
-  secondaryLabel = "Start Free",
-  secondaryHref = "/plans",
+  secondaryLabel = "Sign Up Free",
+  secondaryHref = `${APP_URL}/signup`,
 }: CTASectionProps) {
   return (
     <section
@@ -48,18 +72,18 @@ export default function CTASection({
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link
+          <SmartLink
             href={primaryHref}
             className="px-8 py-3.5 rounded-xl font-semibold text-sm btn-primary"
           >
             {primaryLabel}
-          </Link>
-          <Link
+          </SmartLink>
+          <SmartLink
             href={secondaryHref}
             className="px-8 py-3.5 rounded-xl font-semibold text-sm btn-ghost-dark"
           >
             {secondaryLabel}
-          </Link>
+          </SmartLink>
         </div>
       </div>
     </section>

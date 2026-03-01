@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import type { CatalogPlan } from "@/lib/api";
+import { APP_URL } from "@/lib/api";
 import { MODULE_MARKETING_MAP } from "@/lib/moduleMap";
 
 // ── Pricing config (not in DB — marketing copy) ─────────────────────
@@ -370,15 +371,15 @@ export default function PlansClientContent({ plans }: { plans: CatalogPlan[] }) 
 
                     {/* CTA */}
                     {pricing.available ? (
-                      <Link
-                        href="/contact"
+                      <a
+                        href={`${APP_URL}/signup`}
                         className="block text-center px-6 py-3 rounded-xl font-semibold text-white text-sm transition-all duration-200"
                         style={{ background: "linear-gradient(135deg, #0F766E, #14B8A6)" }}
                         onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 25px rgba(15,118,110,0.45)"; }}
                         onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; }}
                       >
                         Get Started Free
-                      </Link>
+                      </a>
                     ) : (
                       <a
                         href="#waitlist"

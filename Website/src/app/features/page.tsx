@@ -182,8 +182,7 @@ export default async function FeaturesPage() {
         subheadline="Start with the Free plan today. No credit card. No setup fees."
         primaryLabel="Book a Demo"
         primaryHref="/contact"
-        secondaryLabel="See Plans"
-        secondaryHref="/plans"
+        secondaryLabel="Sign Up Free"
       />
     </>
   );

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Check, Clock } from "lucide-react";
+import { APP_URL } from "@/lib/api";
 
 interface PlanCardProps {
   name: string;
@@ -20,7 +21,7 @@ export default function PlanCard({
   priceNote,
   features,
   ctaLabel,
-  ctaHref = "/plans",
+  ctaHref = `${APP_URL}/signup`,
   available,
   highlighted = false,
 }: PlanCardProps) {
@@ -114,12 +115,12 @@ export default function PlanCard({
       </ul>
 
       {available ? (
-        <Link
+        <a
           href={ctaHref}
           className="block text-center px-6 py-3 rounded-xl font-semibold text-sm btn-primary"
         >
           {ctaLabel}
-        </Link>
+        </a>
       ) : (
         <button
           disabled

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { Zap, Twitter, Linkedin, Github } from "lucide-react";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
 const footerNav = {
   Product: [
     { label: "How it Works", href: "/product" },
@@ -14,6 +16,8 @@ const footerNav = {
     { label: "About", href: "/about" },
     { label: "Contact", href: "/contact" },
     { label: "Book a Demo", href: "/contact" },
+    { label: "Log in", href: `${APP_URL}/login` },
+    { label: "Sign Up", href: `${APP_URL}/signup` },
   ],
   Legal: [
     { label: "Privacy Policy", href: "#" },
@@ -77,12 +81,15 @@ export default function Footer() {
               <ul className="space-y-3" role="list">
                 {links.map((link) => (
                   <li key={link.label}>
-                    <Link
-                      href={link.href}
-                      className="text-sm footer-link"
-                    >
-                      {link.label}
-                    </Link>
+                    {link.href.startsWith("http") ? (
+                      <a href={link.href} className="text-sm footer-link">
+                        {link.label}
+                      </a>
+                    ) : (
+                      <Link href={link.href} className="text-sm footer-link">
+                        {link.label}
+                      </Link>
+                    )}
                   </li>
                 ))}
               </ul>

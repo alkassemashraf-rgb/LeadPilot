@@ -414,8 +414,7 @@ export default function UseCasesPage() {
         subheadline="Start with the Free plan — no credit card, no commitment."
         primaryLabel="Book a Demo"
         primaryHref="/contact"
-        secondaryLabel="Get Started Free"
-        secondaryHref="/plans"
+        secondaryLabel="Sign Up Free"
       />
     </>
   );

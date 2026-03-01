@@ -10,7 +10,7 @@ import {
 import CTASection from "@/components/CTASection";
 import FeatureCard from "@/components/FeatureCard";
 import PlanCard from "@/components/PlanCard";
-import { getPlans, getModules, getIntegrationProviders, getPublicTemplates } from "@/lib/api";
+import { getPlans, getModules, getIntegrationProviders, getPublicTemplates, APP_URL } from "@/lib/api";
 import { MODULE_MARKETING_MAP } from "@/lib/moduleMap";
 
 export const metadata: Metadata = {
@@ -463,7 +463,7 @@ export default async function HomePage() {
                   priceNote={pricing.priceNote}
                   features={featureLines}
                   ctaLabel={pricing.available ? "Get Started Free" : "Coming Soon"}
-                  ctaHref="/plans"
+                  ctaHref={`${APP_URL}/signup`}
                   available={pricing.available}
                   highlighted={plan.name === "free"}
                 />
@@ -488,8 +488,8 @@ export default async function HomePage() {
         subheadline="LeadPilot automates lead capture, qualification, and routing so your team can focus on closing."
         primaryLabel="Book a Demo"
         primaryHref="/contact"
-        secondaryLabel="Start Free"
-        secondaryHref="/plans"
+        secondaryLabel="Sign Up Free"
+        secondaryHref={`${APP_URL}/signup`}
       />
     </>
   );

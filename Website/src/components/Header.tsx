@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Menu, X, Zap } from "lucide-react";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
 const navLinks = [
   { label: "Product", href: "/product" },
   { label: "Features", href: "/features" },
@@ -76,17 +78,17 @@ export default function Header() {
 
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-3">
-          <Link
-            href="/login"
+          <a
+            href={`${APP_URL}/login`}
             className="text-sm font-medium transition-colors duration-200"
             style={{ color: "rgba(241,245,249,0.6)" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "#F1F5F9"; }}
             onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(241,245,249,0.6)"; }}
           >
             Log in
-          </Link>
-          <Link
-            href="/contact"
+          </a>
+          <a
+            href={`${APP_URL}/signup`}
             className="px-4 py-2 rounded-lg text-sm font-semibold text-white transition-all duration-200"
             style={{ background: "linear-gradient(135deg, #0F766E, #14B8A6)" }}
             onMouseEnter={(e) => {
@@ -96,8 +98,8 @@ export default function Header() {
               e.currentTarget.style.boxShadow = "none";
             }}
           >
-            Book a Demo
-          </Link>
+            Sign Up Free
+          </a>
         </div>
 
         {/* Mobile menu button */}
@@ -138,22 +140,22 @@ export default function Header() {
             })}
           </ul>
           <div className="flex flex-col gap-2 mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-            <Link
-              href="/login"
+            <a
+              href={`${APP_URL}/login`}
               className="block px-3 py-2 rounded-md text-sm font-medium text-center"
               style={{ color: "rgba(241,245,249,0.7)" }}
               onClick={() => setMobileOpen(false)}
             >
               Log in
-            </Link>
-            <Link
-              href="/contact"
+            </a>
+            <a
+              href={`${APP_URL}/signup`}
               className="block px-4 py-2 rounded-lg text-sm font-semibold text-white text-center"
               style={{ background: "linear-gradient(135deg, #0F766E, #14B8A6)" }}
               onClick={() => setMobileOpen(false)}
             >
-              Book a Demo
-            </Link>
+              Sign Up Free
+            </a>
           </div>
         </div>
       )}

@@ -5,6 +5,9 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
+/** Base URL for the product app (login, signup, dashboard). */
+export const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface CatalogPlan {

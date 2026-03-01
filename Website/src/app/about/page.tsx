@@ -267,8 +267,7 @@ export default function AboutPage() {
         subheadline="Start with the Free plan or book a demo to see LeadPilot in action."
         primaryLabel="Book a Demo"
         primaryHref="/contact"
-        secondaryLabel="Get Started Free"
-        secondaryHref="/plans"
+        secondaryLabel="Sign Up Free"
       />
     </>
   );
