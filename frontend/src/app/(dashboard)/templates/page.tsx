@@ -24,10 +24,10 @@ function TemplateBadge({ text, color = "default" }: { text: string; color?: "tea
     return (
         <span
             className={cn(
-                "text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full",
-                color === "teal" && "bg-teal-600 text-white",
-                color === "blue" && "bg-slate-700 text-white",
-                color === "default" && "bg-muted text-muted-foreground"
+                "text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-md border",
+                color === "teal" && "bg-teal-50 text-teal-700 border-teal-200",
+                color === "blue" && "bg-slate-50 text-slate-700 border-slate-200",
+                color === "default" && "bg-gray-50 text-gray-500 border-gray-200"
             )}
         >
             {text}
@@ -51,28 +51,28 @@ function TemplateCard({ template, categories, platforms, enabledModules }: { tem
     };
 
     return (
-        <div className="flex flex-col rounded-2xl border border-border bg-card shadow-sm hover:shadow-md hover:border-teal-200 transition-all overflow-hidden group">
-            {/* Featured badge */}
-            {template.is_featured && (
-                <div className="flex items-center gap-1 px-4 py-2 bg-amber-50 dark:bg-amber-950/30 border-b border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300 text-xs font-semibold">
-                    <Star className="w-3 h-3 fill-current" />
-                    Featured
-                </div>
-            )}
-
-            <div className="flex flex-col flex-1 p-5 space-y-3">
+        <div className="flex flex-col bg-white rounded-xl border border-slate-200 shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden group h-full">
+            <div className="flex flex-col flex-1 p-6 space-y-4">
                 {/* Header */}
-                <div className="space-y-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                        <h3 className="font-semibold text-foreground leading-tight">{template.name}</h3>
+                <div className="space-y-2">
+                    <div className="flex items-start justify-between gap-4">
+                        <h3 className="font-bold text-lg text-slate-900 leading-tight">
+                            {template.name}
+                        </h3>
+                        {template.is_featured && (
+                            <div className="shrink-0 flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-amber-50 to-amber-100 text-amber-800 border border-amber-200 rounded-md text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                                <Star className="w-3 h-3 fill-amber-500 text-amber-500" />
+                                Featured
+                            </div>
+                        )}
                     </div>
                     {template.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2">{template.description}</p>
+                        <p className="text-sm text-slate-500 leading-relaxed line-clamp-3">{template.description}</p>
                     )}
                 </div>
 
                 {/* Tags */}
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-2">
                     {template.category && (
                         <TemplateBadge
                             text={catalogLabel(categories, template.category)}
@@ -83,40 +83,45 @@ function TemplateCard({ template, categories, platforms, enabledModules }: { tem
                         <TemplateBadge key={p} text={catalogLabel(platforms, p)} color="blue" />
                     ))}
                     {template.industry_tags.slice(0, 3).map((tag) => (
-                        <span key={tag} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        <span key={tag} className="text-[10px] font-bold uppercase tracking-wider text-slate-500 bg-slate-50 border border-slate-200 px-2.5 py-0.5 rounded-md">
                             {tag}
                         </span>
                     ))}
                 </div>
 
-                {/* Clone count */}
-                {(template.clone_count ?? 0) > 0 && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Users className="w-3 h-3" />
-                        <span>{template.clone_count} uses</span>
-                    </div>
-                )}
+                <div className="flex-1" />
 
-                {template.required_integrations.length > 0 && (() => {
-                    const missing = template.required_integrations.filter((m) => !enabledModules.has(m));
-                    return missing.length > 0 ? (
-                        <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                            <Lock className="w-3 h-3" />
-                            <span>Requires: {missing.join(", ")} — upgrade your plan</span>
+                {/* Clone count & Requires */}
+                <div className="flex flex-col gap-2 pt-2">
+                    {(template.clone_count ?? 0) > 0 && (
+                        <div className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                            <Users className="w-3.5 h-3.5" />
+                            <span>{template.clone_count} businesses using this</span>
                         </div>
-                    ) : (
-                        <p className="text-xs text-muted-foreground">
-                            Requires: {template.required_integrations.join(", ")}
-                        </p>
-                    );
-                })()}
+                    )}
+
+                    {template.required_integrations.length > 0 && (() => {
+                        const missing = template.required_integrations.filter((m) => !enabledModules.has(m));
+                        return missing.length > 0 ? (
+                            <div className="flex items-start gap-2 text-xs text-amber-800 bg-amber-50 p-2.5 rounded-md border border-amber-200">
+                                <Lock className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                                <span className="font-medium leading-relaxed">Requires: {missing.join(", ")}<br /><span className="text-amber-600/80">Upgrade your plan to unlock</span></span>
+                            </div>
+                        ) : (
+                            <div className="flex items-center gap-1.5 text-xs font-medium text-slate-600 bg-slate-50 border border-slate-100 p-2 rounded-md">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                                <span>Integrations ready to use</span>
+                            </div>
+                        );
+                    })()}
+                </div>
             </div>
 
             {/* Footer */}
-            <div className="flex items-center gap-2 px-5 py-3 border-t border-border bg-muted/30">
+            <div className="flex items-center gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/50">
                 <Link
                     href={`/templates/${template.slug}`}
-                    className="flex-1 text-center text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                    className="flex-1 text-center text-sm font-semibold text-slate-600 hover:text-slate-900 transition-colors"
                 >
                     Preview
                 </Link>
@@ -124,18 +129,18 @@ function TemplateCard({ template, categories, platforms, enabledModules }: { tem
                     onClick={handleUse}
                     disabled={cloning || cloned}
                     className={cn(
-                        "flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-sm font-medium transition-colors",
+                        "flex-1 flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-semibold transition-all shadow-sm",
                         cloned
-                            ? "bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300"
-                            : "bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50"
+                            ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                            : "bg-teal-600 hover:bg-teal-700 hover:shadow text-white border border-transparent disabled:opacity-50"
                     )}
                 >
                     {cloning ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <Loader2 className="w-4 h-4 animate-spin" />
                     ) : cloned ? (
-                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <CheckCircle2 className="w-4 h-4" />
                     ) : (
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <ArrowRight className="w-4 h-4" />
                     )}
                     {cloned ? "Opening…" : "Use Template"}
                 </button>
@@ -293,10 +298,10 @@ export default function TemplatesPage() {
                     {featured.length > 0 && !search && !categoryFilter && (
                         <div className="space-y-4">
                             <h2 className="text-lg font-semibold flex items-center gap-2">
-                                <Star className="w-4 h-4 text-amber-500 fill-current" />
+                                <Star className="w-5 h-5 text-amber-500 fill-current" />
                                 Featured
                             </h2>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {featured.map((t) => (
                                     <TemplateCard key={t.id} template={t} categories={catalogCategories} platforms={catalogPlatforms} enabledModules={enabledModules} />
                                 ))}
@@ -309,7 +314,7 @@ export default function TemplatesPage() {
                         {(search || categoryFilter) ? null : (
                             <h2 className="text-lg font-semibold">All Templates</h2>
                         )}
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {filtered.map((t) => (
                                 <TemplateCard key={t.id} template={t} categories={catalogCategories} platforms={catalogPlatforms} enabledModules={enabledModules} />
                             ))}
