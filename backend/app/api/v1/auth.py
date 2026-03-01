@@ -505,34 +505,27 @@ async def reset_password(
     
     return wrap_data({"message": "Password updated successfully"})
 
-def get_google_redirect_uri(request: Request) -> str:
+def get_google_redirect_uri() -> str:
     """Helper to get the correct Google redirect URI for production (Hugging Face) and local environments."""
     if settings.GOOGLE_OAUTH_REDIRECT_URI:
         return settings.GOOGLE_OAUTH_REDIRECT_URI
-    
-    # Get protocol and host
-    protocol = request.url.scheme
-    host = request.url.netloc
-    
-    # HF Spaces specific hardening: Force HTTPS and strip internal port (:7860)
-    if "huggingface.co" in host or "hf.space" in host:
-        protocol = "https"
-        if ":" in host:
-            host = host.split(":")[0]
-            
-    redirect_uri = f"{protocol}://{host}/auth/google/callback"
-    logger.info(f"Google OAuth: Generated redirect_uri={redirect_uri} (from protocol={request.url.scheme}, host={request.url.netloc})")
+
+    # Use the frontend base URL so the redirect_uri matches the frontend callback page,
+    # not the backend server (which runs on a different port in local dev).
+    base = (settings.APP_BASE_URL or settings.FRONTEND_URL).rstrip("/")
+    redirect_uri = f"{base}/auth/google/callback"
+    logger.info(f"Google OAuth: Generated redirect_uri={redirect_uri}")
     return redirect_uri
 
 @router.get("/google/start", response_model=ResponseEnvelope[dict])
-async def google_auth_start(request: Request) -> Any:
+async def google_auth_start() -> Any:
     """Generate Google auth URL."""
     if not settings.GOOGLE_OAUTH_CLIENT_ID or not settings.GOOGLE_OAUTH_CLIENT_SECRET:
         return wrap_error("Google OAuth credentials not configured on backend.")
 
     state = security.create_access_token("google_state", expires_delta=timedelta(minutes=10))
     
-    redirect_uri = get_google_redirect_uri(request)
+    redirect_uri = get_google_redirect_uri()
     logger.info(f"Google OAuth START: Starting flow with redirect_uri={redirect_uri}")
 
     params = {
@@ -551,7 +544,7 @@ async def google_auth_start(request: Request) -> Any:
 
 @router.post("/google/callback", response_model=ResponseEnvelope[Token])
 async def google_auth_callback(
-    *, db: AsyncSession = Depends(get_db), callback_data: GoogleCallback, request: Request
+    *, db: AsyncSession = Depends(get_db), callback_data: GoogleCallback
 ) -> Any:
     """Handle Google OAuth callback."""
     # 1. Validate state
@@ -563,7 +556,7 @@ async def google_auth_callback(
         return wrap_error("Invalid or expired state")
 
     # 2. Exchange code for token
-    redirect_uri = get_google_redirect_uri(request)
+    redirect_uri = get_google_redirect_uri()
 
     async with httpx.AsyncClient() as client:
         token_response = await client.post(

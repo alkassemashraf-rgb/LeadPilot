@@ -25,8 +25,8 @@ function TemplateBadge({ text, color = "default" }: { text: string; color?: "tea
         <span
             className={cn(
                 "text-[11px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full",
-                color === "teal" && "bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300",
-                color === "blue" && "bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300",
+                color === "teal" && "bg-teal-600 text-white",
+                color === "blue" && "bg-slate-700 text-white",
                 color === "default" && "bg-muted text-muted-foreground"
             )}
         >
@@ -82,8 +82,10 @@ function TemplateCard({ template, categories, platforms, enabledModules }: { tem
                     {template.platforms.map((p) => (
                         <TemplateBadge key={p} text={catalogLabel(platforms, p)} color="blue" />
                     ))}
-                    {template.industry_tags.slice(0, 2).map((tag) => (
-                        <TemplateBadge key={tag} text={tag} />
+                    {template.industry_tags.slice(0, 3).map((tag) => (
+                        <span key={tag} className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                            {tag}
+                        </span>
                     ))}
                 </div>
 
