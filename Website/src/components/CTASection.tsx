@@ -43,21 +43,22 @@ export default function CTASection({
 }: CTASectionProps) {
   return (
     <section
-      className="relative overflow-hidden py-24"
-      style={{ background: "#0B1320" }}
+      className="relative overflow-hidden py-32"
+      style={{ background: "var(--dark-bg)" }}
       aria-labelledby="cta-heading"
     >
-      {/* Background glow */}
+      {/* Background glow and grids */}
+      <div className="absolute inset-0 cockpit-grid opacity-20" aria-hidden="true" />
       <div
         aria-hidden="true"
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 60% 50% at 50% 100%, rgba(15,118,110,0.25) 0%, transparent 70%)",
+            "radial-gradient(ellipse 60% 50% at 50% 100%, rgba(34, 211, 238, 0.15) 0%, transparent 70%)",
         }}
       />
 
-      <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center animate-fade-up">
         <h2
           id="cta-heading"
           className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight"
@@ -74,13 +75,13 @@ export default function CTASection({
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           <SmartLink
             href={primaryHref}
-            className="px-8 py-3.5 rounded-xl font-semibold text-sm btn-primary"
+            className="px-8 py-4 rounded-xl font-semibold text-base btn-primary glow-primary"
           >
             {primaryLabel}
           </SmartLink>
           <SmartLink
             href={secondaryHref}
-            className="px-8 py-3.5 rounded-xl font-semibold text-sm btn-ghost-dark"
+            className="px-8 py-4 rounded-xl font-semibold text-sm glass-panel hover:border-cyan-400 transition-colors text-white"
           >
             {secondaryLabel}
           </SmartLink>

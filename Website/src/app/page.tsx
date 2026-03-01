@@ -82,43 +82,46 @@ export default async function HomePage() {
     <>
       {/* ─── HERO ─────────────────────────────────────────────────── */}
       <section
-        className="relative min-h-screen flex items-center overflow-hidden"
-        style={{ background: "#0B1320" }}
+        className="relative min-h-screen flex items-center overflow-hidden bg-[var(--dark-bg)]"
         aria-labelledby="hero-heading"
       >
-        <div className="absolute inset-0 cockpit-grid opacity-60" aria-hidden="true" />
+        <div className="absolute inset-0 cockpit-grid cockpit-grid-3d opacity-60" aria-hidden="true" />
+        {/* Animated scanline */}
+        <div className="absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent animate-scanline opacity-50 z-0 shadow-[0_0_15px_rgba(34,211,238,0.8)]" />
+
         <div
           className="absolute inset-0 pointer-events-none"
           aria-hidden="true"
           style={{
-            background: "radial-gradient(ellipse 70% 60% at 50% 0%, rgba(15,118,110,0.3) 0%, transparent 65%)",
+            background: "radial-gradient(ellipse 70% 60% at 50% 10%, rgba(15,118,110,0.3) 0%, var(--dark-bg) 75%)",
           }}
         />
         <div
-          className="absolute top-1/3 left-0 w-64 h-64 rounded-full pointer-events-none"
+          className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full pointer-events-none"
           aria-hidden="true"
-          style={{ background: "rgba(15,118,110,0.12)", filter: "blur(80px)" }}
+          style={{ background: "rgba(34, 211, 238, 0.15)", filter: "blur(100px)", mixBlendMode: "screen" }}
         />
         <div
-          className="absolute top-1/3 right-0 w-64 h-64 rounded-full pointer-events-none"
+          className="absolute top-1/3 right-1/4 w-96 h-96 rounded-full pointer-events-none"
           aria-hidden="true"
-          style={{ background: "rgba(20,184,166,0.1)", filter: "blur(80px)" }}
+          style={{ background: "rgba(192, 132, 252, 0.15)", filter: "blur(100px)", mixBlendMode: "screen" }}
         />
 
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-32 text-center">
           <div
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8"
-            style={{ background: "rgba(15,118,110,0.15)", border: "1px solid rgba(20,184,166,0.3)" }}
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 animate-fade-up"
+            style={{ background: "rgba(34, 211, 238, 0.15)", border: "1px solid rgba(34, 211, 238, 0.3)" }}
           >
-            <span className="w-2 h-2 rounded-full animate-pulse-glow" style={{ background: "#14B8A6" }} aria-hidden="true" />
-            <span className="text-xs font-semibold tracking-wider" style={{ color: "#14B8A6" }}>
-              AI-NATIVE LEAD PLATFORM
+            <span className="w-2 h-2 rounded-full animate-pulse-glow" style={{ background: "var(--neon-cyan)" }} aria-hidden="true" />
+            <span className="text-xs font-bold tracking-wider" style={{ color: "var(--neon-cyan)" }}>
+              AI-NATIVE PIPELINE
             </span>
           </div>
 
           <h1
             id="hero-heading"
-            className="text-5xl sm:text-6xl md:text-7xl font-bold text-white mb-6 tracking-tight leading-none"
+            className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-white mb-6 tracking-tight leading-none animate-fade-up"
+            style={{ animationDelay: "0.1s" }}
           >
             Close More Leads.
             <br />
@@ -126,44 +129,57 @@ export default async function HomePage() {
           </h1>
 
           <p
-            className="text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed"
-            style={{ color: "rgba(148,163,184,0.9)" }}
+            className="text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed animate-fade-up"
+            style={{ color: "rgba(148,163,184,0.9)", animationDelay: "0.2s" }}
           >
             LeadPilot captures, qualifies, and routes every inbound lead to the right rep —
             automatically. Turn raw traffic into closed revenue without adding headcount.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/contact" className="px-8 py-4 rounded-xl font-semibold text-base btn-primary">
-              Book a Demo
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 animate-fade-up" style={{ animationDelay: "0.3s" }}>
+            <Link href="/contact" className="px-8 py-4 rounded-xl font-semibold text-base btn-primary glow-primary">
+              Deploy AI Agent
             </Link>
             <Link
               href="/product"
-              className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-sm btn-ghost-dark"
+              className="inline-flex items-center gap-2 px-8 py-4 rounded-xl font-semibold text-sm glass-panel hover:border-teal-400 transition-colors text-white"
             >
               See Product
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
           </div>
 
-          <div className="mt-20 grid grid-cols-3 gap-4 max-w-lg mx-auto">
+          <div className="mt-20 grid grid-cols-3 gap-4 max-w-2xl mx-auto animate-fade-up" style={{ animationDelay: "0.4s" }}>
             {[
-              { icon: TrendingUp, label: "More pipeline", sub: "per rep" },
-              { icon: Clock, label: "Faster response", sub: "on average" },
-              { icon: Users, label: "Less headcount", sub: "needed to scale" },
-            ].map(({ icon: Icon, label, sub }) => (
-              <div key={label} className="text-center">
-                <Icon className="w-5 h-5 mx-auto mb-2" style={{ color: "#14B8A6" }} aria-hidden="true" />
-                <p className="text-xs font-semibold text-white">{label}</p>
-                <p className="text-xs" style={{ color: "#475569" }}>{sub}</p>
+              { icon: TrendingUp, label: "More pipeline", sub: "per rep", color: "var(--neon-cyan)" },
+              { icon: Clock, label: "Instant response", sub: "always online", color: "var(--secondary)" },
+              { icon: Users, label: "Less headcount", sub: "needed to scale", color: "var(--neon-purple)" },
+            ].map(({ icon: Icon, label, sub, color }) => (
+              <div key={label} className="text-center glass-panel p-4 rounded-2xl relative overflow-hidden group">
+                <div className="absolute inset-0 bg-gradient-to-t from-transparent to-white/5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <Icon className="w-6 h-6 mx-auto mb-3" style={{ color }} aria-hidden="true" />
+                <p className="text-sm font-bold text-white">{label}</p>
+                <p className="text-xs mt-1" style={{ color: "#94A3B8" }}>{sub}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1" aria-hidden="true">
-          <span className="text-xs" style={{ color: "#475569" }}>scroll</span>
-          <div className="w-px h-8 animate-pulse" style={{ background: "linear-gradient(to bottom, #0F766E, transparent)" }} />
+        {/* Decorative Floating Elements */}
+        <div className="absolute top-1/4 left-1/4 w-32 h-32 border border-teal-500/20 rounded-full animate-float-delayed flex items-center justify-center -z-10 hidden md:flex">
+          <div className="w-16 h-16 border border-teal-400/30 rounded-full flex items-center justify-center">
+            <div className="w-2 h-2 bg-teal-400 rounded-full animate-pulse-glow" />
+          </div>
+        </div>
+        <div className="absolute top-1/3 right-1/4 w-40 h-40 border border-cyan-500/20 rounded-full animate-float flex items-center justify-center -z-10 hidden md:flex">
+          <div className="w-20 h-20 border border-cyan-400/30 rounded-full flex items-center justify-center">
+            <div className="w-3 h-3 bg-cyan-400 rounded-full animate-pulse-glow" />
+          </div>
+        </div>
+
+        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2" aria-hidden="true">
+          <span className="text-[10px] uppercase font-bold tracking-widest" style={{ color: "var(--neon-cyan)" }}>Initiate</span>
+          <div className="w-[2px] h-12 bg-gradient-to-b from-cyan-400 to-transparent animate-pulse" />
         </div>
       </section>
 
@@ -189,52 +205,58 @@ export default async function HomePage() {
 
       {/* ─── PROBLEM → SOLUTION ───────────────────────────────────── */}
       <section
-        className="py-24"
-        style={{ background: "#F8FAFC" }}
+        className="py-24 relative overflow-hidden"
+        style={{ background: "var(--dark-bg)" }}
         aria-labelledby="problem-heading"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="absolute inset-0 cockpit-grid opacity-20" aria-hidden="true" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div>
+            {/* The Problem */}
+            <div className="glass-panel p-10 rounded-3xl relative overflow-hidden group">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-500/0 via-red-500/50 to-red-500/0 opacity-50" />
               <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#EF4444" }}>The Problem</p>
-              <h2 id="problem-heading" className="text-3xl sm:text-4xl font-bold mb-6 tracking-tight" style={{ color: "#0F172A" }}>
+              <h2 id="problem-heading" className="text-3xl sm:text-4xl font-bold mb-6 tracking-tight text-white">
                 Leads slip through the cracks every day.
               </h2>
-              <ul className="space-y-4">
+              <ul className="space-y-5">
                 {[
-                  "Your sales team spends hours qualifying leads that never convert.",
+                  "Sales teams spend hours qualifying leads that never convert.",
                   "Hot prospects wait hours (or days) for a reply — then go cold.",
                   "No clear routing means the wrong rep picks up the wrong lead.",
                   "You can't see where the pipeline breaks without real-time data.",
                 ].map((point) => (
                   <li key={point} className="flex items-start gap-3">
-                    <div className="mt-1.5 w-1.5 h-1.5 rounded-full shrink-0" style={{ background: "#EF4444" }} aria-hidden="true" />
-                    <p className="text-sm leading-relaxed" style={{ color: "#64748B" }}>{point}</p>
+                    <div className="mt-2 w-1.5 h-1.5 rounded-full shrink-0 shadow-[0_0_8px_#EF4444]" style={{ background: "#EF4444" }} aria-hidden="true" />
+                    <p className="text-sm leading-relaxed" style={{ color: "rgba(148,163,184,0.9)" }}>{point}</p>
                   </li>
                 ))}
               </ul>
             </div>
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#0F766E" }}>The Solution</p>
-              <h2 className="text-3xl sm:text-4xl font-bold mb-6 tracking-tight" style={{ color: "#0F172A" }}>
-                LeadPilot handles the pipeline. You handle the close.
+
+            {/* The Solution */}
+            <div className="glass-panel p-10 rounded-3xl relative overflow-hidden gradient-border-spin group">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-cyan-400/0 via-cyan-400/50 to-cyan-400/0 opacity-50" />
+              <p className="text-xs font-bold uppercase tracking-widest mb-3 text-cyan-400 hover:animate-pulse">The Solution</p>
+              <h2 className="text-3xl sm:text-4xl font-bold mb-6 tracking-tight text-white">
+                AI handles the pipeline. You handle the close.
               </h2>
-              <ul className="space-y-4">
+              <ul className="space-y-5">
                 {[
-                  "AI qualifies every lead the moment it arrives — 24/7, no lag.",
-                  "Smart routing delivers leads to the right rep in seconds, not hours.",
-                  "Automated follow-ups keep prospects engaged between touchpoints.",
-                  "Real-time analytics show you exactly where revenue is being left behind.",
+                  "AI agents qualify every lead the moment it arrives — 24/7, zero lag.",
+                  "Smart routing rules deliver leads to the right rep in milliseconds.",
+                  "Automated, multi-channel follow-ups keep prospects engaged.",
+                  "Live analytics show you exactly where revenue is left behind.",
                 ].map((point) => (
                   <li key={point} className="flex items-start gap-3">
-                    <CheckCircle className="w-4 h-4 mt-0.5 shrink-0" style={{ color: "#0F766E" }} aria-hidden="true" />
-                    <p className="text-sm leading-relaxed" style={{ color: "#64748B" }}>{point}</p>
+                    <CheckCircle className="w-5 h-5 mt-0.5 shrink-0 text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" aria-hidden="true" />
+                    <p className="text-sm leading-relaxed" style={{ color: "rgba(148,163,184,0.9)" }}>{point}</p>
                   </li>
                 ))}
               </ul>
-              <Link href="/product" className="inline-flex items-center gap-2 mt-8 text-sm font-semibold text-link-primary">
-                See how it works
-                <ArrowRight className="w-4 h-4" aria-hidden="true" />
+              <Link href="/product" className="inline-flex items-center gap-2 mt-8 text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors group/link">
+                Initiate Sequence
+                <ArrowRight className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" aria-hidden="true" />
               </Link>
             </div>
           </div>
@@ -243,40 +265,42 @@ export default async function HomePage() {
 
       {/* ─── HOW IT WORKS ─────────────────────────────────────────── */}
       <section
-        className="py-24 relative overflow-hidden"
-        style={{ background: "#0B1320" }}
+        className="py-32 relative overflow-hidden"
+        style={{ background: "#060B14" }}
         aria-labelledby="how-it-works-heading"
       >
         <div
           className="absolute inset-0 pointer-events-none"
           aria-hidden="true"
-          style={{ background: "radial-gradient(ellipse 50% 60% at 50% 100%, rgba(15,118,110,0.2) 0%, transparent 70%)" }}
+          style={{ background: "radial-gradient(ellipse 80% 50% at 50% 100%, rgba(34, 211, 238, 0.1) 0%, transparent 60%)" }}
         />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#14B8A6" }}>How It Works</p>
-            <h2 id="how-it-works-heading" className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
-              Five steps from lead to revenue
+          <div className="text-center mb-20 animate-fade-up">
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--neon-cyan)" }}>Data Pipeline</p>
+            <h2 id="how-it-works-heading" className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight">
+              Five automated jumps to revenue
             </h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-4 relative">
+            {/* The animated connecting wire (desktop) */}
+            <div className="hidden lg:block absolute top-[44px] left-10 right-10 h-0.5 bg-slate-800 -z-10">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-500/0 via-cyan-400 to-cyan-500/0 animate-scanline"
+                style={{ animationDirection: "normal", transformOrigin: "left" }}
+              />
+            </div>
+
             {steps.map((step, i) => (
               <div
                 key={step.number}
-                className="relative rounded-xl p-6"
-                style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+                className="relative rounded-2xl p-6 glass-panel hover:border-cyan-500/50 transition-colors animate-fade-up group"
+                style={{ animationDelay: `${i * 0.15 + 0.2}s` }}
               >
-                {i < steps.length - 1 && (
-                  <div className="hidden lg:block absolute top-10 -right-3 w-6 h-px" aria-hidden="true" style={{ background: "rgba(15,118,110,0.4)" }} />
-                )}
-                <span
-                  className="text-3xl font-bold block mb-4"
-                  style={{ background: "linear-gradient(135deg, #0F766E, #14B8A6)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}
-                >
-                  {step.number}
-                </span>
-                <h3 className="text-white font-semibold mb-2">{step.title}</h3>
-                <p className="text-xs leading-relaxed" style={{ color: "#64748B" }}>{step.description}</p>
+                <div className="w-10 h-10 rounded-full flex items-center justify-center bg-cyan-950/50 border border-cyan-500/30 mb-6 group-hover:shadow-[0_0_15px_rgba(34,211,238,0.4)] transition-shadow">
+                  <span className="text-sm font-bold text-cyan-400">{step.number}</span>
+                </div>
+                <h3 className="text-white font-semibold mb-3">{step.title}</h3>
+                <p className="text-xs leading-relaxed" style={{ color: "#94A3B8" }}>{step.description}</p>
               </div>
             ))}
           </div>
@@ -285,33 +309,36 @@ export default async function HomePage() {
 
       {/* ─── FEATURE HIGHLIGHTS (DB-driven) ───────────────────────── */}
       <section
-        className="py-24"
-        style={{ background: "#F8FAFC" }}
+        className="py-24 relative"
+        style={{ background: "#0B1320" }}
         aria-labelledby="features-heading"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#0F766E" }}>Platform Features</p>
-            <h2 id="features-heading" className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ color: "#0F172A" }}>
+        <div className="absolute inset-0 cockpit-grid opacity-30" aria-hidden="true" />
+        <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16 animate-fade-up">
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--neon-cyan)" }}>Platform Features</p>
+            <h2 id="features-heading" className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
               Everything your revenue team needs
             </h2>
-            <p className="mt-4 text-base max-w-xl mx-auto" style={{ color: "#64748B" }}>
+            <p className="mt-4 text-base max-w-xl mx-auto" style={{ color: "rgba(148,163,184,0.9)" }}>
               One platform for the entire lead lifecycle — from first touch to closed deal.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {featureHighlights.map((feat) => (
-              <FeatureCard
-                key={feat.moduleKey}
-                iconName={feat.iconName}
-                benefit={feat.benefit}
-                title={feat.marketingTitle}
-                description={feat.description}
-              />
+            {featureHighlights.map((feat, i) => (
+              <div key={feat.moduleKey} className="animate-fade-up" style={{ animationDelay: `${i * 0.1}s` }}>
+                <FeatureCard
+                  iconName={feat.iconName}
+                  benefit={feat.benefit}
+                  title={feat.marketingTitle}
+                  description={feat.description}
+                  dark={true}
+                />
+              </div>
             ))}
           </div>
           <div className="text-center mt-10">
-            <Link href="/features" className="inline-flex items-center gap-2 text-sm font-semibold text-link-primary">
+            <Link href="/features" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors">
               View all features
               <ArrowRight className="w-4 h-4" aria-hidden="true" />
             </Link>
@@ -323,25 +350,25 @@ export default async function HomePage() {
       {featuredTemplates.length > 0 && (
         <section
           className="py-24 relative overflow-hidden"
-          style={{ background: "#0B1320" }}
+          style={{ background: "var(--dark-bg)" }}
           aria-labelledby="templates-teaser-heading"
         >
-          <div className="absolute inset-0 cockpit-grid opacity-30" aria-hidden="true" />
+          <div className="absolute inset-0 cockpit-grid opacity-20" aria-hidden="true" />
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#14B8A6" }}>
-                Templates
+            <div className="text-center mb-16 animate-fade-up">
+              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--neon-purple)" }}>
+                Execution Patterns
               </p>
               <h2 id="templates-teaser-heading" className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
                 Ready-made automation flows
               </h2>
-              <p className="mt-4 text-base max-w-xl mx-auto" style={{ color: "#64748B" }}>
+              <p className="mt-4 text-base max-w-xl mx-auto" style={{ color: "rgba(148,163,184,0.9)" }}>
                 Clone a template, customise it for your business, and go live in minutes.
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-              {featuredTemplates.map((t) => (
-                <div key={t.id} className="catalog-card p-5">
+              {featuredTemplates.map((t, i) => (
+                <div key={t.id} className="catalog-card p-5 animate-fade-up" style={{ animationDelay: `${i * 0.1}s` }}>
                   <span className="badge-category" data-category={t.category}>
                     {t.category.replace(/_/g, " ")}
                   </span>
@@ -355,15 +382,15 @@ export default async function HomePage() {
                     ))}
                   </div>
                   {t.clone_count > 0 && (
-                    <p className="text-[10px] mt-2" style={{ color: "#475569" }}>
-                      {t.clone_count.toLocaleString()} clones
+                    <p className="text-[10px] mt-2 font-mono" style={{ color: "#475569" }}>
+                      [{t.clone_count.toLocaleString()} CLONES]
                     </p>
                   )}
                 </div>
               ))}
             </div>
             <div className="text-center mt-10">
-              <Link href="/templates" className="inline-flex items-center gap-2 text-sm font-semibold text-link-teal">
+              <Link href="/templates" className="inline-flex items-center gap-2 text-sm font-semibold text-purple-400 hover:text-purple-300 transition-colors">
                 Browse all templates
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </Link>
@@ -375,50 +402,51 @@ export default async function HomePage() {
       {/* ─── INTEGRATIONS TEASER (DB-driven) ──────────────────────── */}
       {providers.length > 0 && (
         <section
-          className="py-24"
-          style={{ background: "#F8FAFC" }}
+          className="py-24 relative overflow-hidden"
+          style={{ background: "#0B1320" }}
           aria-labelledby="integrations-teaser-heading"
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center mb-16">
-              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#0F766E" }}>
+          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="text-center mb-16 animate-fade-up">
+              <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--neon-cyan)" }}>
                 Integrations
               </p>
-              <h2 id="integrations-teaser-heading" className="text-3xl sm:text-4xl font-bold tracking-tight" style={{ color: "#0F172A" }}>
+              <h2 id="integrations-teaser-heading" className="text-3xl sm:text-4xl font-bold tracking-tight text-white">
                 Connect your entire stack
               </h2>
-              <p className="mt-4 text-base max-w-xl mx-auto" style={{ color: "#64748B" }}>
+              <p className="mt-4 text-base max-w-xl mx-auto" style={{ color: "rgba(148,163,184,0.9)" }}>
                 Native integrations with the platforms your revenue team already uses.
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-3xl mx-auto">
-              {providers.map((p) => (
+              {providers.map((p, i) => (
                 <div
                   key={p.key}
-                  className="rounded-xl p-6 text-center feature-card-light"
+                  className="rounded-xl p-6 text-center glass-panel hover:border-cyan-500/30 transition-colors animate-fade-up"
+                  style={{ animationDelay: `${i * 0.15}s` }}
                 >
                   <div
                     className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4"
                     style={{
-                      background: `${PROVIDER_COLORS[p.key] ?? "#0F766E"}15`,
-                      border: `1px solid ${PROVIDER_COLORS[p.key] ?? "#0F766E"}30`,
+                      background: `${PROVIDER_COLORS[p.key] ?? "#0F766E"}20`,
+                      border: `1px solid ${PROVIDER_COLORS[p.key] ?? "#0F766E"}40`,
                     }}
                   >
                     <span className="text-lg font-bold" style={{ color: PROVIDER_COLORS[p.key] ?? "#0F766E" }}>
                       {p.label.charAt(0)}
                     </span>
                   </div>
-                  <h3 className="font-semibold text-base mb-1" style={{ color: "#1E293B" }}>
+                  <h3 className="font-semibold text-base mb-1 text-white">
                     {p.label}
                   </h3>
-                  <p className="text-xs leading-relaxed" style={{ color: "#64748B" }}>
+                  <p className="text-xs leading-relaxed" style={{ color: "rgba(148,163,184,0.8)" }}>
                     {p.description}
                   </p>
                 </div>
               ))}
             </div>
             <div className="text-center mt-10">
-              <Link href="/integrations" className="inline-flex items-center gap-2 text-sm font-semibold text-link-primary">
+              <Link href="/integrations" className="inline-flex items-center gap-2 text-sm font-semibold text-cyan-400 hover:text-cyan-300 transition-colors">
                 View all integrations
                 <ArrowRight className="w-4 h-4" aria-hidden="true" />
               </Link>
@@ -430,24 +458,25 @@ export default async function HomePage() {
       {/* ─── MINI PLANS PREVIEW (DB-driven) ───────────────────────── */}
       <section
         className="py-24 relative overflow-hidden"
-        style={{ background: "#0B1320" }}
+        style={{ background: "var(--dark-bg)" }}
         aria-labelledby="plans-preview-heading"
       >
+        <div className="absolute inset-0 cockpit-grid opacity-20" aria-hidden="true" />
         <div
           className="absolute inset-0 pointer-events-none"
           aria-hidden="true"
-          style={{ background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(15,118,110,0.15) 0%, transparent 70%)" }}
+          style={{ background: "radial-gradient(ellipse 60% 50% at 50% 50%, rgba(34, 211, 238, 0.1) 0%, transparent 70%)" }}
         />
         <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-16">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#14B8A6" }}>Plans</p>
+          <div className="text-center mb-16 animate-fade-up">
+            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "var(--neon-cyan)" }}>Deployment Options</p>
             <h2 id="plans-preview-heading" className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
               Start free. Scale when ready.
             </h2>
           </div>
 
           <div className={`grid grid-cols-1 ${plans.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2"} gap-6 max-w-4xl mx-auto`}>
-            {plans.map((plan) => {
+            {plans.map((plan, i) => {
               const pricing = PLAN_PRICING[plan.name] ?? { price: "Contact Us", priceNote: "", tagline: "", available: false };
               const featureLines = plan.entitlements
                 .map((e) => entitlementToString(e.module_key, e.hard_limit))
@@ -455,27 +484,28 @@ export default async function HomePage() {
                 .slice(0, 6);
 
               return (
-                <PlanCard
-                  key={plan.id}
-                  name={plan.display_name}
-                  tagline={pricing.tagline || plan.description || ""}
-                  price={pricing.price}
-                  priceNote={pricing.priceNote}
-                  features={featureLines}
-                  ctaLabel={pricing.available ? "Get Started Free" : "Coming Soon"}
-                  ctaHref={`${APP_URL}/signup`}
-                  available={pricing.available}
-                  highlighted={plan.name === "free"}
-                />
+                <div key={plan.id} className="animate-fade-up" style={{ animationDelay: `${i * 0.15}s` }}>
+                  <PlanCard
+                    name={plan.display_name}
+                    tagline={pricing.tagline || plan.description || ""}
+                    price={pricing.price}
+                    priceNote={pricing.priceNote}
+                    features={featureLines}
+                    ctaLabel={pricing.available ? "Get Started Free" : "Coming Soon"}
+                    ctaHref={`${APP_URL}/signup`}
+                    available={pricing.available}
+                    highlighted={plan.name === "free"}
+                  />
+                </div>
               );
             })}
           </div>
 
           {waitlistNames.length > 0 && (
-            <p className="text-center mt-8 text-sm" style={{ color: "#475569" }}>
-              Join the waitlist for {waitlistNames.join(" and ")} —{" "}
-              <Link href="/plans" className="underline underline-offset-2 transition-colors duration-200" style={{ color: "#14B8A6" }}>
-                see Plans page
+            <p className="text-center mt-8 text-xs font-mono" style={{ color: "rgba(148,163,184,0.6)" }}>
+               // AWAITING DEPLOYMENT FOR {waitlistNames.join(" AND ").toUpperCase()} —{" "}
+              <Link href="/plans" className="hover:text-cyan-400 transition-colors" style={{ color: "var(--neon-cyan)" }}>
+                INITIALIZE
               </Link>
             </p>
           )}
@@ -484,11 +514,11 @@ export default async function HomePage() {
 
       {/* ─── FINAL CTA ────────────────────────────────────────────── */}
       <CTASection
-        headline="Your pipeline shouldn't depend on manual work."
+        headline="Deploy your AI pipeline today."
         subheadline="LeadPilot automates lead capture, qualification, and routing so your team can focus on closing."
-        primaryLabel="Book a Demo"
+        primaryLabel="Deploy AI Agent"
         primaryHref="/contact"
-        secondaryLabel="Sign Up Free"
+        secondaryLabel="Start Free Tier"
         secondaryHref={`${APP_URL}/signup`}
       />
     </>
