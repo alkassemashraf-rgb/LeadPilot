@@ -243,3 +243,79 @@ async def update_conversation_status(
     await db.commit()
 
     return wrap_data({"conversation_id": str(conv.id), "status": conv.status})
+
+
+# ── Dead-Letter Queue ────────────────────────────────────────────────────
+
+
+@router.get("/dead-letter", response_model=ResponseEnvelope[List[dict]])
+async def list_dead_letter_messages(
+    db: AsyncSession = Depends(get_db),
+    workspace: Workspace = Depends(deps.get_active_workspace),
+    _ = Depends(deps.require_role(["owner", "member"])),
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+) -> Any:
+    """List messages in dead-letter queue (permanently failed)."""
+    offset = (page - 1) * limit
+    query = (
+        select(Message)
+        .where(
+            Message.workspace_id == workspace.id,
+            Message.delivery_status == DeliveryStatus.DEAD_LETTER,
+        )
+        .order_by(desc(Message.updated_at))
+        .offset(offset)
+        .limit(limit)
+    )
+    result = await db.execute(query)
+    messages = result.scalars().all()
+
+    items = [
+        {
+            "id": str(m.id),
+            "conversation_id": str(m.conversation_id),
+            "content": m.content[:200],
+            "platform": m.platform,
+            "attempt_count": m.attempt_count,
+            "last_error": m.last_error,
+            "failure_code": m.failure_code,
+            "created_at": m.created_at,
+            "updated_at": m.updated_at,
+        }
+        for m in messages
+    ]
+    return wrap_data(items)
+
+
+@router.post("/dead-letter/{message_id}/retry", response_model=ResponseEnvelope[dict])
+async def retry_dead_letter_message(
+    message_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    workspace: Workspace = Depends(deps.get_active_workspace),
+    current_user: User = Depends(deps.get_current_user),
+    _ = Depends(deps.require_role(["owner", "member"])),
+) -> Any:
+    """Retry a dead-lettered message by resetting it to PENDING."""
+    msg = await db.get(Message, message_id)
+    if not msg or msg.workspace_id != workspace.id:
+        raise HTTPException(status_code=404, detail="Message not found")
+    if msg.delivery_status != DeliveryStatus.DEAD_LETTER:
+        raise HTTPException(status_code=400, detail="Message is not in dead-letter queue")
+
+    msg.delivery_status = DeliveryStatus.PENDING
+    msg.attempt_count = 0
+    msg.last_error = None
+    msg.failure_code = None
+    db.add(msg)
+
+    await log_event(
+        db, event_type="dispatch.dead_letter_retried", source="inbox",
+        workspace_id=workspace.id, actor_user_id=current_user.id,
+        related_ids={"message_id": str(message_id)},
+    )
+    await db.commit()
+
+    dispatch_message_task.delay(str(msg.id))
+
+    return wrap_data({"message_id": str(msg.id), "status": "pending"})

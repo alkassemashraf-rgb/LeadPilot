@@ -1,9 +1,13 @@
 import httpx
 import logging
+from typing import Optional
+
+from app.integrations.base import MessagingAdapter
 
 logger = logging.getLogger(__name__)
 
-class MetaAdapter:
+
+class MetaAdapter(MessagingAdapter):
     def __init__(self, page_id: str, page_access_token: str):
         self.page_id = page_id
         self.page_access_token = page_access_token
@@ -56,3 +60,9 @@ class MetaAdapter:
             except httpx.RequestError as e:
                 logger.error(f"Meta Network error: {str(e)}")
                 raise Exception(f"TRANSIENT_FAILURE: Network error: {str(e)}")
+
+    async def send_media(
+        self, to: str, media_type: str, media_url: str, caption: Optional[str] = None
+    ) -> str:
+        """Media sending not yet implemented for Meta."""
+        raise NotImplementedError("Meta media sending not yet supported")

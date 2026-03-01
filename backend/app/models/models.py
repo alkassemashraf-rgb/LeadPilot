@@ -33,7 +33,10 @@ class DeliveryStatus(str, Enum):
     PENDING = "pending"
     SENDING = "sending"
     SENT = "sent"
+    DELIVERED = "delivered"
+    READ = "read"
     FAILED = "failed"
+    DEAD_LETTER = "dead_letter"
 
 class EmailStatus(str, Enum):
     PENDING = "pending"
@@ -293,8 +296,11 @@ class Message(WorkspaceScopedModel, table=True):
     attempt_count: int = Field(default=0)
     last_attempt_at: Optional[datetime] = None
     sent_at: Optional[datetime] = None
+    delivered_at: Optional[datetime] = None
+    read_at: Optional[datetime] = None
     last_error: Optional[str] = None
-    
+    failure_code: Optional[str] = None
+
     # Mission 6.2: Hardening
     is_outbound_intent: bool = Field(default=True)
     idempotency_hash: Optional[str] = Field(default=None, index=True)

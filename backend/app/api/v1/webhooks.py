@@ -14,6 +14,7 @@ from app.models.models import Integration, WebhookEventLog, WebhookStatus
 from app.workers.tasks import process_webhook_event
 from app.core.modules import require_module_enabled, MODULE_WEBHOOKS_INGESTION
 from app.services.runtime_event_service import log_event
+from app.services.metrics_service import metrics
 
 router = APIRouter()
 
@@ -68,14 +69,39 @@ async def verify_webhook(request: Request):
 @router.post("/whatsapp", dependencies=[Depends(require_module_enabled(MODULE_WEBHOOKS_INGESTION, "write"))])
 async def whatsapp_webhook(
     request: Request,
+    x_hub_signature_256: str = Header(None, alias="X-Hub-Signature-256"),
     db: AsyncSession = Depends(get_db)
 ):
     """Inbound WhatsApp Webhook."""
     payload_bytes = await request.body()
+
+    # Payload size guard
+    if len(payload_bytes) > settings.WEBHOOK_MAX_PAYLOAD_BYTES:
+        return Response(content="Payload too large", status_code=413)
+
+    # Signature verification (same pattern as Meta webhook)
+    if x_hub_signature_256:
+        if not verify_meta_signature(payload_bytes, x_hub_signature_256, algorithm="sha256"):
+            if settings.META_APP_SECRET:
+                await log_event(db, event_type="webhook.signature_invalid", source="webhook",
+                                outcome="failure", payload={"provider": "whatsapp", "algorithm": "sha256"})
+                await db.commit()
+                raise HTTPException(status_code=403, detail="Invalid signature")
+    elif settings.META_APP_SECRET:
+        # No signature header but secret is configured — reject
+        await log_event(db, event_type="webhook.signature_missing", source="webhook",
+                        outcome="failure", payload={"provider": "whatsapp"})
+        await db.commit()
+        raise HTTPException(status_code=403, detail="Missing signature")
+
     try:
         payload = json.loads(payload_bytes)
     except json.JSONDecodeError:
         return {"status": "error", "message": "Invalid JSON"}
+
+    # Schema validation: entry must exist
+    if not payload.get("entry"):
+        return {"status": "ok", "message": "no_entry"}
 
     # 1. Extract IDs
     phone_number_id = None
@@ -96,6 +122,7 @@ async def whatsapp_webhook(
     except (IndexError, AttributeError):
         pass
 
+    metrics.increment("webhooks_received", labels={"provider": "whatsapp"})
     await log_event(db, event_type="webhook.received", source="webhook",
                     payload={"provider": "whatsapp", "phone_number_id": phone_number_id})
 
@@ -151,6 +178,10 @@ async def meta_webhook(
     """Inbound Meta Webhook."""
     payload_bytes = await request.body()
 
+    # Payload size guard
+    if len(payload_bytes) > settings.WEBHOOK_MAX_PAYLOAD_BYTES:
+        return Response(content="Payload too large", status_code=413)
+
     # 1. Signature Check (SHA-256 preferred, fallback to SHA-1)
     if x_hub_signature_256:
         if not verify_meta_signature(payload_bytes, x_hub_signature_256, algorithm="sha256"):
@@ -193,6 +224,7 @@ async def meta_webhook(
     except (IndexError, AttributeError):
         pass
 
+    metrics.increment("webhooks_received", labels={"provider": "meta"})
     await log_event(db, event_type="webhook.received", source="webhook",
                     payload={"provider": "meta", "page_id": page_id})
 

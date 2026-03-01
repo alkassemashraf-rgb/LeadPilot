@@ -100,7 +100,7 @@ STATIC_ENDPOINTS = [
     ),
     ("automation-trigger-types", ["MESSAGE_INBOUND", "LEAD_AD_SUBMIT"]),
     ("conversation-statuses", ["bot_active", "human_takeover", "closed"]),
-    ("message-delivery-statuses", ["pending", "sending", "sent", "failed"]),
+    ("message-delivery-statuses", ["pending", "sending", "sent", "delivered", "read", "failed", "dead_letter"]),
 ]
 
 

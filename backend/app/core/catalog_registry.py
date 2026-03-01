@@ -152,7 +152,10 @@ MESSAGE_DELIVERY_STATUSES: List[Dict[str, str]] = [
     {"key": "pending", "label": "Pending", "description": "Message queued for delivery."},
     {"key": "sending", "label": "Sending", "description": "Message is being sent."},
     {"key": "sent", "label": "Sent", "description": "Message delivered successfully."},
+    {"key": "delivered", "label": "Delivered", "description": "Message confirmed delivered to recipient."},
+    {"key": "read", "label": "Read", "description": "Message read by recipient."},
     {"key": "failed", "label": "Failed", "description": "Message delivery failed."},
+    {"key": "dead_letter", "label": "Dead Letter", "description": "Message permanently failed after max retries."},
 ]
 
 

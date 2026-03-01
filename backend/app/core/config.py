@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     # Runtime Event Trail
     RUNTIME_EVENT_RETENTION_DAYS: int = 30
 
+    # Webhook Hardening
+    WEBHOOK_MAX_PAYLOAD_BYTES: int = 1_048_576  # 1 MB
+
     @model_validator(mode="after")
     def validate_email_settings(self) -> "Settings":
         import logging

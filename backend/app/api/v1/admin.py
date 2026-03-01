@@ -2088,3 +2088,15 @@ async def admin_list_template_versions(
         }
         for v in versions
     ])
+
+
+# ─── Metrics ─────────────────────────────────────────────────────────────────
+
+
+@router.get("/metrics", response_model=ResponseEnvelope)
+async def get_metrics(
+    _: User = Depends(require_superadmin),
+) -> Any:
+    """Return in-memory metrics counters (webhook, dispatch, etc.)."""
+    from app.services.metrics_service import metrics as m
+    return wrap_data(m.get_counts())

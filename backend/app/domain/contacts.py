@@ -1,9 +1,20 @@
+import re
 from typing import Optional, Tuple
 from uuid import UUID
 from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from app.models.models import Contact, ChannelIdentity, Conversation
+
+
+def normalize_phone(raw: str) -> str:
+    """Normalize a phone number to digits only.
+    Strips +, spaces, dashes, parentheses, dots.
+    E.g. "+1 (415) 555-1234" → "14155551234"
+    """
+    return re.sub(r"[^\d]", "", raw)
+
+
 async def resolve_or_create_contact(
     session: AsyncSession,
     workspace_id: UUID,
@@ -15,6 +26,10 @@ async def resolve_or_create_contact(
     """
     Finds or creates a Contact, their ChannelIdentity, and a Conversation.
     """
+    # Normalize phone numbers for WhatsApp to prevent duplicates
+    if provider == "whatsapp" and provider_user_id:
+        provider_user_id = normalize_phone(provider_user_id)
+
     # 1. Find Identity
     result = await session.execute(
         select(ChannelIdentity).where(

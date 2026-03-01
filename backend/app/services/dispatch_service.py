@@ -12,6 +12,7 @@ from app.core.security import decrypt_data
 from app.integrations.whatsapp.adapter import WhatsAppAdapter
 from app.integrations.meta.adapter import MetaAdapter
 from app.services.runtime_event_service import log_event
+from app.services.metrics_service import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -206,12 +207,21 @@ class DispatchService:
             # 3. Call Provider Adapter
             logger.info(f"Sending message via {msg.platform}", extra=log_ctx)
             provider_message_id = None
+            media_url = (msg.additional_metadata or {}).get("media_url")
+            media_type = (msg.additional_metadata or {}).get("media_type")
+            media_caption = (msg.additional_metadata or {}).get("caption")
+
             if msg.platform == "whatsapp":
                 adapter = WhatsAppAdapter(
                     phone_number_id=integration.provider_workspace_id,
                     access_token=config.get("access_token")
                 )
-                provider_message_id = await adapter.send_text(recipient_id, msg.content)
+                if media_url and media_type:
+                    provider_message_id = await adapter.send_media(
+                        recipient_id, media_type, media_url, caption=media_caption
+                    )
+                else:
+                    provider_message_id = await adapter.send_text(recipient_id, msg.content)
             elif msg.platform == "meta":
                 adapter = MetaAdapter(
                     page_id=integration.provider_workspace_id,
@@ -226,6 +236,7 @@ class DispatchService:
             msg.provider_message_id = provider_message_id
             msg.sent_at = datetime.utcnow()
             msg.last_error = None
+            metrics.increment("messages_sent", labels={"platform": msg.platform})
             logger.info(f"Successfully sent message {msg.id}", extra=log_ctx)
             await log_event(db, event_type="dispatch.attempt_succeeded", source="dispatch",
                             workspace_id=msg.workspace_id,
@@ -235,22 +246,28 @@ class DispatchService:
         except Exception as e:
             error_str = str(e)
             is_permanent = "PERMANENT_FAILURE" in error_str
+            is_exhausted = is_permanent or msg.attempt_count >= 5
 
             logger.error(f"Dispatch error for message {msg.id}: {error_str}", extra=log_ctx)
             msg.last_error = error_str
 
-            if is_permanent or msg.attempt_count >= 5:
-                msg.delivery_status = DeliveryStatus.FAILED
+            if is_exhausted:
+                msg.delivery_status = DeliveryStatus.DEAD_LETTER
+                metrics.increment("messages_dead_lettered", labels={"platform": msg.platform})
+                await log_event(db, event_type="dispatch.dead_lettered", source="dispatch",
+                                workspace_id=msg.workspace_id, outcome="failure",
+                                error_message=error_str,
+                                related_ids={"message_id": str(msg.id)},
+                                payload={"platform": msg.platform, "attempt_count": msg.attempt_count,
+                                         "reason": "permanent" if is_permanent else "max_retries"})
             else:
-                # Set back to FAILED for retry polling
                 msg.delivery_status = DeliveryStatus.FAILED
-
-            await log_event(db, event_type="dispatch.attempt_failed", source="dispatch",
-                            workspace_id=msg.workspace_id,
-                            outcome="failure" if is_permanent or msg.attempt_count >= 5 else "skipped",
-                            error_message=error_str,
-                            related_ids={"message_id": str(msg.id)},
-                            payload={"platform": msg.platform, "attempt_count": msg.attempt_count})
+                metrics.increment("messages_failed", labels={"platform": msg.platform})
+                await log_event(db, event_type="dispatch.attempt_failed", source="dispatch",
+                                workspace_id=msg.workspace_id, outcome="skipped",
+                                error_message=error_str,
+                                related_ids={"message_id": str(msg.id)},
+                                payload={"platform": msg.platform, "attempt_count": msg.attempt_count})
 
             raise e
         finally:

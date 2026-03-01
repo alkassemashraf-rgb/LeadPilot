@@ -18,11 +18,13 @@ def run_async(coro):
 
 from app.models.models import (
     Message,
+    DeliveryStatus,
     FlowVersion,
     ExecutionInstance,
     ExecutionStatus,
     Flow
 )
+from app.domain.contacts import normalize_phone
 from app.domain.contacts import resolve_or_create_contact
 from app.domain.runtime import execute_instance
 from app.services.dispatch_service import DispatchService
@@ -35,24 +37,44 @@ def parse_webhook_payload(provider: str, payload: Dict) -> Dict:
         "trigger_type": None,
         "provider_user_id": None,
         "content": None,
-        "first_name": None
+        "first_name": None,
+        "media_id": None,
+        "media_type": None,
+        "mime_type": None,
+        "caption": None,
     }
-    
+
     try:
         if provider == "whatsapp":
             entry = payload.get("entry", [])[0]
             value = entry.get("changes", [])[0].get("value", {})
             messages = value.get("messages", [])
             contacts = value.get("contacts", [])
-            
+
             if messages:
                 msg = messages[0]
+                msg_type = msg.get("type", "text")
                 normalized["trigger_type"] = "MESSAGE_INBOUND"
                 normalized["provider_user_id"] = msg.get("from")
-                normalized["content"] = msg.get("text", {}).get("body")
                 if contacts:
                     normalized["first_name"] = contacts[0].get("profile", {}).get("name")
-        
+
+                if msg_type == "text":
+                    normalized["content"] = msg.get("text", {}).get("body")
+                elif msg_type in ("image", "audio", "video", "document"):
+                    media_obj = msg.get(msg_type, {})
+                    normalized["media_id"] = media_obj.get("id")
+                    normalized["media_type"] = msg_type
+                    normalized["mime_type"] = media_obj.get("mime_type")
+                    normalized["caption"] = media_obj.get("caption")
+                    normalized["content"] = media_obj.get("caption") or f"[{msg_type}]"
+
+            # WhatsApp status updates (delivery receipts)
+            statuses = value.get("statuses", [])
+            if statuses and not messages:
+                normalized["trigger_type"] = "STATUS_UPDATE"
+                normalized["statuses"] = statuses
+
         elif provider == "meta":
             entry = payload.get("entry", [])[0]
             # Messaging (Messenger/Instagram)
@@ -70,8 +92,76 @@ def parse_webhook_payload(provider: str, payload: Dict) -> Dict:
                     normalized["content"] = "Lead Ad Submission"
     except (IndexError, KeyError, AttributeError):
         pass
-        
+
     return normalized
+
+
+# Status priority for forward-only progression
+_STATUS_PRIORITY = {
+    DeliveryStatus.PENDING: 0,
+    DeliveryStatus.SENDING: 1,
+    DeliveryStatus.SENT: 2,
+    DeliveryStatus.DELIVERED: 3,
+    DeliveryStatus.READ: 4,
+    DeliveryStatus.FAILED: 5,
+    DeliveryStatus.DEAD_LETTER: 6,
+}
+
+
+async def _process_status_updates(session, statuses: list, workspace_id, correlation_id: str):
+    """Process WhatsApp delivery status webhooks (sent/delivered/read/failed)."""
+    from app.services.runtime_event_service import log_event
+
+    status_map = {
+        "sent": DeliveryStatus.SENT,
+        "delivered": DeliveryStatus.DELIVERED,
+        "read": DeliveryStatus.READ,
+        "failed": DeliveryStatus.FAILED,
+    }
+
+    for s in statuses:
+        provider_msg_id = s.get("id")
+        wa_status = s.get("status")
+        timestamp_str = s.get("timestamp")
+
+        if not provider_msg_id or wa_status not in status_map:
+            continue
+
+        result = await session.execute(
+            select(Message).where(Message.provider_message_id == provider_msg_id)
+        )
+        msg = result.scalars().first()
+        if not msg:
+            logger.info(f"Status update for unknown message {provider_msg_id}, skipping")
+            continue
+
+        new_status = status_map[wa_status]
+        old_priority = _STATUS_PRIORITY.get(msg.delivery_status, 0)
+        new_priority = _STATUS_PRIORITY.get(new_status, 0)
+
+        # Only advance forward (don't regress from READ → DELIVERED)
+        if new_priority <= old_priority:
+            continue
+
+        ts = datetime.utcfromtimestamp(int(timestamp_str)) if timestamp_str else datetime.utcnow()
+
+        msg.delivery_status = new_status
+        if new_status == DeliveryStatus.SENT and not msg.sent_at:
+            msg.sent_at = ts
+        elif new_status == DeliveryStatus.DELIVERED:
+            msg.delivered_at = ts
+        elif new_status == DeliveryStatus.READ:
+            msg.read_at = ts
+        elif new_status == DeliveryStatus.FAILED:
+            errors = s.get("errors", [])
+            msg.failure_code = str(errors[0].get("code")) if errors else None
+            msg.last_error = errors[0].get("title") if errors else "Unknown failure"
+
+        session.add(msg)
+        await log_event(session, event_type="message.status_updated", source="webhook",
+                        workspace_id=workspace_id, correlation_id=correlation_id,
+                        related_ids={"message_id": str(msg.id)},
+                        payload={"status": wa_status, "provider_message_id": provider_msg_id})
 
 @celery_app.task(name="app.workers.tasks.process_webhook_event")
 def process_webhook_event(event_id: str):
@@ -83,7 +173,7 @@ def process_webhook_event(event_id: str):
         from sqlalchemy.ext.asyncio import AsyncSession
         from app.services.runtime_event_service import log_event
 
-        async with AsyncSession(engine) as session:
+        async with AsyncSession(engine, expire_on_commit=False) as session:
             event = await session.get(WebhookEventLog, UUID(event_id))
             if not event or not event.workspace_id:
                 logger.error(f"Event {event_id} not found or has no workspace")
@@ -98,15 +188,6 @@ def process_webhook_event(event_id: str):
 
             try:
                 # 0. Loop Prevention (Part D)
-                if event.provider == "whatsapp":
-                    value = event.payload.get("entry", [{}])[0].get("changes", [{}])[0].get("value", {})
-                    if "statuses" in value and "messages" not in value:
-                        logger.info(f"Ignoring WhatsApp status update {event_id}")
-                        event.status = WebhookStatus.PROCESSED
-                        session.add(event)
-                        await session.commit()
-                        return
-
                 is_echo = False
                 if event.provider == "meta":
                     entry = event.payload.get("entry", [{}])[0]
@@ -124,12 +205,29 @@ def process_webhook_event(event_id: str):
 
                 # 1. Parse Payload
                 info = parse_webhook_payload(event.provider, event.payload)
+
+                # 1a. Handle WhatsApp delivery status updates
+                if info.get("trigger_type") == "STATUS_UPDATE" and info.get("statuses"):
+                    await _process_status_updates(
+                        session, info["statuses"], event.workspace_id,
+                        str(event.correlation_id)
+                    )
+                    event.status = WebhookStatus.PROCESSED
+                    event.processed_at = datetime.utcnow()
+                    session.add(event)
+                    await session.commit()
+                    return
+
                 if not info["trigger_type"]:
                     logger.info(f"No actionable trigger found in payload for event {event_id}")
                     event.status = WebhookStatus.PROCESSED
                     session.add(event)
                     await session.commit()
                     return
+
+                # 1b. Normalize phone number for WhatsApp
+                if event.provider == "whatsapp" and info.get("provider_user_id"):
+                    info["provider_user_id"] = normalize_phone(info["provider_user_id"])
 
                 # 2. Resolve Contact & Store Message
                 contact, identity, conversation = await resolve_or_create_contact(
@@ -141,13 +239,33 @@ def process_webhook_event(event_id: str):
                 )
 
                 if info["trigger_type"] == "MESSAGE_INBOUND":
+                    msg_metadata = {}
+                    if info.get("media_id"):
+                        msg_metadata = {
+                            "media_id": info["media_id"],
+                            "media_type": info["media_type"],
+                            "mime_type": info["mime_type"],
+                        }
+                        # Download and store media
+                        try:
+                            from app.services.media_service import download_and_store_media
+                            media_path = await download_and_store_media(
+                                session, event.workspace_id, info["media_id"],
+                                info["mime_type"], event.provider
+                            )
+                            if media_path:
+                                msg_metadata["media_path"] = media_path
+                        except Exception as media_err:
+                            logger.warning(f"Media download failed for {info['media_id']}: {media_err}")
+
                     inbound_msg = Message(
                         workspace_id=event.workspace_id,
                         conversation_id=conversation.id,
                         direction="inbound",
                         content=info["content"] or "",
                         platform=event.provider,
-                        delivery_status="delivered"
+                        delivery_status="delivered",
+                        additional_metadata=msg_metadata,
                     )
                     session.add(inbound_msg)
 
@@ -228,7 +346,7 @@ def dispatch_message_task(message_id: str):
     from sqlalchemy.ext.asyncio import AsyncSession
     
     async def _run():
-        async with AsyncSession(engine) as session:
+        async with AsyncSession(engine, expire_on_commit=False) as session:
             msg = await session.get(Message, UUID(message_id))
             if msg:
                 await DispatchService.dispatch_message(session, msg)
@@ -244,7 +362,7 @@ def dispatch_pending_task(workspace_id: Optional[str] = None):
     from sqlalchemy.ext.asyncio import AsyncSession
     
     async def _run():
-        async with AsyncSession(engine) as session:
+        async with AsyncSession(engine, expire_on_commit=False) as session:
             await DispatchService.dispatch_pending_messages(
                 session,
                 workspace_id=UUID(workspace_id) if workspace_id else None
@@ -265,7 +383,7 @@ def purge_runtime_events_task():
     async def _run():
         cutoff = datetime.utcnow() - timedelta(days=app_settings.RUNTIME_EVENT_RETENTION_DAYS)
         total_purged = 0
-        async with AsyncSession(engine) as session:
+        async with AsyncSession(engine, expire_on_commit=False) as session:
             while True:
                 query = select(RuntimeEventLog.id).where(
                     RuntimeEventLog.created_at < cutoff
