@@ -1,16 +1,19 @@
 """
-Catalog API — Mission 19
+Catalog API — Mission 19 + Mission 33
 Read-only endpoints for all enumerated reference data.
 No authentication required. Safe for 60s client caching.
 """
-from typing import Any
+from typing import Any, Optional
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.core.db import get_db
-from app.models.models import Plan, PlanEntitlement, SystemModuleConfig
+from app.models.models import (
+    Plan, PlanEntitlement, SystemModuleConfig,
+    AutomationTemplate, TemplateUsageStat,
+)
 from app.schemas.envelope import wrap_data
 from app.core.catalog_registry import (
     INTEGRATION_PROVIDERS,
@@ -84,6 +87,47 @@ async def get_tiers(
 ) -> Any:
     """Alias for /catalog/plans — tiers and plans are the same concept."""
     return await get_plans(response, db)
+
+
+@router.get("/templates")
+async def get_public_templates(
+    response: Response,
+    db: AsyncSession = Depends(get_db),
+    category: Optional[str] = Query(None),
+    featured: Optional[bool] = Query(None),
+) -> Any:
+    """Return public template metadata (no builder_graph_json or variables)."""
+    _set_cache(response)
+    query = (
+        select(AutomationTemplate, TemplateUsageStat)
+        .outerjoin(TemplateUsageStat, TemplateUsageStat.template_id == AutomationTemplate.id)
+        .where(AutomationTemplate.is_active == True)
+    )
+    if category:
+        query = query.where(AutomationTemplate.category == category)
+    if featured is not None:
+        query = query.where(AutomationTemplate.is_featured == featured)
+    query = query.order_by(
+        AutomationTemplate.is_featured.desc(),
+        AutomationTemplate.name.asc(),
+    )
+    result = await db.execute(query)
+    rows = result.all()
+    return wrap_data([
+        {
+            "id": str(t.id),
+            "slug": t.slug,
+            "name": t.name,
+            "description": t.description,
+            "category": t.category,
+            "industry_tags": t.industry_tags or [],
+            "platforms": t.platforms or [],
+            "required_integrations": t.required_integrations or [],
+            "is_featured": t.is_featured,
+            "clone_count": s.clone_count if s else 0,
+        }
+        for t, s in rows
+    ])
 
 
 @router.get("/modules")

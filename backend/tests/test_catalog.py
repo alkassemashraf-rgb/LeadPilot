@@ -7,7 +7,11 @@ import pytest_asyncio
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.models import Plan, PlanEntitlement, SystemModuleConfig
+from app.models.models import (
+    Plan, PlanEntitlement, SystemModuleConfig,
+    AutomationTemplate, AutomationTemplateVersion, TemplateUsageStat,
+)
+from datetime import datetime
 
 
 # ── Seed helpers ─────────────────────────────────────────────────────
@@ -143,3 +147,91 @@ async def test_catalog_integration_providers_have_fields(async_client: AsyncClie
             assert "name" in field
             assert "label" in field
             assert "type" in field
+
+
+# ── Public templates endpoint (Mission 33) ────────────────────────────
+
+
+async def _seed_template(db: AsyncSession, slug: str = "test-tmpl", category: str = "lead_generation", is_featured: bool = False):
+    """Create a minimal template + published version + usage stat for testing."""
+    now = datetime.utcnow()
+    tmpl = AutomationTemplate(
+        slug=slug,
+        name=f"Test Template {slug}",
+        description=f"Description for {slug}",
+        category=category,
+        platforms=["whatsapp"],
+        required_integrations=["whatsapp"],
+        industry_tags=["test"],
+        is_active=True,
+        is_featured=is_featured,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(tmpl)
+    await db.flush()
+
+    ver = AutomationTemplateVersion(
+        template_id=tmpl.id,
+        version_number=1,
+        builder_graph_json={"nodes": [], "edges": []},
+        changelog="Seed",
+        is_published=True,
+        published_at=now,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(ver)
+
+    stat = TemplateUsageStat(
+        template_id=tmpl.id,
+        clone_count=0,
+        publish_count=0,
+        active_flows_count=0,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(stat)
+    await db.flush()
+    return tmpl
+
+
+@pytest.mark.asyncio
+async def test_catalog_templates_returns_list(async_client: AsyncClient, db_session: AsyncSession):
+    await _seed_template(db_session, slug="cat-tmpl-1")
+    response = await async_client.get("/api/v1/catalog/templates")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    assert isinstance(data["data"], list)
+    assert len(data["data"]) >= 1
+    item = data["data"][0]
+    assert "slug" in item
+    assert "name" in item
+    assert "category" in item
+    assert "clone_count" in item
+    assert "Cache-Control" in response.headers
+    assert "max-age=60" in response.headers["Cache-Control"]
+
+
+@pytest.mark.asyncio
+async def test_catalog_templates_category_filter(async_client: AsyncClient, db_session: AsyncSession):
+    await _seed_template(db_session, slug="cat-lg-1", category="lead_generation")
+    await _seed_template(db_session, slug="cat-sales-1", category="sales")
+    response = await async_client.get("/api/v1/catalog/templates?category=lead_generation")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["success"] is True
+    for item in data["data"]:
+        assert item["category"] == "lead_generation"
+
+
+@pytest.mark.asyncio
+async def test_catalog_templates_excludes_graph(async_client: AsyncClient, db_session: AsyncSession):
+    await _seed_template(db_session, slug="cat-no-graph")
+    response = await async_client.get("/api/v1/catalog/templates")
+    assert response.status_code == 200
+    data = response.json()
+    for item in data["data"]:
+        assert "builder_graph_json" not in item
+        assert "variables" not in item

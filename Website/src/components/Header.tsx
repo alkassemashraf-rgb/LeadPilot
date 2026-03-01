@@ -8,6 +8,8 @@ import { Menu, X, Zap } from "lucide-react";
 const navLinks = [
   { label: "Product", href: "/product" },
   { label: "Features", href: "/features" },
+  { label: "Templates", href: "/templates" },
+  { label: "Integrations", href: "/integrations" },
   { label: "Use Cases", href: "/use-cases" },
   { label: "Plans", href: "/plans" },
   { label: "About", href: "/about" },

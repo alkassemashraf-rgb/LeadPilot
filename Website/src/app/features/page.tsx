@@ -1,20 +1,10 @@
 import type { Metadata } from "next";
-import {
-  Brain,
-  Globe,
-  GitMerge,
-  Inbox,
-  BarChart3,
-  BookOpen,
-  Shield,
-  Database,
-  FileText,
-  Zap,
-  Bell,
-  Settings,
-} from "lucide-react";
+import { getModules } from "@/lib/api";
+import { MODULE_MARKETING_MAP, FEATURE_CATEGORIES } from "@/lib/moduleMap";
 import FeatureCard from "@/components/FeatureCard";
 import CTASection from "@/components/CTASection";
+import * as Icons from "lucide-react";
+import { type LucideIcon } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "Features — Everything LeadPilot Does",
@@ -22,122 +12,29 @@ export const metadata: Metadata = {
     "AI qualification & scoring, multi-channel capture, smart routing, CRM sync, team inbox, analytics, playbooks, and more. The full LeadPilot feature set.",
 };
 
-const features = [
-  {
-    icon: Brain,
-    benefit: "Qualify at scale",
-    title: "AI Qualification & Scoring",
-    description:
-      "Custom AI prompts engage every lead the moment they arrive. Scores are assigned based on intent, fit, and urgency — so your reps only work leads worth their time.",
-  },
-  {
-    icon: Globe,
-    benefit: "Zero leakage",
-    title: "Multi-Channel Lead Capture",
-    description:
-      "Embed capture forms, integrate your existing chat widget, accept webhook payloads, and connect partner referral links — everything flows into one structured pipeline.",
-  },
-  {
-    icon: Database,
-    benefit: "Stay connected",
-    title: "CRM Sync & Integrations",
-    description:
-      "Push qualified leads directly to your CRM of choice. Map fields, set sync rules, and keep your sales stack in perfect alignment without manual exports.",
-  },
-  {
-    icon: GitMerge,
-    benefit: "Right rep, right time",
-    title: "Smart Routing Rules",
-    description:
-      "Route by territory, vertical, product line, rep availability, or any custom attribute. Rules compose like building blocks — no code required.",
-  },
-  {
-    icon: Inbox,
-    benefit: "Stay in the loop",
-    title: "Team Inbox & Human Handover",
-    description:
-      "All conversations flow into a shared team inbox. Reps can pick up context instantly, send messages, and mark leads without switching tools.",
-  },
-  {
-    icon: BarChart3,
-    benefit: "Measure what matters",
-    title: "Analytics & Conversion Tracking",
-    description:
-      "Track lead volume, qualification rate, response time, conversion by channel and rep, and pipeline velocity — all in real time from a single dashboard.",
-  },
-  {
-    icon: BookOpen,
-    benefit: "Start fast",
-    title: "Playbooks & Templates",
-    description:
-      "Pre-built qualification playbooks for common industries and use cases. Start with a template, customise the prompts, and go live in minutes.",
-  },
-  {
-    icon: Shield,
-    benefit: "Stay in control",
-    title: "Role-Based Access Control",
-    description:
-      "Assign owner, manager, and viewer roles. Control who can see which leads, edit routing rules, or access reporting — down to workspace level.",
-  },
-  {
-    icon: FileText,
-    benefit: "Full transparency",
-    title: "Audit Trail & Activity Log",
-    description:
-      "Every action on every lead is logged: capture, score change, routing event, message sent, rep assigned. Immutable, exportable, always available.",
-  },
-  {
-    icon: Database,
-    benefit: "Richer profiles",
-    title: "Custom Fields & Lead Enrichment",
-    description:
-      "Extend the lead model with custom fields that match your business. Enrich profiles with company data, source metadata, and conversation history automatically.",
-  },
-  {
-    icon: Bell,
-    benefit: "Never miss a beat",
-    title: "Real-Time Notifications",
-    description:
-      "Email and in-app alerts the moment a lead is assigned, qualified, or hits a threshold. Configure notification rules per rep, per team, or per lead stage.",
-  },
-  {
-    icon: Settings,
-    benefit: "Your rules",
-    title: "Workflow Automation",
-    description:
-      "Build trigger-based workflows that act on lead status changes, score thresholds, or time-based events. Automate follow-ups, escalations, and re-routing without code.",
-  },
-];
+function getIcon(iconName: string): LucideIcon {
+  if (iconName in Icons) return (Icons as unknown as Record<string, LucideIcon>)[iconName];
+  return Icons.Zap;
+}
 
-const categories = [
-  {
-    label: "Capture & Intake",
-    icon: Zap,
-    features: ["Multi-Channel Capture", "Custom Fields & Lead Enrichment"],
-  },
-  {
-    label: "Intelligence",
-    icon: Brain,
-    features: ["AI Qualification & Scoring", "Playbooks & Templates", "Workflow Automation"],
-  },
-  {
-    label: "Operations",
-    icon: GitMerge,
-    features: ["Smart Routing Rules", "Team Inbox & Human Handover", "Real-Time Notifications"],
-  },
-  {
-    label: "Visibility",
-    icon: BarChart3,
-    features: ["Analytics & Conversion Tracking", "Audit Trail & Activity Log"],
-  },
-  {
-    label: "Platform",
-    icon: Shield,
-    features: ["CRM Sync & Integrations", "Role-Based Access Control"],
-  },
-];
+export default async function FeaturesPage() {
+  const modules = await getModules();
 
-export default function FeaturesPage() {
+  // Map DB modules to marketing features
+  const allFeatures = modules
+    .filter((m) => MODULE_MARKETING_MAP[m.key])
+    .map((m) => ({
+      ...MODULE_MARKETING_MAP[m.key],
+      isEnabled: m.is_enabled,
+      moduleKey: m.key,
+    }));
+
+  // Categories with their features
+  const categoriesWithFeatures = FEATURE_CATEGORIES.map((cat) => ({
+    ...cat,
+    features: allFeatures.filter((f) => f.category === cat.key),
+  })).filter((cat) => cat.features.length > 0);
+
   return (
     <>
       {/* ─── HERO ─────────────────────────────────────────────────── */}
@@ -155,7 +52,6 @@ export default function FeaturesPage() {
               "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(15,118,110,0.25) 0%, transparent 70%)",
           }}
         />
-
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <p
             className="text-xs font-bold uppercase tracking-widest mb-4"
@@ -193,16 +89,20 @@ export default function FeaturesPage() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-wrap items-center gap-2 justify-center">
-            {categories.map(({ label, icon: Icon }) => (
-              <a
-                key={label}
-                href={`#${label.toLowerCase().replace(/ & /g, "-").replace(/ /g, "-")}`}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium category-link"
-              >
-                <Icon className="w-3.5 h-3.5" aria-hidden="true" />
-                {label}
-              </a>
-            ))}
+            {categoriesWithFeatures.map(({ label, iconName }) => {
+              const CatIcon = getIcon(iconName);
+              const anchorId = label.toLowerCase().replace(/ & /g, "-").replace(/ /g, "-");
+              return (
+                <a
+                  key={label}
+                  href={`#${anchorId}`}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium category-link"
+                >
+                  <CatIcon className="w-3.5 h-3.5" aria-hidden="true" />
+                  {label}
+                </a>
+              );
+            })}
           </div>
         </div>
       </section>
@@ -214,20 +114,27 @@ export default function FeaturesPage() {
         aria-labelledby="features-grid-heading"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 id="features-grid-heading" className="sr-only">
-            All features
-          </h2>
+          <h2 id="features-grid-heading" className="sr-only">All features</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {features.map((feat) => (
-              <FeatureCard key={feat.title} {...feat} dark />
+            {allFeatures.map((feat) => (
+              <FeatureCard
+                key={feat.moduleKey}
+                iconName={feat.iconName}
+                benefit={feat.benefit}
+                title={feat.marketingTitle}
+                description={feat.description}
+                dark
+                comingSoon={!feat.isEnabled}
+              />
             ))}
           </div>
         </div>
       </section>
 
       {/* ─── CATEGORIES DEEP DIVE ─────────────────────────────────── */}
-      {categories.map(({ label, icon: Icon, features: catFeats }) => {
+      {categoriesWithFeatures.map(({ label, iconName, features: catFeats }) => {
         const anchorId = label.toLowerCase().replace(/ & /g, "-").replace(/ /g, "-");
+        const CatIcon = getIcon(iconName);
         return (
           <section
             key={label}
@@ -242,7 +149,7 @@ export default function FeaturesPage() {
                   className="w-10 h-10 rounded-xl flex items-center justify-center"
                   style={{ background: "rgba(15,118,110,0.1)", border: "1px solid rgba(15,118,110,0.2)" }}
                 >
-                  <Icon className="w-5 h-5" style={{ color: "#0F766E" }} aria-hidden="true" />
+                  <CatIcon className="w-5 h-5" style={{ color: "#0F766E" }} aria-hidden="true" />
                 </div>
                 <h2
                   id={`${anchorId}-heading`}
@@ -253,11 +160,16 @@ export default function FeaturesPage() {
                 </h2>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {features
-                  .filter((f) => catFeats.includes(f.title))
-                  .map((feat) => (
-                    <FeatureCard key={feat.title} {...feat} />
-                  ))}
+                {catFeats.map((feat) => (
+                  <FeatureCard
+                    key={feat.moduleKey}
+                    iconName={feat.iconName}
+                    benefit={feat.benefit}
+                    title={feat.marketingTitle}
+                    description={feat.description}
+                    comingSoon={!feat.isEnabled}
+                  />
+                ))}
               </div>
             </div>
           </section>

@@ -5,6 +5,8 @@ const footerNav = {
   Product: [
     { label: "How it Works", href: "/product" },
     { label: "Features", href: "/features" },
+    { label: "Templates", href: "/templates" },
+    { label: "Integrations", href: "/integrations" },
     { label: "Use Cases", href: "/use-cases" },
     { label: "Plans", href: "/plans" },
   ],

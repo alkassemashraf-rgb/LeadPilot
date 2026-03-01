@@ -291,3 +291,121 @@ body {
     linear-gradient(90deg, rgba(15, 118, 110, 0.08) 1px, transparent 1px);
   background-size: 40px 40px;
 }
+
+/* ─── Mission 33: Scroll-reveal + Catalog cards ──────────────────── */
+
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Initial hidden state for scroll-reveal sections */
+.reveal-hidden {
+  opacity: 0;
+  transform: translateY(30px);
+}
+.reveal-visible {
+  animation: revealUp 0.6s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Staggered reveals — add delay-N class alongside reveal-hidden */
+.reveal-delay-1 { animation-delay: 0.1s; }
+.reveal-delay-2 { animation-delay: 0.2s; }
+.reveal-delay-3 { animation-delay: 0.3s; }
+.reveal-delay-4 { animation-delay: 0.4s; }
+.reveal-delay-5 { animation-delay: 0.5s; }
+
+/* Dark catalog card (templates, integrations) */
+.catalog-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 1rem;
+  transition: border-color 0.3s, background 0.3s, transform 0.3s, box-shadow 0.3s;
+}
+.catalog-card:hover {
+  border-color: rgba(15,118,110,0.4);
+  background: rgba(15,118,110,0.06);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(15,118,110,0.12);
+}
+
+/* Muted variant for coming-soon / disabled items */
+.catalog-card-muted {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 1rem;
+  opacity: 0.55;
+  transition: opacity 0.3s;
+}
+.catalog-card-muted:hover {
+  opacity: 0.7;
+}
+
+/* Platform badge pills */
+.badge-platform {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  color: rgba(148,163,184,0.9);
+}
+
+/* Category badge pills */
+.badge-category {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.badge-category[data-category="lead_generation"] {
+  background: rgba(20,184,166,0.15);
+  color: #14B8A6;
+  border: 1px solid rgba(20,184,166,0.3);
+}
+.badge-category[data-category="sales"] {
+  background: rgba(59,130,246,0.15);
+  color: #60A5FA;
+  border: 1px solid rgba(59,130,246,0.3);
+}
+.badge-category[data-category="customer_support"] {
+  background: rgba(245,158,11,0.15);
+  color: #FBBF24;
+  border: 1px solid rgba(245,158,11,0.3);
+}
+.badge-category[data-category="onboarding"] {
+  background: rgba(168,85,247,0.15);
+  color: #C084FC;
+  border: 1px solid rgba(168,85,247,0.3);
+}
+
+/* Skeleton loading line */
+.skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Active category filter tab */
+.category-link-active {
+  background: rgba(15,118,110,0.15);
+  border: 1px solid rgba(20,184,166,0.4);
+  color: var(--secondary);
+}
