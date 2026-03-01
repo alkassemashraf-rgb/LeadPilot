@@ -83,6 +83,7 @@ AUTOMATION_NODE_TYPES: List[Dict[str, Any]] = [
         "description": "Sync contact as a lead in Zoho CRM.",
         "icon_hint": "database",
         "runtime_supported": True,
+        "required_module": "zoho_sync",
     },
     {
         "key": "CONDITION",
@@ -311,4 +312,23 @@ CONTACT_FIELDS: List[Dict[str, Any]] = [
     {"key": "phone", "label": "Phone", "required": False},
     {"key": "company", "label": "Company", "required": False},
     {"key": "description", "label": "Description / Notes", "required": False},
+]
+
+
+# ── Template Categories ──────────────────────────────────────────────
+
+TEMPLATE_CATEGORIES: List[Dict[str, str]] = [
+    {"key": "lead_generation", "label": "Lead Generation"},
+    {"key": "customer_support", "label": "Customer Support"},
+    {"key": "sales", "label": "Sales"},
+    {"key": "onboarding", "label": "Onboarding"},
+    {"key": "general", "label": "General"},
+]
+
+
+# ── Template Platforms ───────────────────────────────────────────────
+
+TEMPLATE_PLATFORMS: List[Dict[str, str]] = [
+    {"key": "whatsapp", "label": "WhatsApp"},
+    {"key": "meta", "label": "Meta"},
 ]

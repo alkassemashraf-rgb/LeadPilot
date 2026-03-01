@@ -5,7 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import { adminApi, MODULE_LABELS } from "@/lib/admin-api";
 import {
     Building2, Users, Loader2, ChevronLeft, RefreshCw,
-    ToggleLeft, ToggleRight, AlertCircle, CreditCard, Save
+    ToggleLeft, ToggleRight, AlertCircle, CreditCard, Save,
+    Pencil, X, Check
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,9 @@ export default function WorkspaceDetailPage() {
     const [loading, setLoading] = useState(true);
     const [toggling, setToggling] = useState<string | null>(null);
     const [assigningPlan, setAssigningPlan] = useState(false);
+    const [editingLimit, setEditingLimit] = useState<string | null>(null);
+    const [editLimitValue, setEditLimitValue] = useState<string>("");
+    const [savingLimit, setSavingLimit] = useState(false);
 
     const load = async () => {
         setLoading(true);
@@ -63,6 +67,27 @@ export default function WorkspaceDetailPage() {
             toast.error(res.error || "Failed to assign plan");
         }
         setAssigningPlan(false);
+    };
+
+    const handleSaveLimit = async (moduleKey: string) => {
+        setSavingLimit(true);
+        const parsedValue = editLimitValue.trim() === "" ? null : parseInt(editLimitValue, 10);
+        if (editLimitValue.trim() !== "" && (isNaN(parsedValue!) || parsedValue! < 0)) {
+            toast.error("Please enter a valid number or leave blank for no override");
+            setSavingLimit(false);
+            return;
+        }
+        const res = await adminApi.setWorkspaceOverrides(id, [{ module_key: moduleKey, hard_limit: parsedValue }]);
+        if (res.success) {
+            toast.success(`Usage limit override for "${MODULE_LABELS[moduleKey] || moduleKey}" saved`);
+            setEditingLimit(null);
+            // Reload plan data to reflect changes
+            const planRes = await adminApi.getWorkspacePlan(id);
+            if (planRes.success && planRes.data) setPlanData(planRes.data);
+        } else {
+            toast.error(res.error || "Failed to save override");
+        }
+        setSavingLimit(false);
     };
 
     useEffect(() => { load(); }, [id]);
@@ -222,6 +247,7 @@ export default function WorkspaceDetailPage() {
                                 const used = e.used || 0;
                                 const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
                                 const isUnlimited = limit === null || limit === undefined;
+                                const isEditing = editingLimit === e.module_key;
                                 return (
                                     <div key={e.module_key} className="flex items-center gap-3">
                                         <div className="w-36 text-xs text-slate-400 truncate">
@@ -238,20 +264,61 @@ export default function WorkspaceDetailPage() {
                                                 />
                                             )}
                                         </div>
-                                        <div className="w-24 text-xs text-slate-400 text-right">
-                                            {isUnlimited ? (
-                                                <span className="text-emerald-400">Unlimited</span>
-                                            ) : (
-                                                <span className={cn(pct >= 100 ? "text-red-400" : pct >= 80 ? "text-amber-400" : "text-slate-400")}>
-                                                    {used} / {limit}
-                                                </span>
-                                            )}
-                                            {e.has_override && <span className="ml-1 text-amber-400">*</span>}
-                                        </div>
+                                        {isEditing ? (
+                                            <div className="flex items-center gap-1.5">
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    className="w-20 bg-white/5 border border-white/20 rounded px-2 py-1 text-xs text-white"
+                                                    placeholder="Blank = plan"
+                                                    value={editLimitValue}
+                                                    onChange={(ev) => setEditLimitValue(ev.target.value)}
+                                                    autoFocus
+                                                />
+                                                <button
+                                                    onClick={() => handleSaveLimit(e.module_key)}
+                                                    disabled={savingLimit}
+                                                    className="text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
+                                                    title="Save"
+                                                >
+                                                    {savingLimit ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                                                </button>
+                                                <button
+                                                    onClick={() => setEditingLimit(null)}
+                                                    className="text-slate-400 hover:text-slate-300"
+                                                    title="Cancel"
+                                                >
+                                                    <X className="w-3.5 h-3.5" />
+                                                </button>
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-1.5">
+                                                <div className="w-24 text-xs text-slate-400 text-right">
+                                                    {isUnlimited ? (
+                                                        <span className="text-emerald-400">Unlimited</span>
+                                                    ) : (
+                                                        <span className={cn(pct >= 100 ? "text-red-400" : pct >= 80 ? "text-amber-400" : "text-slate-400")}>
+                                                            {used} / {limit}
+                                                        </span>
+                                                    )}
+                                                    {e.has_override && <span className="ml-1 text-amber-400">*</span>}
+                                                </div>
+                                                <button
+                                                    onClick={() => {
+                                                        setEditingLimit(e.module_key);
+                                                        setEditLimitValue(e.has_override && e.effective_limit != null ? String(e.effective_limit) : "");
+                                                    }}
+                                                    className="text-slate-500 hover:text-amber-400 transition-colors"
+                                                    title="Edit limit override"
+                                                >
+                                                    <Pencil className="w-3 h-3" />
+                                                </button>
+                                            </div>
+                                        )}
                                     </div>
                                 );
                             })}
-                            <p className="text-[10px] text-slate-600 mt-1">* = admin override active</p>
+                            <p className="text-[10px] text-slate-600 mt-1">* = admin override active · Click pencil to set a custom limit</p>
                         </div>
                     )}
                 </div>

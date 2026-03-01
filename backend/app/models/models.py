@@ -477,6 +477,7 @@ class WorkspaceEntitlementOverride(BaseIDModel, table=True):
     workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
     module_key: str = Field(index=True)
     hard_limit: Optional[int] = Field(default=None)
+    enabled: Optional[bool] = Field(default=None)
 
 class UsageMeter(SQLModel, table=True):
     __table_args__ = (UniqueConstraint("workspace_id", "module_key", "period"),)

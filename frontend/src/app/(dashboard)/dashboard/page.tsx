@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Zap, Users, MessageSquare, TrendingUp, Send, AlertOctagon, Database } from "lucide-react";
+import { Zap, Users, MessageSquare, TrendingUp, Send, AlertOctagon, Database, CreditCard, ArrowRight } from "lucide-react";
+import Link from "next/link";
 import { apiClient } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { KPICard } from "@/components/dashboard/KPICard";
 import { SimpleLineChart, SimpleBarChart } from "@/components/dashboard/Charts";
 import { DispatchHealthWidget } from "@/components/dashboard/HealthWidget";
@@ -15,22 +17,25 @@ export default function DashboardPage() {
     const [convHistory, setConvHistory] = useState<any[]>([]);
     const [execBreakdown, setExecBreakdown] = useState<any>(null);
     const [aiUsage, setAiUsage] = useState<any>(null);
+    const [entitlements, setEntitlements] = useState<any>(null);
 
     useEffect(() => {
         const fetchData = async () => {
             try {
                 // Fetch all data in parallel
-                const [summaryRes, historyRes, breakdownRes, aiRes] = await Promise.all([
+                const [summaryRes, historyRes, breakdownRes, aiRes, entRes] = await Promise.all([
                     apiClient.get("analytics/summary?range=7"),
                     apiClient.get("analytics/timeseries?metric=conversations&range=7&bucket=day"),
                     apiClient.get("analytics/executions/breakdown?range=7"),
-                    apiClient.get("analytics/ai-usage?range=7")
+                    apiClient.get("analytics/ai-usage?range=7"),
+                    apiClient.get("entitlements"),
                 ]);
 
                 if (summaryRes.success) setSummary(summaryRes.data);
                 if (historyRes.success) setConvHistory(historyRes.data);
                 if (breakdownRes.success) setExecBreakdown(breakdownRes.data);
                 if (aiRes.success) setAiUsage(aiRes.data);
+                if (entRes.success) setEntitlements(entRes.data);
 
                 if (!summaryRes.success) console.error("Summary failed", summaryRes.error);
 
@@ -117,6 +122,55 @@ export default function DashboardPage() {
                     <span className="text-sm font-bold text-slate-700">System Optimal</span>
                 </div>
             </div>
+
+            {/* Plan & Usage Card */}
+            {entitlements?.plan && (
+                <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2.5">
+                            <CreditCard className="w-5 h-5 text-teal-600" />
+                            <h3 className="font-semibold text-slate-900">Plan & Usage</h3>
+                            <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-teal-100 text-teal-700">
+                                {entitlements.plan.display_name}
+                            </span>
+                        </div>
+                        <Link
+                            href="/settings"
+                            className="flex items-center gap-1 text-xs font-medium text-teal-600 hover:text-teal-700 transition-colors"
+                        >
+                            View all <ArrowRight className="w-3 h-3" />
+                        </Link>
+                    </div>
+                    {entitlements.usage && entitlements.usage.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                            {entitlements.usage.slice(0, 3).map((u: any) => {
+                                const pct = u.effective_limit ? Math.min(100, Math.round((u.used / u.effective_limit) * 100)) : 0;
+                                return (
+                                    <div key={u.module_key} className="space-y-1.5">
+                                        <div className="flex items-center justify-between text-xs">
+                                            <span className="font-medium text-slate-700">{u.module_key.replace(/_/g, " ")}</span>
+                                            <span className="text-muted-foreground">
+                                                {u.used} / {u.effective_limit ?? "∞"}
+                                            </span>
+                                        </div>
+                                        <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                                            <div
+                                                className={cn(
+                                                    "h-full rounded-full transition-all",
+                                                    pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-amber-500" : "bg-teal-500"
+                                                )}
+                                                style={{ width: `${pct}%` }}
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-muted-foreground">No usage limits configured for your plan.</p>
+                    )}
+                </div>
+            )}
 
             {/* KPI Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-5">

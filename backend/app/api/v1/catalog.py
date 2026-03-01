@@ -29,6 +29,8 @@ from app.core.catalog_registry import (
     EVENT_OUTCOMES,
     AUDIT_ACTIONS,
     CONTACT_FIELDS,
+    TEMPLATE_CATEGORIES,
+    TEMPLATE_PLATFORMS,
 )
 
 router = APIRouter()
@@ -191,5 +193,15 @@ router.add_api_route(
 router.add_api_route(
     "/contact-fields",
     _static_endpoint(CONTACT_FIELDS),
+    methods=["GET"],
+)
+router.add_api_route(
+    "/template-categories",
+    _static_endpoint(TEMPLATE_CATEGORIES),
+    methods=["GET"],
+)
+router.add_api_route(
+    "/template-platforms",
+    _static_endpoint(TEMPLATE_PLATFORMS),
     methods=["GET"],
 )

@@ -18,6 +18,8 @@ from app.api.v1.audit_logs import router as audit_logs_router
 from app.api.v1.support_timeline import router as support_timeline_router
 from app.api.v1.catalog import router as catalog_router
 from app.api.v1.qualification import router as qualification_router
+from app.api.v1.entitlements import router as entitlements_router
+from app.api.v1.settings_profile import router as settings_profile_router
 from fastapi import HTTPException
 import uuid
 import logging
@@ -160,6 +162,8 @@ app.include_router(audit_logs_router, prefix=f"{settings.API_V1_STR}/audit-logs"
 app.include_router(support_timeline_router, prefix=f"{settings.API_V1_STR}", tags=["support-timeline"])
 app.include_router(catalog_router, prefix=f"{settings.API_V1_STR}/catalog", tags=["catalog"])
 app.include_router(qualification_router, prefix=f"{settings.API_V1_STR}/qualification-config", tags=["qualification"])
+app.include_router(entitlements_router, prefix=f"{settings.API_V1_STR}/entitlements", tags=["entitlements"])
+app.include_router(settings_profile_router, prefix=f"{settings.API_V1_STR}/settings", tags=["settings-profile"])
 
 @app.get("/")
 async def root():

@@ -42,7 +42,9 @@ export type CatalogKey =
   | "event-sources"
   | "event-outcomes"
   | "audit-actions"
-  | "contact-fields";
+  | "contact-fields"
+  | "template-categories"
+  | "template-platforms";
 
 // ── Cache ────────────────────────────────────────────────────────────
 

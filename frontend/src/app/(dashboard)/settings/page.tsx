@@ -14,7 +14,12 @@ import {
     Save,
     User,
     ShieldCheck,
+    CreditCard,
+    Puzzle,
+    CheckCircle2,
+    XCircle,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 type SettingsData = Record<string, any>;
 
@@ -28,7 +33,29 @@ interface UserProfile {
     requires_email_verification: boolean;
 }
 
-type Section = "profile" | "workspace";
+type Section = "profile" | "workspace" | "subscription" | "modules";
+
+interface EntitlementModule {
+    module_key: string;
+    label: string;
+    enabled: boolean;
+    source: string;
+}
+
+interface UsageEntry {
+    module_key: string;
+    plan_limit: number | null;
+    effective_limit: number | null;
+    has_override: boolean;
+    used: number;
+    plan_name: string;
+}
+
+interface SubscriptionData {
+    plan: { id: string; code: string; display_name: string; description: string } | null;
+    assigned_at: string | null;
+    usage: UsageEntry[];
+}
 
 const TABS = [
     { key: "general", label: "General", icon: Globe },
@@ -53,6 +80,10 @@ export default function SettingsPage() {
     const [saving, setSaving] = useState(false);
     const [dirty, setDirty] = useState<SettingsData>({});
 
+    // Subscription & modules state
+    const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
+    const [modules, setModules] = useState<EntitlementModule[]>([]);
+
     // Shared
     const [section, setSection] = useState<Section>("profile");
     const [loading, setLoading] = useState(true);
@@ -62,7 +93,9 @@ export default function SettingsPage() {
         Promise.all([
             apiClient.get("/auth/me"),
             apiClient.get("/settings/workspace"),
-        ]).then(([meRes, wsRes]) => {
+            apiClient.get("/settings/subscription"),
+            apiClient.get("/settings/modules"),
+        ]).then(([meRes, wsRes, subRes, modRes]) => {
             if (meRes.success && meRes.data) {
                 setProfile(meRes.data);
                 setProfileName(meRes.data.full_name || "");
@@ -70,6 +103,12 @@ export default function SettingsPage() {
             if (wsRes.success && wsRes.data) {
                 setSettings(wsRes.data.settings);
                 setVersion(wsRes.data.version);
+            }
+            if (subRes.success && subRes.data) {
+                setSubscription(subRes.data);
+            }
+            if (modRes.success && modRes.data) {
+                setModules(modRes.data);
             }
             setLoading(false);
         });
@@ -198,6 +237,26 @@ export default function SettingsPage() {
                     <ShieldCheck className="w-4 h-4" /> Workspace
                     {version > 0 && <span className="text-xs opacity-70">v{version}</span>}
                 </button>
+                <button
+                    onClick={() => setSection("subscription")}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                        section === "subscription"
+                            ? "bg-teal-700 text-white shadow-sm"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                >
+                    <CreditCard className="w-4 h-4" /> Subscription
+                </button>
+                <button
+                    onClick={() => setSection("modules")}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all ${
+                        section === "modules"
+                            ? "bg-teal-700 text-white shadow-sm"
+                            : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                    }`}
+                >
+                    <Puzzle className="w-4 h-4" /> Modules
+                </button>
             </div>
 
             {/* Profile Section */}
@@ -220,6 +279,122 @@ export default function SettingsPage() {
                         ) : (
                             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">Unverified</span>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Subscription Section */}
+            {section === "subscription" && (
+                <div className="bg-white p-6 md:p-8 rounded-xl border border-slate-100 shadow-sm space-y-6">
+                    <div className="flex items-center gap-3 mb-2">
+                        <CreditCard className="w-5 h-5 text-teal-700" />
+                        <h2 className="text-lg font-bold text-slate-900">Current Plan</h2>
+                    </div>
+                    {subscription?.plan ? (
+                        <div className="space-y-6">
+                            <div className="flex items-center gap-3">
+                                <span className="text-2xl font-bold text-teal-700">{subscription.plan.display_name}</span>
+                                <span className="text-xs font-semibold uppercase tracking-wide px-2.5 py-1 rounded-full bg-teal-50 text-teal-600 border border-teal-100">
+                                    Active
+                                </span>
+                            </div>
+                            {subscription.plan.description && (
+                                <p className="text-sm text-slate-500">{subscription.plan.description}</p>
+                            )}
+                            {subscription.assigned_at && (
+                                <p className="text-xs text-slate-400">
+                                    Active since {new Date(subscription.assigned_at).toLocaleDateString()}
+                                </p>
+                            )}
+
+                            {subscription.usage.length > 0 && (
+                                <div className="space-y-3">
+                                    <h3 className="text-sm font-semibold text-slate-700">Usage This Month</h3>
+                                    {subscription.usage.map((u) => {
+                                        const limit = u.effective_limit;
+                                        const used = u.used || 0;
+                                        const pct = limit ? Math.min(100, Math.round((used / limit) * 100)) : 0;
+                                        const isUnlimited = limit === null || limit === undefined;
+                                        return (
+                                            <div key={u.module_key} className="flex items-center gap-3">
+                                                <div className="w-40 text-xs text-slate-500 truncate font-medium">
+                                                    {u.plan_name !== "Unknown" ? u.module_key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase()) : u.module_key}
+                                                </div>
+                                                <div className="flex-1 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                                    {!isUnlimited && (
+                                                        <div
+                                                            className={cn(
+                                                                "h-full rounded-full transition-all",
+                                                                pct >= 100 ? "bg-red-500" : pct >= 80 ? "bg-amber-500" : "bg-teal-500"
+                                                            )}
+                                                            style={{ width: `${pct}%` }}
+                                                        />
+                                                    )}
+                                                </div>
+                                                <div className="w-24 text-xs text-slate-400 text-right">
+                                                    {isUnlimited ? (
+                                                        <span className="text-teal-600 font-medium">Unlimited</span>
+                                                    ) : (
+                                                        <span className={cn(pct >= 100 ? "text-red-500" : pct >= 80 ? "text-amber-500" : "text-slate-500")}>
+                                                            {used} / {limit}
+                                                        </span>
+                                                    )}
+                                                    {u.has_override && <span className="ml-1 text-amber-500">*</span>}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                    <p className="text-[10px] text-slate-400 mt-1">* = custom limit set by admin</p>
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-sm text-slate-400">No plan assigned. Contact your administrator.</p>
+                    )}
+                    <div className="pt-4 border-t border-slate-100">
+                        <p className="text-xs text-slate-400">
+                            To change your plan, contact your workspace administrator or system admin.
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            {/* Modules Section */}
+            {section === "modules" && (
+                <div className="bg-white p-6 md:p-8 rounded-xl border border-slate-100 shadow-sm space-y-4">
+                    <div className="flex items-center gap-3 mb-2">
+                        <Puzzle className="w-5 h-5 text-teal-700" />
+                        <h2 className="text-lg font-bold text-slate-900">Available Modules</h2>
+                    </div>
+                    <p className="text-sm text-slate-500 mb-4">
+                        Modules enabled for your workspace based on your plan and admin configuration.
+                    </p>
+                    <div className="divide-y divide-slate-50">
+                        {modules.map((m) => (
+                            <div key={m.module_key} className="flex items-center justify-between py-3">
+                                <div className="flex items-center gap-3">
+                                    {m.enabled ? (
+                                        <CheckCircle2 className="w-4 h-4 text-teal-500 shrink-0" />
+                                    ) : (
+                                        <XCircle className="w-4 h-4 text-slate-300 shrink-0" />
+                                    )}
+                                    <div>
+                                        <span className={cn("text-sm font-medium", m.enabled ? "text-slate-700" : "text-slate-400")}>{m.label}</span>
+                                        <span className="ml-2 text-[10px] uppercase tracking-wide text-slate-400">
+                                            {m.source === "override" ? "Admin override" : m.source === "global_disabled" ? "Globally disabled" : "Plan default"}
+                                        </span>
+                                    </div>
+                                </div>
+                                <span className={cn(
+                                    "text-xs font-semibold px-2 py-0.5 rounded-full",
+                                    m.enabled
+                                        ? "bg-teal-50 text-teal-600 border border-teal-100"
+                                        : "bg-slate-50 text-slate-400 border border-slate-100"
+                                )}>
+                                    {m.enabled ? "Enabled" : "Disabled"}
+                                </span>
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

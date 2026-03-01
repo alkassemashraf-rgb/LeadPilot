@@ -11,22 +11,12 @@ import {
     ArrowRight,
     Zap,
     CheckCircle2,
+    Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { listTemplates, cloneTemplate, type TemplateListItem } from "@/lib/templates-api";
-
-const CATEGORY_LABELS: Record<string, string> = {
-    lead_generation: "Lead Generation",
-    customer_support: "Customer Support",
-    sales: "Sales",
-    onboarding: "Onboarding",
-    general: "General",
-};
-
-const PLATFORM_LABELS: Record<string, string> = {
-    whatsapp: "WhatsApp",
-    meta: "Meta",
-};
+import { useCatalog, catalogLabel, type CatalogEntry } from "@/lib/catalog";
+import { apiClient } from "@/lib/api";
 
 function TemplateBadge({ text, color = "default" }: { text: string; color?: "teal" | "blue" | "default" }) {
     return (
@@ -43,7 +33,7 @@ function TemplateBadge({ text, color = "default" }: { text: string; color?: "tea
     );
 }
 
-function TemplateCard({ template }: { template: TemplateListItem }) {
+function TemplateCard({ template, categories, platforms, enabledModules }: { template: TemplateListItem; categories: CatalogEntry[] | null; platforms: CatalogEntry[] | null; enabledModules: Set<string> }) {
     const router = useRouter();
     const [cloning, setCloning] = useState(false);
     const [cloned, setCloned] = useState(false);
@@ -83,23 +73,31 @@ function TemplateCard({ template }: { template: TemplateListItem }) {
                 <div className="flex flex-wrap gap-1.5">
                     {template.category && (
                         <TemplateBadge
-                            text={CATEGORY_LABELS[template.category] ?? template.category}
+                            text={catalogLabel(categories, template.category)}
                             color="teal"
                         />
                     )}
                     {template.platforms.map((p) => (
-                        <TemplateBadge key={p} text={PLATFORM_LABELS[p] ?? p} color="blue" />
+                        <TemplateBadge key={p} text={catalogLabel(platforms, p)} color="blue" />
                     ))}
                     {template.industry_tags.slice(0, 2).map((tag) => (
                         <TemplateBadge key={tag} text={tag} />
                     ))}
                 </div>
 
-                {template.required_integrations.length > 0 && (
-                    <p className="text-xs text-muted-foreground">
-                        Requires: {template.required_integrations.join(", ")}
-                    </p>
-                )}
+                {template.required_integrations.length > 0 && (() => {
+                    const missing = template.required_integrations.filter((m) => !enabledModules.has(m));
+                    return missing.length > 0 ? (
+                        <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                            <Lock className="w-3 h-3" />
+                            <span>Requires: {missing.join(", ")} — upgrade your plan</span>
+                        </div>
+                    ) : (
+                        <p className="text-xs text-muted-foreground">
+                            Requires: {template.required_integrations.join(", ")}
+                        </p>
+                    );
+                })()}
             </div>
 
             {/* Footer */}
@@ -139,12 +137,23 @@ export default function TemplatesPage() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("");
+    const { data: catalogCategories } = useCatalog("template-categories");
+    const { data: catalogPlatforms } = useCatalog("template-platforms");
+    const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         listTemplates().then((res) => {
             if (res.success && res.data) setTemplates(res.data);
             setLoading(false);
         });
+        apiClient.get<{ modules: { module_key: string; enabled: boolean }[] }>("/entitlements")
+            .then((res) => {
+                if (res.success && res.data) {
+                    setEnabledModules(new Set(
+                        res.data.modules.filter((m) => m.enabled).map((m) => m.module_key)
+                    ));
+                }
+            });
     }, []);
 
     const featured = templates.filter((t) => t.is_featured);
@@ -207,7 +216,7 @@ export default function TemplatesPage() {
                                     : "border-border hover:border-teal-400 text-foreground"
                             )}
                         >
-                            {CATEGORY_LABELS[cat] ?? cat}
+                            {catalogLabel(catalogCategories, cat)}
                         </button>
                     ))}
                 </div>
@@ -238,7 +247,7 @@ export default function TemplatesPage() {
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                 {featured.map((t) => (
-                                    <TemplateCard key={t.id} template={t} />
+                                    <TemplateCard key={t.id} template={t} categories={catalogCategories} platforms={catalogPlatforms} enabledModules={enabledModules} />
                                 ))}
                             </div>
                         </div>
@@ -251,7 +260,7 @@ export default function TemplatesPage() {
                         )}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {filtered.map((t) => (
-                                <TemplateCard key={t.id} template={t} />
+                                <TemplateCard key={t.id} template={t} categories={catalogCategories} platforms={catalogPlatforms} enabledModules={enabledModules} />
                             ))}
                         </div>
                         {filtered.length === 0 && (

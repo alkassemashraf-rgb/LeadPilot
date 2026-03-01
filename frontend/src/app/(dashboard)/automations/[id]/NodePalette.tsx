@@ -1,7 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useCatalog, type CatalogEntry } from "@/lib/catalog";
-import { Zap, Bot, Send, User, Tag, Database, GitBranch, Clock, GripVertical } from "lucide-react";
+import { apiClient } from "@/lib/api";
+import { Zap, Bot, Send, User, Tag, Database, GitBranch, Clock, GripVertical, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -31,6 +33,7 @@ interface PaletteItemProps {
     comingSoon?: boolean;
     isTrigger?: boolean;
     hasTrigger?: boolean;
+    locked?: boolean;
 }
 
 function PaletteItem({
@@ -40,9 +43,10 @@ function PaletteItem({
     comingSoon,
     isTrigger,
     hasTrigger,
+    locked,
 }: PaletteItemProps) {
     const icon = ICON_MAP[iconHint] ?? <Bot className="w-4 h-4" />;
-    const disabled = isTrigger && hasTrigger;
+    const disabled = locked || (isTrigger && hasTrigger);
 
     const onDragStart = (e: React.DragEvent) => {
         if (disabled) {
@@ -70,12 +74,17 @@ function PaletteItem({
             <GripVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />
             <span className="text-foreground/70">{icon}</span>
             <span className="text-sm font-medium text-foreground flex-1 truncate">{label}</span>
-            {comingSoon && (
+            {locked && (
+                <span className="flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-600 shrink-0">
+                    <Lock className="w-2.5 h-2.5" /> Upgrade
+                </span>
+            )}
+            {comingSoon && !locked && (
                 <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 shrink-0">
                     Soon
                 </span>
             )}
-            {disabled && (
+            {!locked && isTrigger && hasTrigger && (
                 <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-teal-100 dark:bg-teal-900 text-teal-600 shrink-0">
                     Added
                 </span>
@@ -95,6 +104,25 @@ interface NodePaletteProps {
 export default function NodePalette({ hasTrigger }: NodePaletteProps) {
     const { data: nodeTypes } = useCatalog<CatalogEntry[]>("automation-node-types");
     const { data: triggerTypes } = useCatalog<CatalogEntry[]>("automation-trigger-types");
+
+    // Fetch workspace entitlements for module gating
+    const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set());
+    useEffect(() => {
+        apiClient.get<{ modules: { module_key: string; enabled: boolean }[] }>("/entitlements")
+            .then((res) => {
+                if (res.success && res.data) {
+                    setEnabledModules(new Set(
+                        res.data.modules.filter((m) => m.enabled).map((m) => m.module_key)
+                    ));
+                }
+            });
+    }, []);
+
+    const isLocked = (node: CatalogEntry) => {
+        const requiredModule = node.required_module as string | undefined;
+        if (!requiredModule) return false;
+        return !enabledModules.has(requiredModule);
+    };
 
     return (
         <div className="w-64 flex flex-col border-r border-border bg-background/80 overflow-y-auto">
@@ -154,6 +182,7 @@ export default function NodePalette({ hasTrigger }: NodePaletteProps) {
                         label={n.label}
                         iconHint={n.icon_hint ?? "bot"}
                         comingSoon={n.runtime_supported === false}
+                        locked={isLocked(n)}
                     />
                 )) ?? (
                     <div className="space-y-1.5">

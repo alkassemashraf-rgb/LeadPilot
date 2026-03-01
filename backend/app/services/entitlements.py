@@ -99,13 +99,7 @@ async def check_entitlement(
     )
     entitlement = ent_result.scalars().first()
 
-    if not entitlement:
-        return EntitlementResult(
-            allowed=False,
-            reason=f"Module '{module_key}' is not included in your current plan.",
-        )
-
-    # Layer 3: Check for workspace override
+    # Layer 3: Check for workspace override (enabled flag + limit)
     override_result = await db.execute(
         select(WorkspaceEntitlementOverride).where(
             WorkspaceEntitlementOverride.workspace_id == workspace_id,
@@ -114,7 +108,23 @@ async def check_entitlement(
     )
     override = override_result.scalars().first()
 
-    effective_limit = override.hard_limit if override else entitlement.hard_limit
+    # If override explicitly disables the module, block
+    if override and override.enabled is False:
+        return EntitlementResult(
+            allowed=False,
+            reason=f"Module '{module_key}' is disabled for this workspace by admin override.",
+        )
+
+    # If override explicitly enables the module, skip plan check
+    if override and override.enabled is True:
+        effective_limit = override.hard_limit
+    elif not entitlement:
+        return EntitlementResult(
+            allowed=False,
+            reason=f"Module '{module_key}' is not included in your current plan.",
+        )
+    else:
+        effective_limit = override.hard_limit if override else entitlement.hard_limit
 
     # If limit is None, module is unlimited — allow
     if effective_limit is None:
@@ -213,7 +223,7 @@ async def get_workspace_entitlements(
             WorkspaceEntitlementOverride.workspace_id == workspace_id
         )
     )
-    overrides = {o.module_key: o.hard_limit for o in override_result.scalars().all()}
+    overrides = {o.module_key: o for o in override_result.scalars().all()}
 
     # Get usage for current period
     period = _current_period()
@@ -227,7 +237,8 @@ async def get_workspace_entitlements(
 
     output = []
     for ent in entitlements:
-        effective_limit = overrides.get(ent.module_key, ent.hard_limit)
+        override = overrides.get(ent.module_key)
+        effective_limit = override.hard_limit if override and override.hard_limit is not None else ent.hard_limit
         output.append({
             "module_key": ent.module_key,
             "plan_limit": ent.hard_limit,
