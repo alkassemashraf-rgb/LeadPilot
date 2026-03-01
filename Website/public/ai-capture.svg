@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%">
+  <defs>
+    <style>
+      @keyframes dash {
+        to { stroke-dashoffset: 0; }
+      }
+      @keyframes pulseNode {
+        0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px #14B8A6); }
+        50% { transform: scale(1.1); filter: drop-shadow(0 0 15px #14B8A6); }
+      }
+      @keyframes slideRight {
+        0% { transform: translateX(0); opacity: 0; }
+        10% { opacity: 1; }
+        90% { opacity: 1; }
+        100% { transform: translateX(200px); opacity: 0; }
+      }
+      .bg { fill: #040914; }
+      .grid { stroke: rgba(20, 184, 166, 0.05); stroke-width: 1; }
+      .panel { fill: #0B1320; stroke: rgba(20, 184, 166, 0.3); stroke-width: 1; rx: 12; }
+      .text-title { font-family: system-ui, sans-serif; font-size: 14px; font-weight: bold; fill: #F1F5F9; }
+      .text-sub { font-family: system-ui, sans-serif; font-size: 12px; fill: #94A3B8; }
+      .line-path { fill: none; stroke: rgba(20, 184, 166, 0.3); stroke-width: 2; stroke-dasharray: 5 5; }
+      .packet { fill: #14B8A6; }
+    </style>
+    <linearGradient id="glow" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F766E"/>
+      <stop offset="100%" stop-color="#14B8A6"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect class="bg" width="800" height="500" />
+  
+  <!-- Subtle Grid -->
+  <path class="grid" d="M 0 50 L 800 50 M 0 100 L 800 100 M 0 150 L 800 150 M 0 200 L 800 200 M 0 250 L 800 250 M 0 300 L 800 300 M 0 350 L 800 350 M 0 400 L 800 400 M 0 450 L 800 450 M 50 0 L 50 500 M 100 0 L 100 500 M 150 0 L 150 500 M 200 0 L 200 500 M 250 0 L 250 500 M 300 0 L 300 500 M 350 0 L 350 500 M 400 0 L 400 500 M 450 0 L 450 500 M 500 0 L 500 500 M 550 0 L 550 500 M 600 0 L 600 500 M 650 0 L 650 500 M 700 0 L 700 500 M 750 0 L 750 500" />
+
+  <!-- Sources -->
+  <g transform="translate(100, 100)">
+    <rect class="panel" width="140" height="60" />
+    <text x="70" y="35" text-anchor="middle" class="text-title">Web Form</text>
+    <path class="line-path" d="M 140 30 L 350 150" />
+    <circle cx="140" cy="30" r="4" class="packet" style="animation: slideRight 2s linear infinite;" />
+  </g>
+
+  <g transform="translate(100, 220)">
+    <rect class="panel" width="140" height="60" />
+    <text x="70" y="35" text-anchor="middle" class="text-title">Chat Widget</text>
+    <path class="line-path" d="M 140 30 L 350 30" />
+    <circle cx="140" cy="30" r="4" class="packet" style="animation: slideRight 2s linear infinite; animation-delay: 0.7s;" />
+  </g>
+
+  <g transform="translate(100, 340)">
+    <rect class="panel" width="140" height="60" />
+    <text x="70" y="35" text-anchor="middle" class="text-title">Inbound Email</text>
+    <path class="line-path" d="M 140 30 L 350 -90" />
+    <circle cx="140" cy="30" r="4" class="packet" style="animation: slideRight 2s linear infinite; animation-delay: 1.4s;" />
+  </g>
+
+  <!-- Central Lead Hub -->
+  <g transform="translate(450, 150)">
+    <rect class="panel" width="220" height="200" style="stroke: #10B981;" />
+    <circle cx="110" cy="60" r="24" fill="url(#glow)" style="animation: pulseNode 3s infinite" />
+    <text x="110" y="110" text-anchor="middle" class="text-title" style="fill: #34D399;">Central Lead Pipeline</text>
+    <text x="110" y="130" text-anchor="middle" class="text-sub">Unified &amp; Deduplicated</text>
+    
+    <!-- Incoming Data rows -->
+    <rect x="30" y="150" width="160" height="8" rx="4" fill="#0F766E" opacity="0.5" />
+    <rect x="30" y="170" width="120" height="8" rx="4" fill="#0F766E" opacity="0.5" />
+  </g>
+</svg>

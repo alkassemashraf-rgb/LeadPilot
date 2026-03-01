@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%">
+  <defs>
+    <style>
+      @keyframes float {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-15px) rotate(2deg); }
+      }
+      @keyframes spinGlow {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+      @keyframes typing {
+        0% { width: 0; }
+        50% { width: 100%; }
+        100% { width: 100%; }
+      }
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+      .bg { fill: #040914; }
+      .blur-circle { filter: blur(40px); opacity: 0.3; }
+      .app-window { fill: #0B1320; stroke: rgba(139, 92, 246, 0.4); stroke-width: 1.5; rx: 12; }
+      .top-bar { fill: #1E293B; rx: 12; }
+      .text-title { font-family: system-ui, sans-serif; font-size: 16px; font-weight: bold; fill: #F1F5F9; }
+      .text-content { font-family: monospace; font-size: 13px; fill: #14B8A6; }
+      .cursor { fill: #14B8A6; animation: blink 1s step-end infinite; }
+      .floating-widget { animation: float 6s ease-in-out infinite; }
+      .data-row { fill: rgba(255, 255, 255, 0.03); rx: 6; }
+    </style>
+    <radialGradient id="purpleGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="transparent" />
+    </radialGradient>
+    <radialGradient id="cyanGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#14B8A6" />
+      <stop offset="100%" stop-color="transparent" />
+    </radialGradient>
+  </defs>
+
+  <rect class="bg" width="800" height="500" />
+  
+  <circle cx="200" cy="150" r="150" fill="url(#cyanGlow)" class="blur-circle" />
+  <circle cx="600" cy="350" r="150" fill="url(#purpleGlow)" class="blur-circle" />
+
+  <!-- Main App Window Simulation -->
+  <g transform="translate(100, 80)">
+    <rect class="app-window" width="600" height="360" />
+    <!-- Window Bar -->
+    <path class="top-bar" d="M 0 12 C 0 5.373 5.373 0 12 0 L 588 0 C 594.627 0 600 5.373 600 12 L 600 30 L 0 30 Z" />
+    <circle cx="20" cy="15" r="4" fill="#EF4444" />
+    <circle cx="35" cy="15" r="4" fill="#F59E0B" />
+    <circle cx="50" cy="15" r="4" fill="#10B981" />
+    
+    <text x="300" y="20" text-anchor="middle" font-family="system-ui" font-size="12" fill="#94A3B8">leadpilot-studio.exe</text>
+
+    <!-- Sidebar -->
+    <rect x="0" y="30" width="140" height="330" fill="rgba(0,0,0,0.2)" />
+    <rect x="15" y="50" width="110" height="20" rx="4" fill="rgba(20, 184, 166, 0.1)" stroke="#14B8A6" stroke-width="0.5" />
+    <rect x="15" y="85" width="90" height="15" rx="4" fill="rgba(255,255,255,0.05)" />
+    <rect x="15" y="115" width="100" height="15" rx="4" fill="rgba(255,255,255,0.05)" />
+
+    <!-- Main Content Area -->
+    <text x="160" y="70" class="text-title">Active AI Prompts</text>
+    
+    <g transform="translate(160, 90)">
+      <rect class="data-row" width="410" height="50" />
+      <circle cx="25" cy="25" r="8" fill="#10B981" />
+      <text x="50" y="25" font-family="system-ui" font-size="13" fill="#F8FAFC">SaaS Qualification Node</text>
+      <text x="50" y="40" font-family="system-ui" font-size="11" fill="#94A3B8">Runs on every inbound form submit.</text>
+      <rect x="340" y="15" width="50" height="20" rx="10" fill="rgba(16, 185, 129, 0.2)" stroke="#10B981" stroke-width="1" />
+      <text x="365" y="29" text-anchor="middle" font-family="system-ui" font-size="10" font-weight="bold" fill="#10B981">ACTIVE</text>
+    </g>
+
+    <g transform="translate(160, 150)">
+      <rect class="data-row" width="410" height="50" />
+      <circle cx="25" cy="25" r="8" fill="#F59E0B" />
+      <text x="50" y="25" font-family="system-ui" font-size="13" fill="#F8FAFC">Enterprise Routing Engine</text>
+      <text x="50" y="40" font-family="system-ui" font-size="11" fill="#94A3B8">Conditionally routes to AE based on ARR.</text>
+      <rect x="340" y="15" width="50" height="20" rx="10" fill="rgba(245, 158, 11, 0.2)" stroke="#F59E0B" stroke-width="1" />
+      <text x="365" y="29" text-anchor="middle" font-family="system-ui" font-size="10" font-weight="bold" fill="#F59E0B">TESTING</text>
+    </g>
+
+    <!-- Terminal Emulation -->
+    <rect x="160" y="220" width="410" height="100" rx="6" fill="#020617" stroke="#1E293B" stroke-width="1" />
+    <circle cx="175" cy="235" r="4" fill="#EF4444" />
+    <circle cx="187" cy="235" r="4" fill="#F59E0B" />
+    <circle cx="199" cy="235" r="4" fill="#10B981" />
+    <g transform="translate(170, 260)">
+      <clipPath id="terminalClip">
+        <rect width="390" height="50" />
+      </clipPath>
+      <g clip-path="url(#terminalClip)">
+        <text class="text-content" style="animation: typing 4s steps(40, end) infinite;">
+          <tspan x="0" y="0">&gt; LP_SYS: Lead received via Webhook.</tspan>
+          <tspan x="0" y="20">&gt; AI_AGENT: Intent is HIGH. Executing pipeline...</tspan>
+          <tspan x="0" y="40">&gt; ROUTER: Dispatched to Enterprise Queue.</tspan>
+        </text>
+        <!-- Animated cursor -->
+        <rect x="330" y="30" width="7" height="13" class="cursor" style="animation-delay: 2s;" />
+      </g>
+    </g>
+  </g>
+
+  <!-- Overlay Floating Widget -->
+  <g class="floating-widget" transform="translate(580, 50)">
+    <rect width="180" height="80" rx="12" fill="rgba(4, 9, 20, 0.8)" stroke="#8B5CF6" stroke-width="1.5" style="backdrop-filter: blur(10px);" />
+    <text x="90" y="30" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="bold" fill="#C4B5FD">Lead Processing Vel.</text>
+    <text x="90" y="60" text-anchor="middle" font-family="system-ui" font-size="24" font-weight="bold" fill="#F8FAFC">0.4s</text>
+  </g>
+  
+  <g class="floating-widget" transform="translate(40, 320)" style="animation-duration: 5s; animation-delay: 1s;">
+    <rect width="160" height="80" rx="12" fill="rgba(4, 9, 20, 0.8)" stroke="#14B8A6" stroke-width="1.5" style="backdrop-filter: blur(10px);" />
+    <text x="80" y="30" text-anchor="middle" font-family="system-ui" font-size="12" font-weight="bold" fill="#5EEAD4">Data Enrichment</text>
+    <text x="80" y="60" text-anchor="middle" font-family="system-ui" font-size="24" font-weight="bold" fill="#F8FAFC">99.8%</text>
+  </g>
+</svg>

@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%">
+  <defs>
+    <style>
+      @keyframes scanbar {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(220px); }
+      }
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+      @keyframes typeWord {
+        0% { opacity: 0; }
+        100% { opacity: 1; }
+      }
+      .bg { fill: #040914; }
+      .blur-circle { filter: blur(40px); opacity: 0.2; fill: #8B5CF6; }
+      .panel { fill: #0B1320; stroke: #8B5CF6; stroke-width: 1.5; rx: 12; }
+      .text-title { font-family: system-ui, sans-serif; font-size: 16px; font-weight: bold; fill: #F1F5F9; }
+      .text-sub { font-family: system-ui, sans-serif; font-size: 14px; fill: #94A3B8; }
+      .text-tag { font-family: monospace; font-size: 12px; font-weight: bold; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="800" height="500" />
+  <circle cx="400" cy="250" r="150" class="blur-circle" />
+
+  <!-- Lead Payload Card -->
+  <g transform="translate(150, 100)">
+    <rect class="panel" width="500" height="300" />
+    <rect x="0" y="0" width="500" height="50" rx="12" fill="#1E293B" />
+    <rect x="0" y="30" width="500" height="20" fill="#1E293B" /> <!-- cover bottom corners -->
+    <text x="250" y="32" text-anchor="middle" class="text-title">Lead Qualification Profile</text>
+    
+    <!-- Data Fields -->
+    <text x="40" y="100" class="text-sub">Company:</text>
+    <text x="140" y="100" class="text-title">Acme Corp</text>
+    
+    <text x="40" y="140" class="text-sub">Title:</text>
+    <text x="140" y="140" class="text-title">VP of Growth</text>
+    
+    <text x="40" y="180" class="text-sub">Message:</text>
+    <text x="140" y="180" class="text-sub" style="fill: #CBD5E1">"Looking to scale our outbound efforts."</text>
+
+    <!-- AI Generated Tags (Staggered fade in) -->
+    <g transform="translate(40, 240)">
+      <rect x="0" y="0" width="100" height="28" rx="14" fill="rgba(16, 185, 129, 0.2)" stroke="#10B981" />
+      <text x="50" y="18" text-anchor="middle" class="text-tag" fill="#10B981">+ HIGH INTENT</text>
+    </g>
+    
+    <g transform="translate(160, 240)">
+      <rect x="0" y="0" width="120" height="28" rx="14" fill="rgba(56, 189, 248, 0.2)" stroke="#38BDF8" />
+      <text x="60" y="18" text-anchor="middle" class="text-tag" fill="#38BDF8">+ DECISION MAKER</text>
+    </g>
+
+    <g transform="translate(300, 240)">
+        <rect x="0" y="0" width="90" height="28" rx="14" fill="rgba(139, 92, 246, 0.2)" stroke="#8B5CF6" />
+        <text x="45" y="18" text-anchor="middle" class="text-tag" fill="#8B5CF6">SCORE: 96</text>
+    </g>
+
+    <!-- Scanning Laser -->
+    <g style="animation: scanbar 3s ease-in-out infinite;">
+      <rect x="0" y="50" width="500" height="2" fill="#8B5CF6" />
+      <rect x="0" y="50" width="500" height="20" fill="url(#laserGlow)" opacity="0.3" />
+      <linearGradient id="laserGlow" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stop-color="#8B5CF6" />
+        <stop offset="100%" stop-color="transparent" />
+      </linearGradient>
+    </g>
+  </g>
+</svg>

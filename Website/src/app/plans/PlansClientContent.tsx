@@ -140,13 +140,13 @@ function WaitlistForm({ planNames }: { planNames: string[] }) {
             }}
           />
         </div>
-        <div>
+        <div className="relative">
           <label htmlFor="waitlist-plan" className="sr-only">Plan interest</label>
           <select
             id="waitlist-plan"
             value={plan}
             onChange={(e) => setPlan(e.target.value)}
-            className="w-full sm:w-36 px-4 py-3 rounded-xl text-sm"
+            className="w-full sm:w-36 px-4 py-3 rounded-xl text-sm appearance-none pr-10"
             style={{
               background: "rgba(255,255,255,0.06)",
               border: "1px solid rgba(255,255,255,0.1)",
@@ -158,6 +158,9 @@ function WaitlistForm({ planNames }: { planNames: string[] }) {
               <option key={name} value={name}>{name}</option>
             ))}
           </select>
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+            <ChevronDown className="w-4 h-4" style={{ color: "#94A3B8" }} aria-hidden="true" />
+          </div>
         </div>
         <button
           type="submit"
@@ -293,16 +296,16 @@ export default function PlansClientContent({ plans }: { plans: CatalogPlan[] }) 
                     style={
                       highlighted
                         ? {
-                            background: "rgba(15,118,110,0.08)",
-                            border: "1px solid rgba(15,118,110,0.4)",
-                            boxShadow: "0 0 50px rgba(15,118,110,0.2)",
-                          }
+                          background: "rgba(15,118,110,0.08)",
+                          border: "1px solid rgba(15,118,110,0.4)",
+                          boxShadow: "0 0 50px rgba(15,118,110,0.2)",
+                        }
                         : pricing.available
-                        ? {
+                          ? {
                             background: "rgba(255,255,255,0.04)",
                             border: "1px solid rgba(255,255,255,0.1)",
                           }
-                        : {
+                          : {
                             background: "rgba(255,255,255,0.02)",
                             border: "1px solid rgba(255,255,255,0.06)",
                           }

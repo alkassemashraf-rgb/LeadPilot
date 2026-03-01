@@ -184,107 +184,17 @@ export default function ProductPage() {
               </div>
             </div>
 
-            {/* AI Cockpit Visual */}
+            {/* AI Cockpit Visual - Animated Asset */}
             <div
-              className="rounded-2xl p-6 relative overflow-hidden"
+              className="rounded-2xl relative overflow-hidden animate-float"
               style={{
-                background: "#0E1826",
-                border: "1px solid rgba(15,118,110,0.25)",
                 boxShadow: "0 0 60px rgba(15,118,110,0.15)",
+                border: "1px solid rgba(139,92,246,0.2)",
+                background: "#040914"
               }}
               aria-label="LeadPilot AI cockpit interface preview"
             >
-              {/* Header bar */}
-              <div className="flex items-center gap-2 mb-5 pb-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-                <div className="w-2 h-2 rounded-full" style={{ background: "#0F766E" }} aria-hidden="true" />
-                <div className="w-2 h-2 rounded-full" style={{ background: "#14B8A6" }} aria-hidden="true" />
-                <div className="w-2 h-2 rounded-full" style={{ background: "rgba(255,255,255,0.15)" }} aria-hidden="true" />
-                <span className="text-xs ml-2 font-mono" style={{ color: "#475569" }}>
-                  leadpilot — ai cockpit
-                </span>
-              </div>
-
-              {/* Metrics row */}
-              <div className="grid grid-cols-3 gap-3 mb-5">
-                {[
-                  { label: "Leads Today", val: "48", trend: "+12%" },
-                  { label: "Qualified", val: "31", trend: "64.5%" },
-                  { label: "Routed", val: "28", trend: "90.3%" },
-                ].map(({ label, val, trend }) => (
-                  <div
-                    key={label}
-                    className="rounded-lg p-3"
-                    style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}
-                  >
-                    <p className="text-xs mb-1" style={{ color: "#475569" }}>{label}</p>
-                    <p className="text-xl font-bold text-white">{val}</p>
-                    <p className="text-xs mt-1" style={{ color: "#14B8A6" }}>{trend}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Lead feed */}
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "#475569" }}>
-                  Live Lead Feed
-                </p>
-                {[
-                  { name: "Sarah M.", source: "Web Form", score: 92, status: "Routed" },
-                  { name: "David K.", source: "Chat", score: 78, status: "Qualifying" },
-                  { name: "Priya L.", source: "Partner", score: 55, status: "Reviewing" },
-                ].map((lead) => (
-                  <div
-                    key={lead.name}
-                    className="flex items-center justify-between rounded-lg px-3 py-2.5"
-                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
-                        style={{ background: "rgba(15,118,110,0.25)", color: "#14B8A6" }}
-                        aria-hidden="true"
-                      >
-                        {lead.name[0]}
-                      </div>
-                      <div>
-                        <p className="text-xs font-medium text-white">{lead.name}</p>
-                        <p className="text-xs" style={{ color: "#475569" }}>{lead.source}</p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="text-xs px-2 py-0.5 rounded font-mono"
-                        style={{ background: "rgba(15,118,110,0.2)", color: "#14B8A6" }}
-                      >
-                        {lead.score}
-                      </div>
-                      <span
-                        className="text-xs"
-                        style={{
-                          color:
-                            lead.status === "Routed"
-                              ? "#10B981"
-                              : lead.status === "Qualifying"
-                              ? "#F59E0B"
-                              : "#94A3B8",
-                        }}
-                      >
-                        {lead.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Bottom glow */}
-              <div
-                className="absolute bottom-0 left-0 right-0 h-24 pointer-events-none"
-                aria-hidden="true"
-                style={{
-                  background:
-                    "linear-gradient(to top, rgba(15,118,110,0.15), transparent)",
-                }}
-              />
+              <img src="/app-dashboard.svg" alt="Animated LeadPilot Dashboard" className="w-full h-auto" />
             </div>
           </div>
         </div>
@@ -414,9 +324,8 @@ export default function ProductPage() {
               return (
                 <div
                   key={stage.step}
-                  className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center ${
-                    reversed ? "lg:flex-row-reverse" : ""
-                  }`}
+                  className={`grid grid-cols-1 lg:grid-cols-2 gap-12 items-center ${reversed ? "lg:flex-row-reverse" : ""
+                    }`}
                 >
                   <div className={reversed ? "lg:order-2" : ""}>
                     <div className="flex items-center gap-3 mb-4">
@@ -458,48 +367,69 @@ export default function ProductPage() {
 
                   {/* Visual panel */}
                   <div
-                    className={`rounded-2xl p-8 ${reversed ? "lg:order-1" : ""}`}
+                    className={`rounded-2xl relative overflow-hidden ${reversed ? "lg:order-1" : ""} bg-[#040914] flex items-center justify-center`}
                     style={{
-                      background: "#0E1826",
                       border: "1px solid rgba(15,118,110,0.2)",
+                      boxShadow: "0 0 40px rgba(16,185,129,0.05)",
                     }}
                     aria-hidden="true"
                   >
-                    <div className="flex items-center gap-3 mb-5 pb-4"
-                      style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
-                    >
-                      <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center"
-                        style={{ background: "rgba(15,118,110,0.2)" }}
-                      >
-                        <Icon className="w-4 h-4" style={{ color: "#14B8A6" }} />
+                    {stage.title === "Capture" && (
+                      <img src="/ai-capture.svg" alt="Animated Capture Stage" className="w-full h-auto aspect-video object-contain" />
+                    )}
+                    {stage.title === "Qualify" && (
+                      <img src="/ai-qualify.svg" alt="Animated Qualify Stage" className="w-full h-auto aspect-video object-contain" />
+                    )}
+                    {stage.title === "Route" && (
+                      <img src="/ai-routing.svg" alt="Animated AI Routing Process" className="w-full h-auto aspect-video object-contain" />
+                    )}
+                    {stage.title === "Follow Up" && (
+                      <img src="/ai-followup.svg" alt="Animated Follow Up Stage" className="w-full h-auto aspect-video object-contain" />
+                    )}
+                    {stage.title === "Report" && (
+                      <img src="/ai-report.svg" alt="Animated Reporting Stage" className="w-full h-auto aspect-video object-contain" />
+                    )}
+
+                    {/* Fallback for any other stages */}
+                    {!["Capture", "Qualify", "Route", "Follow Up", "Report"].includes(stage.title) && (
+                      <div className="p-8 w-full">
+                        <div className="flex items-center gap-3 mb-5 pb-4"
+                          style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+                        >
+                          <div
+                            className="w-8 h-8 rounded-lg flex items-center justify-center"
+                            style={{ background: "rgba(15,118,110,0.2)" }}
+                          >
+                            <Icon className="w-4 h-4" style={{ color: "#14B8A6" }} />
+                          </div>
+                          <span className="text-sm font-semibold text-white">{stage.title}</span>
+                          <span
+                            className="ml-auto text-xs px-2 py-0.5 rounded-full"
+                            style={{ background: "rgba(15,118,110,0.2)", color: "#14B8A6" }}
+                          >
+                            Live
+                          </span>
+                        </div>
+                        <div className="space-y-2">
+                          {[...Array(3)].map((_, j) => (
+                            <div
+                              key={j}
+                              className="h-8 rounded-lg"
+                              style={{
+                                background: `rgba(255,255,255,${0.03 + j * 0.01})`,
+                                width: `${90 - j * 10}%`,
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <div className="mt-5 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                          <div className="flex justify-between text-xs" style={{ color: "#475569" }}>
+                            <span>Processing...</span>
+                            <span style={{ color: "#14B8A6" }} className="animate-pulse">✓ Complete</span>
+                          </div>
+                        </div>
                       </div>
-                      <span className="text-sm font-semibold text-white">{stage.title}</span>
-                      <span
-                        className="ml-auto text-xs px-2 py-0.5 rounded-full"
-                        style={{ background: "rgba(15,118,110,0.2)", color: "#14B8A6" }}
-                      >
-                        Live
-                      </span>
-                    </div>
-                    <div className="space-y-2">
-                      {[...Array(3)].map((_, j) => (
-                        <div
-                          key={j}
-                          className="h-8 rounded-lg"
-                          style={{
-                            background: `rgba(255,255,255,${0.03 + j * 0.01})`,
-                            width: `${90 - j * 10}%`,
-                          }}
-                        />
-                      ))}
-                    </div>
-                    <div className="mt-5 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                      <div className="flex justify-between text-xs" style={{ color: "#475569" }}>
-                        <span>Processing...</span>
-                        <span style={{ color: "#14B8A6" }}>✓ Complete</span>
-                      </div>
-                    </div>
+                    )}
                   </div>
                 </div>
               );
