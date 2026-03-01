@@ -114,18 +114,38 @@ export default function TemplateDetailPage() {
     const [cloning, setCloning] = useState(false);
     const [cloneSuccess, setCloneSuccess] = useState(false);
     const [error, setError] = useState("");
+    const [variableValues, setVariableValues] = useState<Record<string, string>>({});
 
     useEffect(() => {
         getTemplate(slug).then((res) => {
-            if (res.success && res.data) setTemplate(res.data);
-            else setError("Template not found.");
+            if (res.success && res.data) {
+                setTemplate(res.data);
+                // Pre-fill defaults
+                const defaults: Record<string, string> = {};
+                for (const v of res.data.variables ?? []) {
+                    if (v.default_value) defaults[v.key] = v.default_value;
+                }
+                setVariableValues(defaults);
+            } else {
+                setError("Template not found.");
+            }
             setLoading(false);
         });
     }, [slug]);
 
     const handleClone = async () => {
+        // Validate required variables
+        const missingVars = (template?.variables ?? []).filter(
+            (v) => v.required && !variableValues[v.key] && !v.default_value
+        );
+        if (missingVars.length > 0) {
+            setError(`Please fill in: ${missingVars.map((v) => v.label).join(", ")}`);
+            return;
+        }
         setCloning(true);
-        const res = await cloneTemplate(slug);
+        setError("");
+        const hasVars = Object.keys(variableValues).length > 0;
+        const res = await cloneTemplate(slug, undefined, hasVars ? variableValues : undefined);
         if (res.success && res.data) {
             setCloneSuccess(true);
             setTimeout(() => router.push(res.data!.redirect_path), 1000);
@@ -244,6 +264,46 @@ export default function TemplateDetailPage() {
                                 </p>
                             )}
                         </div>
+
+                        {/* Variable inputs */}
+                        {hasPublishedVersion && (template.variables ?? []).length > 0 && (
+                            <div className="space-y-3 border-t border-border pt-4">
+                                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                                    Customize
+                                </p>
+                                {template.variables.map((v) => (
+                                    <div key={v.key} className="space-y-1">
+                                        <label className="text-xs font-medium text-foreground flex items-center gap-1">
+                                            {v.label}
+                                            {v.required && <span className="text-red-500">*</span>}
+                                        </label>
+                                        {v.description && (
+                                            <p className="text-[11px] text-muted-foreground">{v.description}</p>
+                                        )}
+                                        {v.var_type === "textarea" ? (
+                                            <textarea
+                                                className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 resize-none min-h-[60px]"
+                                                placeholder={v.default_value ?? ""}
+                                                value={variableValues[v.key] ?? ""}
+                                                onChange={(e) =>
+                                                    setVariableValues((prev) => ({ ...prev, [v.key]: e.target.value }))
+                                                }
+                                            />
+                                        ) : (
+                                            <input
+                                                type={v.var_type === "number" ? "number" : v.var_type === "url" ? "url" : v.var_type === "phone" ? "tel" : "text"}
+                                                className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                                placeholder={v.default_value ?? ""}
+                                                value={variableValues[v.key] ?? ""}
+                                                onChange={(e) =>
+                                                    setVariableValues((prev) => ({ ...prev, [v.key]: e.target.value }))
+                                                }
+                                            />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
 
                         {hasPublishedVersion ? (
                             <button

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -12,6 +12,8 @@ import {
     Zap,
     CheckCircle2,
     Lock,
+    TrendingUp,
+    Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { listTemplates, cloneTemplate, type TemplateListItem } from "@/lib/templates-api";
@@ -85,6 +87,14 @@ function TemplateCard({ template, categories, platforms, enabledModules }: { tem
                     ))}
                 </div>
 
+                {/* Clone count */}
+                {(template.clone_count ?? 0) > 0 && (
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Users className="w-3 h-3" />
+                        <span>{template.clone_count} uses</span>
+                    </div>
+                )}
+
                 {template.required_integrations.length > 0 && (() => {
                     const missing = template.required_integrations.filter((m) => !enabledModules.has(m));
                     return missing.length > 0 ? (
@@ -137,15 +147,26 @@ export default function TemplatesPage() {
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
     const [categoryFilter, setCategoryFilter] = useState("");
+    const [platformFilter, setPlatformFilter] = useState("");
+    const [sortPopular, setSortPopular] = useState(false);
     const { data: catalogCategories } = useCatalog("template-categories");
     const { data: catalogPlatforms } = useCatalog("template-platforms");
     const [enabledModules, setEnabledModules] = useState<Set<string>>(new Set());
 
-    useEffect(() => {
-        listTemplates().then((res) => {
+    const fetchTemplates = useCallback(() => {
+        setLoading(true);
+        listTemplates({
+            category: categoryFilter || undefined,
+            platform: platformFilter || undefined,
+            sort: sortPopular ? "popular" : undefined,
+        }).then((res) => {
             if (res.success && res.data) setTemplates(res.data);
             setLoading(false);
         });
+    }, [categoryFilter, platformFilter, sortPopular]);
+
+    useEffect(() => {
+        fetchTemplates();
         apiClient.get<{ modules: { module_key: string; enabled: boolean }[] }>("/entitlements")
             .then((res) => {
                 if (res.success && res.data) {
@@ -154,7 +175,7 @@ export default function TemplatesPage() {
                     ));
                 }
             });
-    }, []);
+    }, [fetchTemplates]);
 
     const featured = templates.filter((t) => t.is_featured);
     const filtered = templates.filter((t) => {
@@ -162,11 +183,11 @@ export default function TemplatesPage() {
             !search ||
             t.name.toLowerCase().includes(search.toLowerCase()) ||
             (t.description ?? "").toLowerCase().includes(search.toLowerCase());
-        const matchCat = !categoryFilter || t.category === categoryFilter;
-        return matchSearch && matchCat;
+        return matchSearch;
     });
 
     const categories = Array.from(new Set(templates.map((t) => t.category).filter(Boolean)));
+    const platforms = Array.from(new Set(templates.flatMap((t) => t.platforms).filter(Boolean)));
 
     return (
         <div className="p-8 max-w-7xl mx-auto space-y-8">
@@ -220,6 +241,34 @@ export default function TemplatesPage() {
                         </button>
                     ))}
                 </div>
+
+                {/* Platform filter */}
+                <select
+                    value={platformFilter}
+                    onChange={(e) => setPlatformFilter(e.target.value)}
+                    className="px-3 py-1.5 rounded-lg text-sm border border-border bg-background focus:outline-none focus:ring-2 focus:ring-teal-500"
+                >
+                    <option value="">All Platforms</option>
+                    {(catalogPlatforms ?? platforms.map((p) => ({ value: p, label: p }))).map((p) => (
+                        <option key={typeof p === "string" ? p : p.value} value={typeof p === "string" ? p : p.value}>
+                            {typeof p === "string" ? p : p.label}
+                        </option>
+                    ))}
+                </select>
+
+                {/* Popular sort toggle */}
+                <button
+                    onClick={() => setSortPopular((v) => !v)}
+                    className={cn(
+                        "flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                        sortPopular
+                            ? "bg-teal-600 text-white border-teal-600"
+                            : "border-border hover:border-teal-400 text-foreground"
+                    )}
+                >
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    Popular
+                </button>
             </div>
 
             {loading ? (

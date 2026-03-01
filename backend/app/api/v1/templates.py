@@ -1,10 +1,11 @@
 """
-Template Catalog API — Mission 27
+Template Catalog API — Mission 27 + Mission 32
 
 Workspace-facing endpoints for browsing and cloning automation templates.
 Admin-facing endpoints are in admin.py.
 """
-from typing import Optional
+import json
+from typing import Optional, Dict
 from datetime import datetime
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,7 @@ from app.models.models import (
     AutomationTemplate, AutomationTemplateVersion,
     Flow, FlowDraft, FlowStatus,
     Workspace, User, RuntimeEventLog,
+    TemplateVariable, FlowTemplateVariableValue, TemplateUsageStat,
 )
 from app.schemas.envelope import wrap_data, wrap_error
 from app.services.entitlements import require_entitlement
@@ -26,6 +28,7 @@ router = APIRouter()
 
 class CloneTemplatePayload(BaseModel):
     name: Optional[str] = None  # Defaults to template name if not provided
+    variable_values: Optional[Dict[str, str]] = None  # {"business_name": "Acme Inc"}
 
 
 # ---------------------------------------------------------------------------
@@ -40,28 +43,41 @@ async def list_templates(
     category: Optional[str] = Query(None),
     platform: Optional[str] = Query(None),
     featured: Optional[bool] = Query(None),
+    sort: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
 ):
     """List all active templates with optional filters."""
-    query = select(AutomationTemplate).where(AutomationTemplate.is_active == True)
+    query = (
+        select(AutomationTemplate, TemplateUsageStat)
+        .outerjoin(TemplateUsageStat, TemplateUsageStat.template_id == AutomationTemplate.id)
+        .where(AutomationTemplate.is_active == True)
+    )
 
     if category:
         query = query.where(AutomationTemplate.category == category)
     if featured is not None:
         query = query.where(AutomationTemplate.is_featured == featured)
 
-    query = query.order_by(
-        AutomationTemplate.is_featured.desc(),
-        AutomationTemplate.name.asc()
-    ).offset(skip).limit(limit)
+    if sort == "popular":
+        query = query.order_by(
+            TemplateUsageStat.clone_count.desc().nulls_last(),
+            AutomationTemplate.name.asc()
+        )
+    else:
+        query = query.order_by(
+            AutomationTemplate.is_featured.desc(),
+            AutomationTemplate.name.asc()
+        )
+
+    query = query.offset(skip).limit(limit)
 
     result = await db.execute(query)
-    templates = result.scalars().all()
+    rows = result.all()
 
     # Platform filter is done in Python since platforms is a JSON array
     if platform:
-        templates = [t for t in templates if platform in (t.platforms or [])]
+        rows = [(t, s) for t, s in rows if platform in (t.platforms or [])]
 
     return wrap_data([
         {
@@ -74,8 +90,9 @@ async def list_templates(
             "platforms": t.platforms or [],
             "required_integrations": t.required_integrations or [],
             "is_featured": t.is_featured,
+            "clone_count": s.clone_count if s else 0,
         }
-        for t in templates
+        for t, s in rows
     ])
 
 
@@ -111,6 +128,32 @@ async def get_template(
     )
     latest_version = version_result.scalars().first()
 
+    # Load variables for the latest published version (Mission 32)
+    variables_data = []
+    if latest_version:
+        var_result = await db.execute(
+            select(TemplateVariable)
+            .where(TemplateVariable.template_version_id == latest_version.id)
+            .order_by(TemplateVariable.sort_order)
+        )
+        variables_data = [
+            {
+                "key": v.key,
+                "label": v.label,
+                "description": v.description,
+                "var_type": v.var_type,
+                "required": v.required,
+                "default_value": v.default_value,
+            }
+            for v in var_result.scalars().all()
+        ]
+
+    # Clone count
+    stat_result = await db.execute(
+        select(TemplateUsageStat).where(TemplateUsageStat.template_id == template.id)
+    )
+    stat = stat_result.scalars().first()
+
     return wrap_data({
         "id": str(template.id),
         "slug": template.slug,
@@ -121,6 +164,8 @@ async def get_template(
         "platforms": template.platforms or [],
         "required_integrations": template.required_integrations or [],
         "is_featured": template.is_featured,
+        "clone_count": stat.clone_count if stat else 0,
+        "variables": variables_data,
         "latest_version": {
             "id": str(latest_version.id),
             "version_number": latest_version.version_number,
@@ -148,7 +193,7 @@ async def clone_template(
 ):
     """
     Clone a template into the current workspace as a new Flow + FlowDraft.
-    Redirects to canvas builder at /automations/{flow_id}.
+    Supports variable replacement: supply variable_values to replace {{key}} placeholders.
     """
     # Load template
     result = await db.execute(
@@ -173,6 +218,31 @@ async def clone_template(
     if not latest_version:
         return wrap_error("Template has no published version yet. Check back later.")
 
+    # Load variables for this version (Mission 32)
+    var_result = await db.execute(
+        select(TemplateVariable)
+        .where(TemplateVariable.template_version_id == latest_version.id)
+        .order_by(TemplateVariable.sort_order)
+    )
+    var_list = var_result.scalars().all()
+
+    # Validate required variables
+    supplied = payload.variable_values or {}
+    if var_list:
+        for v in var_list:
+            if v.required and v.key not in supplied and not v.default_value:
+                return wrap_error(f"Required variable '{v.label}' ({v.key}) is missing")
+
+    # Perform variable replacement in builder_graph_json
+    graph_str = json.dumps(latest_version.builder_graph_json)
+    if var_list:
+        for v in var_list:
+            value = supplied.get(v.key, v.default_value or "")
+            # Escape for JSON string safety
+            escaped_value = value.replace("\\", "\\\\").replace('"', '\\"')
+            graph_str = graph_str.replace("{{" + v.key + "}}", escaped_value)
+    replaced_graph = json.loads(graph_str)
+
     # Create new flow in workspace
     flow_name = (payload.name or "").strip() or template.name
     now = datetime.utcnow()
@@ -182,22 +252,45 @@ async def clone_template(
         description=template.description,
         workspace_id=workspace.id,
         status=FlowStatus.DRAFT,
+        source_template_id=template.id,
+        source_template_version_id=latest_version.id,
         created_at=now,
         updated_at=now,
     )
     db.add(flow)
     await db.flush()
 
-    # Create draft from template builder_graph_json
+    # Create draft from (possibly variable-replaced) builder_graph_json
     draft = FlowDraft(
         workspace_id=workspace.id,
         flow_id=flow.id,
-        builder_graph_json=latest_version.builder_graph_json,
+        builder_graph_json=replaced_graph,
         updated_by_user_id=current_user.id,
         created_at=now,
         updated_at=now,
     )
     db.add(draft)
+
+    # Store variable values (Mission 32)
+    for v in var_list:
+        ftvv = FlowTemplateVariableValue(
+            flow_id=flow.id,
+            template_variable_id=v.id,
+            value=supplied.get(v.key, v.default_value),
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(ftvv)
+
+    # Increment clone_count (Mission 32)
+    stat_result = await db.execute(
+        select(TemplateUsageStat).where(TemplateUsageStat.template_id == template.id)
+    )
+    stat = stat_result.scalars().first()
+    if stat:
+        stat.clone_count += 1
+        stat.updated_at = now
+        db.add(stat)
 
     # Log the clone event
     try:
@@ -225,4 +318,5 @@ async def clone_template(
         "redirect_path": f"/automations/{flow.id}",
         "template_slug": slug,
         "required_integrations": template.required_integrations or [],
+        "variables_applied": bool(var_list),
     })

@@ -26,6 +26,7 @@ from app.models.models import (
     RuntimeEventLog,
     QualificationConfig,
     AutomationTemplate, AutomationTemplateVersion,
+    TemplateVariable, TemplateUsageStat,
 )
 from app.domain.builder_translator import validate_graph, translate
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
@@ -1821,9 +1822,20 @@ class PatchTemplatePayload(BaseModel):
     required_integrations: Optional[List[str]] = None
 
 
+class TemplateVariableInput(BaseModel):
+    key: str
+    label: str
+    description: Optional[str] = None
+    var_type: str = "text"
+    required: bool = True
+    default_value: Optional[str] = None
+    sort_order: int = 0
+
+
 class CreateTemplateVersionPayload(BaseModel):
     builder_graph_json: Dict[str, Any]
     changelog: Optional[str] = None
+    variables: Optional[List[TemplateVariableInput]] = None
 
 
 @router.get("/templates", response_model=ResponseEnvelope[dict])
@@ -1865,6 +1877,32 @@ async def admin_list_templates(
     })
 
 
+@router.get("/templates/stats", response_model=ResponseEnvelope[list])
+async def admin_template_stats(
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Get usage statistics for all templates."""
+    result = await db.execute(
+        select(AutomationTemplate, TemplateUsageStat)
+        .outerjoin(TemplateUsageStat, TemplateUsageStat.template_id == AutomationTemplate.id)
+        .order_by(AutomationTemplate.name.asc())
+    )
+    rows = result.all()
+
+    return wrap_data([
+        {
+            "template_id": str(t.id),
+            "slug": t.slug,
+            "name": t.name,
+            "clone_count": s.clone_count if s else 0,
+            "publish_count": s.publish_count if s else 0,
+            "active_flows_count": s.active_flows_count if s else 0,
+        }
+        for t, s in rows
+    ])
+
+
 @router.post("/templates", response_model=ResponseEnvelope[dict])
 async def admin_create_template(
     payload: CreateTemplatePayload,
@@ -1896,6 +1934,19 @@ async def admin_create_template(
         updated_at=now,
     )
     db.add(template)
+    await db.flush()
+
+    # Create usage stat row (Mission 32)
+    stat = TemplateUsageStat(
+        template_id=template.id,
+        clone_count=0,
+        publish_count=0,
+        active_flows_count=0,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(stat)
+
     await audit_event(
         db, action="template_create", entity_type="automation_template",
         entity_id=payload.slug, actor_user_id=admin_user.id,
@@ -1995,12 +2046,32 @@ async def admin_create_template_version(
         updated_at=now,
     )
     db.add(version)
+    await db.flush()
+
+    # Create template variables if provided (Mission 32)
+    var_count = 0
+    if payload.variables:
+        for i, var_input in enumerate(payload.variables):
+            tv = TemplateVariable(
+                template_version_id=version.id,
+                key=var_input.key,
+                label=var_input.label,
+                description=var_input.description,
+                var_type=var_input.var_type,
+                required=var_input.required,
+                default_value=var_input.default_value,
+                sort_order=var_input.sort_order if var_input.sort_order else i,
+                created_at=now,
+                updated_at=now,
+            )
+            db.add(tv)
+            var_count += 1
 
     await audit_event(
         db, action="template_version_create", entity_type="automation_template_version",
         entity_id=str(template_id), actor_user_id=admin_user.id,
         actor_type="admin", outcome="success", request=request,
-        metadata={"version_number": new_ver_num},
+        metadata={"version_number": new_ver_num, "variables_count": var_count},
     )
     await db.commit()
     await db.refresh(version)
@@ -2009,6 +2080,7 @@ async def admin_create_template_version(
         "valid": True,
         "id": str(version.id),
         "version_number": version.version_number,
+        "variables_count": var_count,
     })
 
 

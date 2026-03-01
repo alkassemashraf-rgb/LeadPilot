@@ -20,6 +20,7 @@ interface Flow {
     description: string;
     status: "draft" | "published";
     created_at: string;
+    source_template_id?: string | null;
 }
 
 export default function AutomationsPage() {
@@ -140,6 +141,11 @@ export default function AutomationsPage() {
                                             )}>
                                                 {flow.status}
                                             </span>
+                                            {flow.source_template_id && (
+                                                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-md font-bold bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">
+                                                    From Template
+                                                </span>
+                                            )}
                                         </h3>
                                         <p className="text-sm text-muted-foreground line-clamp-1 max-w-md">
                                             {flow.description}

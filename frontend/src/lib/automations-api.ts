@@ -78,6 +78,10 @@ export interface Flow {
     published_version_id: string | null;
     created_at: string;
     updated_at: string;
+    source_template_id?: string | null;
+    source_template_version_id?: string | null;
+    latest_template_version_number?: number | null;
+    latest_template_version_id?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -161,4 +165,14 @@ export function simulate(flowId: string, mockPayload?: Record<string, any>) {
     return apiClient.post<SimulateResult>(`/automations/${flowId}/simulate`, {
         mock_payload: mockPayload ?? null,
     });
+}
+
+// ---------------------------------------------------------------------------
+// Template Rebase
+// ---------------------------------------------------------------------------
+
+export function rebaseToTemplate(flowId: string, templateVersionId: string) {
+    return apiClient.post<{ rebased: boolean; new_version_number: number }>(
+        `/automations/${flowId}/rebase-to-template/${templateVersionId}`
+    );
 }

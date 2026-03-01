@@ -138,6 +138,9 @@ class Flow(WorkspaceScopedModel, table=True):
     status: FlowStatus = Field(default=FlowStatus.DRAFT)
     # Points to the active published FlowVersion; FK constraint added by Alembic migration
     published_version_id: Optional[UUID] = Field(default=None, index=True)
+    # Template source tracking (Mission 32) — not FK to avoid cascade issues
+    source_template_id: Optional[UUID] = Field(default=None, index=True)
+    source_template_version_id: Optional[UUID] = Field(default=None, index=True)
 
     # Relationships
     nodes: List["FlowNode"] = Relationship(back_populates="flow")
@@ -622,3 +625,41 @@ class AutomationTemplateVersion(BaseIDModel, table=True):
         Index("idx_atv_template_ver", "template_id", "version_number"),
         Index("idx_atv_template_published", "template_id", "is_published"),
     )
+
+
+# --- Template Variables + Analytics (Mission 32) ---
+
+class TemplateVariable(BaseIDModel, table=True):
+    """Variable placeholder defined per template version. Used during clone."""
+    template_version_id: UUID = Field(foreign_key="automationtemplateversion.id", index=True)
+    key: str
+    label: str
+    description: Optional[str] = None
+    var_type: str = Field(default="text")  # text | textarea | number | phone | url
+    required: bool = Field(default=True)
+    default_value: Optional[str] = None
+    sort_order: int = Field(default=0)
+
+    __table_args__ = (
+        UniqueConstraint("template_version_id", "key", name="uq_tmplvar_version_key"),
+        Index("idx_tmplvar_version", "template_version_id", "sort_order"),
+    )
+
+
+class FlowTemplateVariableValue(BaseIDModel, table=True):
+    """Stores the variable values supplied when a flow was cloned from a template."""
+    flow_id: UUID = Field(foreign_key="flow.id", index=True)
+    template_variable_id: UUID = Field(foreign_key="templatevariable.id", index=True)
+    value: Optional[str] = None
+
+    __table_args__ = (
+        UniqueConstraint("flow_id", "template_variable_id", name="uq_ftvv_flow_var"),
+    )
+
+
+class TemplateUsageStat(BaseIDModel, table=True):
+    """Aggregate usage statistics for a template. One row per template."""
+    template_id: UUID = Field(foreign_key="automationtemplate.id", unique=True, index=True)
+    clone_count: int = Field(default=0)
+    publish_count: int = Field(default=0)
+    active_flows_count: int = Field(default=0)

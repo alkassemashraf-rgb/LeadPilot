@@ -44,6 +44,7 @@ import {
     rollbackToVersion,
     simulate,
     getFlow,
+    rebaseToTemplate,
     type BuilderGraph,
     type BuilderNode,
     type BuilderEdge,
@@ -397,6 +398,12 @@ function CanvasEditor({ flowId }: { flowId: string }) {
     } | null>(null);
     const [showSimulate, setShowSimulate] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [templateUpdate, setTemplateUpdate] = useState<{
+        available: boolean;
+        latestVersionId?: string;
+        latestVersionNumber?: number;
+    }>({ available: false });
+    const [rebasing, setRebasing] = useState(false);
 
     // Error node IDs set
     const errorNodeIds = useMemo(
@@ -436,6 +443,20 @@ function CanvasEditor({ flowId }: { flowId: string }) {
 
             if (flowRes.success && flowRes.data) {
                 setFlowName(flowRes.data.name);
+                // Check for template updates
+                const d = flowRes.data;
+                if (
+                    d.source_template_id &&
+                    d.source_template_version_id &&
+                    d.latest_template_version_id &&
+                    d.source_template_version_id !== d.latest_template_version_id
+                ) {
+                    setTemplateUpdate({
+                        available: true,
+                        latestVersionId: d.latest_template_version_id,
+                        latestVersionNumber: d.latest_template_version_number ?? undefined,
+                    });
+                }
             }
 
             if (draftRes.success && draftRes.data?.builder_graph_json) {
@@ -662,6 +683,31 @@ function CanvasEditor({ flowId }: { flowId: string }) {
     }, [flowId, rfNodes, rfEdges, setRfNodes]);
 
     // ---------------------------------------------------------------------------
+    // Rebase to latest template version
+    // ---------------------------------------------------------------------------
+
+    const handleRebase = useCallback(async () => {
+        if (!templateUpdate.latestVersionId) return;
+        setRebasing(true);
+        const res = await rebaseToTemplate(flowId, templateUpdate.latestVersionId);
+        if (res.success && res.data?.rebased) {
+            // Reload the draft
+            const draftRes = await getDraft(flowId);
+            if (draftRes.success && draftRes.data?.builder_graph_json) {
+                const graph = draftRes.data.builder_graph_json;
+                setRfNodes(builderNodesToRF(graph.nodes, new Set(), handleDeleteNode));
+                setRfEdges(graph.edges as Edge[]);
+            }
+            setTemplateUpdate({ available: false });
+            setPublishResult({
+                success: true,
+                message: `Updated to template v${res.data.new_version_number}`,
+            });
+        }
+        setRebasing(false);
+    }, [flowId, templateUpdate, setRfNodes, setRfEdges, handleDeleteNode]);
+
+    // ---------------------------------------------------------------------------
     // Render
     // ---------------------------------------------------------------------------
 
@@ -779,6 +825,26 @@ function CanvasEditor({ flowId }: { flowId: string }) {
                         className="p-0.5 hover:opacity-70"
                     >
                         <X className="w-3.5 h-3.5" />
+                    </button>
+                </div>
+            )}
+
+            {/* ── Template Update Banner ── */}
+            {templateUpdate.available && (
+                <div className="px-4 py-2.5 text-sm border-b flex items-center justify-between shrink-0 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300">
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-4 h-4 shrink-0" />
+                        <span className="font-medium">
+                            Template update available{templateUpdate.latestVersionNumber ? ` (v${templateUpdate.latestVersionNumber})` : ""}
+                        </span>
+                    </div>
+                    <button
+                        onClick={handleRebase}
+                        disabled={rebasing}
+                        className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors disabled:opacity-50"
+                    >
+                        {rebasing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
+                        Update to Latest
                     </button>
                 </div>
             )}
