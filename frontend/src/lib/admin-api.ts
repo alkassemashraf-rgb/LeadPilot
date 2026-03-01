@@ -39,9 +39,20 @@ async function adminRequest<T = any>(
     try {
         const response = await fetch(url, { ...options, headers });
 
-        if (response.status === 401 || response.status === 403) {
+        // 401 = token expired/invalid → force re-login
+        if (response.status === 401) {
             adminAuth.logout();
             return { success: false, error: "Admin session expired. Please log in again." };
+        }
+
+        // 403 = forbidden (not superuser, module disabled, etc.) → surface error, don't logout
+        if (response.status === 403) {
+            const ct = response.headers.get("content-type");
+            if (ct?.includes("application/json")) {
+                const json = await response.json();
+                return { success: false, error: json.error || json.detail || "Access denied (403)." };
+            }
+            return { success: false, error: "Admin access denied (403)." };
         }
 
         const contentType = response.headers.get("content-type");

@@ -5,7 +5,7 @@ from sqlmodel import SQLModel
 from app.core.config import settings
 from app.core.db import engine
 from app.api.v1 import auth, workspaces, health, prompt_config, test_chat, integrations, webhooks, automations, knowledge, analytics, templates
-from app.core.seed import seed_modules, seed_plans, seed_system_settings
+from app.core.seed import seed_modules, seed_plans, seed_system_settings, seed_users
 from app.api.v1.dispatch import router as dispatch_router
 from app.api.v1.inbox import router as inbox_router
 from app.api.v1.zoho import router as zoho_router
@@ -20,6 +20,7 @@ from app.api.v1.catalog import router as catalog_router
 from app.api.v1.qualification import router as qualification_router
 from app.api.v1.entitlements import router as entitlements_router
 from app.api.v1.settings_profile import router as settings_profile_router
+from app.api.v1.qualification_criteria import router as qual_criteria_router
 from fastapi import HTTPException
 import uuid
 import logging
@@ -37,6 +38,7 @@ async def lifespan(app: FastAPI):
     await seed_modules()
     await seed_plans()
     await seed_system_settings()
+    await seed_users()
     yield
 
 app = FastAPI(
@@ -164,6 +166,7 @@ app.include_router(catalog_router, prefix=f"{settings.API_V1_STR}/catalog", tags
 app.include_router(qualification_router, prefix=f"{settings.API_V1_STR}/qualification-config", tags=["qualification"])
 app.include_router(entitlements_router, prefix=f"{settings.API_V1_STR}/entitlements", tags=["entitlements"])
 app.include_router(settings_profile_router, prefix=f"{settings.API_V1_STR}/settings", tags=["settings-profile"])
+app.include_router(qual_criteria_router, prefix=f"{settings.API_V1_STR}/prompt-studio", tags=["prompt-studio"])
 
 @app.get("/")
 async def root():

@@ -24,3 +24,5 @@ google-generativeai
 aiosmtplib
 jinja2
 python-dotenv
+python-docx>=1.1.0
+openpyxl>=3.1.0

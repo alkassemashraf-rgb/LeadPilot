@@ -2,6 +2,7 @@ import sys
 import os
 import asyncio
 import logging
+from datetime import datetime
 
 # Add the parent directory to sys.path to allow importing from 'app'
 # This assumes the script is in backend/scripts/
@@ -43,7 +44,8 @@ async def create_test_user():
                 hashed_password=security.get_password_hash("Password123!"),
                 full_name="Test User",
                 is_active=True,
-                is_superuser=True
+                is_superuser=True,
+                email_verified_at=datetime.utcnow(),
             )
             session.add(db_user)
             await session.flush()
@@ -108,6 +110,7 @@ async def create_test_user():
                 full_name="LeadPilot Admin",
                 is_active=True,
                 is_superuser=True,
+                email_verified_at=datetime.utcnow(),
             )
             session.add(db_admin)
             await session.flush()
@@ -124,6 +127,70 @@ async def create_test_user():
             session.add(db_admin_member)
             await session.commit()
             logger.info(f"Admin user {admin_email} created successfully.")
+
+    # --- Seed studio demo user (demo@leadpilot.com) ---
+    async with async_session() as session:
+        demo_email = "demo@leadpilot.com"
+        result = await session.execute(select(User).where(User.email == demo_email))
+        if result.scalars().first():
+            logger.info(f"Demo user {demo_email} already exists.")
+        else:
+            logger.info(f"Creating demo user: {demo_email}")
+            db_demo = User(
+                email=demo_email,
+                hashed_password=security.get_password_hash("demo123456"),
+                full_name="Demo User",
+                is_active=True,
+                is_superuser=False,
+                email_verified_at=datetime.utcnow(),
+            )
+            session.add(db_demo)
+            await session.flush()
+
+            db_demo_ws = Workspace(name="Demo Workspace")
+            session.add(db_demo_ws)
+            await session.flush()
+
+            db_demo_member = WorkspaceMember(
+                user_id=db_demo.id,
+                workspace_id=db_demo_ws.id,
+                role=WorkspaceRole.OWNER,
+            )
+            session.add(db_demo_member)
+            await session.commit()
+            logger.info(f"Demo user {demo_email} created successfully.")
+
+    # --- Seed superadmin (admin@leadpilot.com) ---
+    async with async_session() as session:
+        sa_email = "admin@leadpilot.com"
+        result = await session.execute(select(User).where(User.email == sa_email))
+        if result.scalars().first():
+            logger.info(f"Superadmin {sa_email} already exists.")
+        else:
+            logger.info(f"Creating superadmin: {sa_email}")
+            db_sa = User(
+                email=sa_email,
+                hashed_password=security.get_password_hash("admin123456"),
+                full_name="Admin",
+                is_active=True,
+                is_superuser=True,
+                email_verified_at=datetime.utcnow(),
+            )
+            session.add(db_sa)
+            await session.flush()
+
+            db_sa_ws = Workspace(name="Admin Workspace")
+            session.add(db_sa_ws)
+            await session.flush()
+
+            db_sa_member = WorkspaceMember(
+                user_id=db_sa.id,
+                workspace_id=db_sa_ws.id,
+                role=WorkspaceRole.OWNER,
+            )
+            session.add(db_sa_member)
+            await session.commit()
+            logger.info(f"Superadmin {sa_email} created successfully.")
 
 if __name__ == "__main__":
     asyncio.run(create_test_user())

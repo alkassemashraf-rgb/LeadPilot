@@ -7,12 +7,15 @@ from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from sqlmodel import delete as sql_delete
+
 from app.api import deps
 from app.core.db import get_db
-from app.models.models import Workspace, WorkspaceKnowledgeFile
+from app.models.models import Workspace, WorkspaceKnowledgeFile, KnowledgeChunk
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
 from app.core.modules import require_module_enabled, MODULE_KNOWLEDGE_FILES
 from app.services.entitlements import require_entitlement
+from app.services.knowledge_chunker import create_chunks_for_file
 
 router = APIRouter()
 
@@ -80,7 +83,38 @@ async def upload_knowledge_file(
             else:
                 extracted_text = full_text[:MAX_EXTRACTED_TEXT]
         except ImportError:
-            # PyMuPDF not installed — mark as unsupported
+            status = "FAILED"
+        except Exception:
+            status = "FAILED"
+    elif extension.lower() == ".docx":
+        try:
+            from docx import Document as DocxDocument
+            doc = DocxDocument(storage_path)
+            full_text = "\n".join(p.text for p in doc.paragraphs)
+            if not full_text.strip():
+                status = "FAILED"
+            else:
+                extracted_text = full_text[:MAX_EXTRACTED_TEXT]
+        except ImportError:
+            status = "FAILED"
+        except Exception:
+            status = "FAILED"
+    elif extension.lower() == ".xlsx":
+        try:
+            from openpyxl import load_workbook
+            wb = load_workbook(storage_path, read_only=True, data_only=True)
+            rows_text = []
+            for ws in wb.worksheets:
+                for row in ws.iter_rows(values_only=True):
+                    cells = [str(c) if c is not None else "" for c in row]
+                    rows_text.append("\t".join(cells))
+            wb.close()
+            full_text = "\n".join(rows_text)
+            if not full_text.strip():
+                status = "FAILED"
+            else:
+                extracted_text = full_text[:MAX_EXTRACTED_TEXT]
+        except ImportError:
             status = "FAILED"
         except Exception:
             status = "FAILED"
@@ -99,6 +133,15 @@ async def upload_knowledge_file(
     )
 
     db.add(knowledge_file)
+    await db.flush()
+
+    # Create knowledge chunks for retrieval
+    chunk_count = 0
+    if extracted_text:
+        chunk_count = await create_chunks_for_file(
+            db, workspace.id, uuid.UUID(file_id), extracted_text,
+        )
+
     await db.commit()
     await db.refresh(knowledge_file)
 
@@ -107,6 +150,7 @@ async def upload_knowledge_file(
         "filename": knowledge_file.filename,
         "extracted": extracted_text is not None,
         "status": status,
+        "chunk_count": chunk_count,
     })
 
 
@@ -178,6 +222,11 @@ async def delete_knowledge_file(
     kb_file = result.scalars().first()
     if not kb_file:
         raise HTTPException(status_code=404, detail="File not found")
+
+    # Delete chunks first
+    await db.execute(
+        sql_delete(KnowledgeChunk).where(KnowledgeChunk.knowledge_file_id == file_id)
+    )
 
     # Delete from storage
     if os.path.exists(kb_file.storage_path):

@@ -282,18 +282,7 @@ async def handle_zoho_upsert(session: AsyncSession, instance: ExecutionInstance,
 
 async def handle_ai_reply(session: AsyncSession, instance: ExecutionInstance, config: Dict[str, Any]) -> Dict[str, Any]:
     """Generates an AI reply using unified prompt compiler + conversation history."""
-    # 1. Compile workspace prompt (includes knowledge files, qualification, step config)
-    compiled = await compile_workspace_prompt(
-        instance.workspace_id,
-        session,
-        include_files=True,
-        include_qualification=True,
-        step_config=config,
-    )
-    if not compiled.version_id:
-        raise Exception("No active PromptConfig found for workspace")
-
-    # 2. Fetch conversation and history (last 15 messages)
+    # 1. Fetch conversation and history (last 15 messages) — needed for query_hint
     conv_result = await session.execute(
         select(Conversation).where(Conversation.contact_id == instance.contact_id)
     )
@@ -306,6 +295,25 @@ async def handle_ai_reply(session: AsyncSession, instance: ExecutionInstance, co
     )
     history = list(msg_result.scalars().all())
     history.reverse()
+
+    # Extract last user message for chunk-based knowledge retrieval
+    last_user_msg = ""
+    for msg in reversed(history):
+        if msg.direction == "inbound":
+            last_user_msg = msg.content or ""
+            break
+
+    # 2. Compile workspace prompt (includes knowledge chunks, qualification, step config)
+    compiled = await compile_workspace_prompt(
+        instance.workspace_id,
+        session,
+        include_files=True,
+        include_qualification=True,
+        step_config=config,
+        query_hint=last_user_msg or None,
+    )
+    if not compiled.version_id:
+        raise Exception("No active PromptConfig found for workspace")
 
     messages = []
     messages.append({"role": "system", "content": compiled.system_instruction})

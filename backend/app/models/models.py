@@ -341,6 +341,20 @@ class WorkspaceKnowledgeFile(WorkspaceScopedModel, table=True):
     status: str = Field(default="READY")  # READY | FAILED
 
 
+class KnowledgeChunk(SQLModel, table=True):
+    """Individual text chunk from a knowledge file for retrieval."""
+    id: UUID = Field(default_factory=uuid4, primary_key=True, index=True)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    workspace_id: UUID = Field(index=True, foreign_key="workspace.id")
+    knowledge_file_id: UUID = Field(index=True, foreign_key="workspaceknowledgefile.id")
+    chunk_index: int = Field(default=0)
+    content_text: str
+
+    __table_args__ = (
+        Index("idx_kc_ws_file", "workspace_id", "knowledge_file_id"),
+    )
+
+
 class QualificationConfig(WorkspaceScopedModel, table=True):
     """Workspace-scoped lead qualification configuration."""
     version: int = Field(default=1)
@@ -349,6 +363,22 @@ class QualificationConfig(WorkspaceScopedModel, table=True):
     )
     qualification_statuses: List[Dict[str, Any]] = Field(
         default_factory=list, sa_column=Column(JSON)
+    )
+
+
+class QualificationCriterion(WorkspaceScopedModel, table=True):
+    """Dynamic lead qualification criterion — stored as rows, not JSON."""
+    code: str = Field(index=True)
+    label: str
+    description: Optional[str] = None
+    criterion_type: str = Field(default="boolean")  # boolean | enum | text | score
+    enum_values: Optional[List[str]] = Field(default=None, sa_column=Column(JSON))
+    weight: Optional[int] = None
+    sort_order: int = Field(default=0)
+    is_enabled: bool = Field(default=True)
+
+    __table_args__ = (
+        UniqueConstraint("workspace_id", "code", name="uq_qualcriterion_ws_code"),
     )
 
 

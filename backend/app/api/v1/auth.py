@@ -616,7 +616,8 @@ async def google_auth_callback(
                 full_name=full_name,
                 auth_provider="google",
                 provider_subject=google_id,
-                is_active=True
+                is_active=True,
+                email_verified_at=datetime.utcnow(),
             )
             db.add(user)
             await db.flush()
@@ -641,6 +642,9 @@ async def google_auth_callback(
             user.provider_subject = google_id
             if full_name:
                 user.full_name = full_name
+            # Google confirmed email — mark verified if not already
+            if user.email_verified_at is None:
+                user.email_verified_at = datetime.utcnow()
             db.add(user)
             await db.commit()
             await db.refresh(user)

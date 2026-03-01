@@ -77,8 +77,11 @@ async def send_test_message(
     db.add(user_msg)
     await db.flush()
 
-    # 3. Compile workspace prompt (includes knowledge files + qualification)
-    compiled = await compile_workspace_prompt(workspace.id, db, include_files=True, include_qualification=True)
+    # 3. Compile workspace prompt (includes knowledge chunks + qualification)
+    compiled = await compile_workspace_prompt(
+        workspace.id, db, include_files=True, include_qualification=True,
+        query_hint=text,
+    )
     if not compiled.version_id:
         return wrap_error("No active prompt configuration found for this workspace.")
 

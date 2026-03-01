@@ -38,12 +38,19 @@ function AiReplyConfig({
     onChange: (updated: Record<string, any>) => void;
 }) {
     const tasks: string[] = Array.isArray(config.tasks) ? config.tasks : [];
+    const outputs: { key: string; label: string }[] = Array.isArray(config.output_schema) ? config.output_schema : [];
 
     const addTask = () => onChange({ ...config, tasks: [...tasks, ""] });
     const removeTask = (i: number) =>
         onChange({ ...config, tasks: tasks.filter((_, idx) => idx !== i) });
     const updateTask = (i: number, val: string) =>
         onChange({ ...config, tasks: tasks.map((t, idx) => (idx === i ? val : t)) });
+
+    const addOutput = () => onChange({ ...config, output_schema: [...outputs, { key: "", label: "" }] });
+    const removeOutput = (i: number) =>
+        onChange({ ...config, output_schema: outputs.filter((_, idx) => idx !== i) });
+    const updateOutput = (i: number, field: "key" | "label", val: string) =>
+        onChange({ ...config, output_schema: outputs.map((o, idx) => (idx === i ? { ...o, [field]: val } : o)) });
 
     return (
         <div className="space-y-4">
@@ -90,6 +97,39 @@ function AiReplyConfig({
                     value={config.extra_instructions ?? ""}
                     onChange={(e) => onChange({ ...config, extra_instructions: e.target.value })}
                 />
+            </LabeledField>
+
+            <LabeledField label="Expected Outputs (optional)">
+                <div className="space-y-2">
+                    {outputs.map((output, i) => (
+                        <div key={i} className="flex gap-2">
+                            <input
+                                className="w-28 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                placeholder="Key"
+                                value={output.key}
+                                onChange={(e) => updateOutput(i, "key", e.target.value)}
+                            />
+                            <input
+                                className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                placeholder="Label (e.g. Budget Range)"
+                                value={output.label}
+                                onChange={(e) => updateOutput(i, "label", e.target.value)}
+                            />
+                            <button
+                                onClick={() => removeOutput(i)}
+                                className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950 transition-colors"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    ))}
+                    <button
+                        onClick={addOutput}
+                        className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+                    >
+                        + Add output field
+                    </button>
+                </div>
             </LabeledField>
         </div>
     );

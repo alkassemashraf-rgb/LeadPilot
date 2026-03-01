@@ -40,6 +40,10 @@ export default function PromptStudioPage() {
     const [qualVersion, setQualVersion] = useState(1);
     const [isSavingQual, setIsSavingQual] = useState(false);
 
+    // Qualification criteria state (Mission 29)
+    const [criteria, setCriteria] = useState<any[]>([]);
+    const [savingCriterionId, setSavingCriterionId] = useState<string | null>(null);
+
     // Form State
     const [formData, setFormData] = useState({
         basics: {
@@ -84,6 +88,43 @@ export default function PromptStudioPage() {
             setQualQuestions(res.data.qualification_questions || []);
             setQualStatuses(res.data.qualification_statuses || []);
             setQualVersion(res.data.version || 1);
+        }
+    };
+
+    const fetchCriteria = async () => {
+        const res = await apiClient.get("/prompt-studio/qualification");
+        if (res.success && res.data) {
+            setCriteria(res.data);
+        }
+    };
+
+    const handleCreateCriterion = async () => {
+        setSavingCriterionId("new");
+        const res = await apiClient.post("/prompt-studio/qualification", {
+            label: "New Criterion",
+            criterion_type: "boolean",
+            sort_order: criteria.length,
+        });
+        if (res.success && res.data) {
+            setCriteria([...criteria, res.data]);
+        }
+        setSavingCriterionId(null);
+    };
+
+    const handleUpdateCriterion = async (id: string, updates: Record<string, any>) => {
+        setSavingCriterionId(id);
+        const res = await apiClient.patch(`/prompt-studio/qualification/${id}`, updates);
+        if (res.success && res.data) {
+            setCriteria(criteria.map(c => c.id === id ? res.data : c));
+        }
+        setSavingCriterionId(null);
+    };
+
+    const handleDeleteCriterion = async (id: string) => {
+        if (!confirm("Delete this qualification criterion?")) return;
+        const res = await apiClient.delete(`/prompt-studio/qualification/${id}`);
+        if (res.success) {
+            setCriteria(criteria.filter(c => c.id !== id));
         }
     };
 
@@ -158,6 +199,7 @@ export default function PromptStudioPage() {
             }
             await fetchKnowledgeFiles();
             await fetchQualificationConfig();
+            await fetchCriteria();
         } catch (err: any) {
             setError("Connectivity error. Please check your internet or try again.");
         } finally {
@@ -495,7 +537,7 @@ export default function PromptStudioPage() {
                                         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                                             <div>
                                                 <h2 className="text-lg font-bold text-slate-800">Workspace Knowledge</h2>
-                                                <p className="text-xs text-slate-500">Upload documents (PDFs, TXT, CSV) to provide AI with business context.</p>
+                                                <p className="text-xs text-slate-500">Upload documents (PDF, DOCX, XLSX, TXT, CSV) to provide AI with business context.</p>
                                             </div>
                                             <label className="cursor-pointer bg-teal-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-teal-700 transition-all flex items-center gap-2 shadow-sm">
                                                 {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
@@ -571,7 +613,7 @@ export default function PromptStudioPage() {
                                         <div className="bg-amber-50 border border-amber-100 rounded-xl p-4 flex gap-3">
                                             <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
                                             <p className="text-[11px] text-amber-800 leading-normal">
-                                                <strong>Pro Tip:</strong> Uploaded files (TXT, CSV, PDF) are automatically extracted and injected into your AI&apos;s context. The AI will reference these documents when responding to leads.
+                                                <strong>Pro Tip:</strong> Uploaded files (TXT, CSV, PDF, DOCX, XLSX) are automatically extracted, chunked, and indexed. The AI retrieves the most relevant knowledge snippets when responding to leads.
                                             </p>
                                         </div>
                                     </div>
@@ -730,10 +772,109 @@ export default function PromptStudioPage() {
                                             )}
                                         </section>
 
+                                        {/* Qualification Criteria (Mission 29) */}
+                                        <section className="space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-2 text-slate-800">
+                                                    <Sparkles className="w-4 h-4 text-teal-600" />
+                                                    <h3 className="text-sm font-bold uppercase tracking-wider">Qualification Criteria</h3>
+                                                </div>
+                                                <button
+                                                    onClick={handleCreateCriterion}
+                                                    disabled={savingCriterionId === "new"}
+                                                    className="text-xs font-bold text-teal-600 hover:text-teal-700 flex items-center gap-1 transition-all disabled:opacity-50"
+                                                >
+                                                    <Plus className="w-3.5 h-3.5" /> Add Criterion
+                                                </button>
+                                            </div>
+                                            <p className="text-[11px] text-slate-400">Define rules for evaluating and scoring leads. The AI uses these to determine lead quality.</p>
+
+                                            {criteria.length === 0 ? (
+                                                <div className="py-10 flex flex-col items-center justify-center border-2 border-dashed border-slate-200 rounded-xl bg-slate-50 text-slate-400">
+                                                    <Sparkles className="w-8 h-8 mb-3 opacity-20" />
+                                                    <p className="text-sm font-medium">No criteria defined</p>
+                                                    <p className="text-[10px] mt-1">Click &quot;Add Criterion&quot; to define lead qualification rules.</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {criteria.map((c) => (
+                                                        <div key={c.id} className="p-4 bg-white border border-slate-200 rounded-xl group hover:border-teal-400 transition-all space-y-3">
+                                                            <div className="flex items-center gap-3">
+                                                                <input
+                                                                    type="text"
+                                                                    value={c.label}
+                                                                    onChange={(e) => setCriteria(criteria.map(cr => cr.id === c.id ? { ...cr, label: e.target.value } : cr))}
+                                                                    onBlur={() => handleUpdateCriterion(c.id, { label: c.label })}
+                                                                    placeholder="Criterion label"
+                                                                    className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 outline-none transition-all font-medium"
+                                                                />
+                                                                <select
+                                                                    value={c.criterion_type}
+                                                                    onChange={(e) => handleUpdateCriterion(c.id, { criterion_type: e.target.value })}
+                                                                    className="w-28 p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-teal-500"
+                                                                >
+                                                                    <option value="boolean">Boolean</option>
+                                                                    <option value="enum">Enum</option>
+                                                                    <option value="text">Text</option>
+                                                                    <option value="score">Score (1-5)</option>
+                                                                </select>
+                                                                <input
+                                                                    type="number"
+                                                                    min={0}
+                                                                    value={c.weight ?? ""}
+                                                                    onChange={(e) => setCriteria(criteria.map(cr => cr.id === c.id ? { ...cr, weight: e.target.value === "" ? null : parseInt(e.target.value) } : cr))}
+                                                                    onBlur={() => handleUpdateCriterion(c.id, { weight: c.weight })}
+                                                                    placeholder="Wt"
+                                                                    title="Weight (priority)"
+                                                                    className="w-16 p-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:border-teal-500 text-center"
+                                                                />
+                                                                <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={c.is_enabled !== false}
+                                                                        onChange={(e) => handleUpdateCriterion(c.id, { is_enabled: e.target.checked })}
+                                                                        className="w-4 h-4 accent-teal-600"
+                                                                    />
+                                                                    <span className="text-[10px] font-medium text-slate-500">On</span>
+                                                                </label>
+                                                                <button
+                                                                    onClick={() => handleDeleteCriterion(c.id)}
+                                                                    className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                                                >
+                                                                    <Trash2 className="w-3.5 h-3.5" />
+                                                                </button>
+                                                            </div>
+                                                            <input
+                                                                type="text"
+                                                                value={c.description ?? ""}
+                                                                onChange={(e) => setCriteria(criteria.map(cr => cr.id === c.id ? { ...cr, description: e.target.value } : cr))}
+                                                                onBlur={() => handleUpdateCriterion(c.id, { description: c.description })}
+                                                                placeholder="Description (e.g. Lead has budget above $10K)"
+                                                                className="w-full p-2 bg-slate-50/50 border border-slate-100 rounded-lg text-xs text-slate-600 outline-none focus:border-teal-500 transition-all"
+                                                            />
+                                                            {c.criterion_type === "enum" && (
+                                                                <input
+                                                                    type="text"
+                                                                    value={(c.enum_values || []).join(", ")}
+                                                                    onChange={(e) => {
+                                                                        const vals = e.target.value.split(",").map((v: string) => v.trim()).filter(Boolean);
+                                                                        setCriteria(criteria.map(cr => cr.id === c.id ? { ...cr, enum_values: vals } : cr));
+                                                                    }}
+                                                                    onBlur={() => handleUpdateCriterion(c.id, { enum_values: c.enum_values })}
+                                                                    placeholder="Enum values (comma separated)"
+                                                                    className="w-full p-2 bg-amber-50/50 border border-amber-100 rounded-lg text-xs text-amber-800 outline-none focus:border-amber-400 transition-all"
+                                                                />
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </section>
+
                                         <div className="bg-teal-50/50 border border-teal-100 rounded-xl p-4 flex gap-3">
                                             <AlertCircle className="w-4 h-4 text-teal-600 shrink-0" />
                                             <p className="text-[11px] text-teal-700 leading-normal">
-                                                <strong>How it works:</strong> Enabled questions are injected into the AI&apos;s system prompt. The AI will naturally ask leads for this information during conversation. Statuses can be used to categorize leads in the Contacts page.
+                                                <strong>How it works:</strong> Enabled questions are injected into the AI&apos;s system prompt. The AI will naturally ask leads for this information during conversation. Criteria define how the AI evaluates lead quality. Statuses categorize leads in the Contacts page.
                                             </p>
                                         </div>
                                     </div>

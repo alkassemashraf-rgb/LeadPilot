@@ -1,10 +1,15 @@
 """
-Startup seed utilities: Ensures all canonical modules and default plans exist.
+Startup seed utilities: Ensures all canonical modules, default plans, and seed users exist.
 Runs once on app startup; idempotent (uses INSERT or IGNORE logic via get-or-create).
 """
 import logging
+from datetime import datetime
 from app.core.db import SessionLocal as AsyncSessionLocal
-from app.models.models import SystemModuleConfig, Plan, PlanEntitlement, SystemSettings
+from app.core.security import get_password_hash
+from app.models.models import (
+    SystemModuleConfig, Plan, PlanEntitlement, SystemSettings,
+    User, Workspace, WorkspaceMember, WorkspaceRole,
+)
 from app.core.modules import ALL_MODULES
 from sqlmodel import select
 
@@ -165,3 +170,72 @@ async def seed_system_settings():
                 logger.info("[seed_system_settings] System settings already exist.")
     except Exception as e:
         logger.error(f"[seed_system_settings] Failed: {e}", exc_info=True)
+
+
+# --- Default seed users ---
+SEED_USERS = [
+    {
+        "email": "demo@leadpilot.com",
+        "password": "demo123456",
+        "full_name": "Demo User",
+        "is_superuser": False,
+        "workspace_name": "Demo Workspace",
+    },
+    {
+        "email": "admin@leadpilot.com",
+        "password": "admin123456",
+        "full_name": "Admin",
+        "is_superuser": True,
+        "workspace_name": "Admin Workspace",
+    },
+]
+
+
+async def seed_users():
+    """
+    Seed demo and admin users with workspaces. Idempotent: skips if email exists.
+    Both users are created with email_verified_at set (no verification required).
+    """
+    try:
+        async with AsyncSessionLocal() as db:
+            new_count = 0
+            for user_def in SEED_USERS:
+                result = await db.execute(
+                    select(User).where(User.email == user_def["email"])
+                )
+                if result.scalars().first():
+                    logger.info(f"[seed_users] {user_def['email']} already exists; skipping.")
+                    continue
+
+                now = datetime.utcnow()
+                user = User(
+                    email=user_def["email"],
+                    hashed_password=get_password_hash(user_def["password"]),
+                    full_name=user_def["full_name"],
+                    is_active=True,
+                    is_superuser=user_def["is_superuser"],
+                    email_verified_at=now,
+                )
+                db.add(user)
+                await db.flush()
+
+                workspace = Workspace(name=user_def["workspace_name"])
+                db.add(workspace)
+                await db.flush()
+
+                membership = WorkspaceMember(
+                    user_id=user.id,
+                    workspace_id=workspace.id,
+                    role=WorkspaceRole.OWNER,
+                )
+                db.add(membership)
+                new_count += 1
+                logger.info(f"[seed_users] Created {user_def['email']} (superuser={user_def['is_superuser']}).")
+
+            if new_count > 0:
+                await db.commit()
+                logger.info(f"[seed_users] Seeded {new_count} user(s).")
+            else:
+                logger.info("[seed_users] All seed users already exist; no action taken.")
+    except Exception as e:
+        logger.error(f"[seed_users] Failed: {e}", exc_info=True)
