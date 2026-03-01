@@ -224,9 +224,12 @@ async def meta_webhook(
     except (IndexError, AttributeError):
         pass
 
-    metrics.increment("webhooks_received", labels={"provider": "meta"})
+    # Channel discrimination for metrics
+    object_type = payload.get("object", "")
+    channel = "instagram" if object_type == "instagram" else "messenger"
+    metrics.increment("webhooks_received", labels={"provider": "meta", "channel": channel})
     await log_event(db, event_type="webhook.received", source="webhook",
-                    payload={"provider": "meta", "page_id": page_id})
+                    payload={"provider": "meta", "page_id": page_id, "channel": channel})
 
     # 3. Resolve Workspace
     workspace_id = await resolve_workspace(db, "meta", page_id) if page_id else None

@@ -185,3 +185,42 @@ async def integrations_health_check(
     )
     await db.commit()
     return wrap_data({"status": "ok", "checked_count": len(integrations), "errors_found": errors_found})
+
+@router.post("/meta/webhooks/subscribe", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_INTEGRATIONS_CONNECT, "write")), Depends(require_entitlement("integrations_connect"))])
+async def subscribe_meta_webhooks(
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+    workspace: Workspace = Depends(deps.get_active_workspace),
+    current_user: User = Depends(deps.get_current_user),
+) -> Any:
+    """Manually trigger webhook subscription for a connected Meta integration."""
+    result = await db.execute(
+        select(Integration).where(
+            Integration.workspace_id == workspace.id,
+            Integration.provider == "meta",
+            Integration.status == IntegrationStatus.CONNECTED,
+        )
+    )
+    integration = result.scalars().first()
+    if not integration or not integration.encrypted_config:
+        return wrap_error("No connected Meta integration found")
+
+    config = decrypt_data(integration.encrypted_config)
+    page_id = integration.provider_workspace_id
+    page_access_token = config.get("access_token")
+
+    from app.services.meta_service import subscribe_page_webhooks
+    success = await subscribe_page_webhooks(page_id, page_access_token)
+
+    await audit_event(
+        db, action="meta_webhook_subscribe", entity_type="integration",
+        entity_id=str(integration.id), actor_user_id=current_user.id,
+        outcome="success" if success else "failure",
+        workspace_id=workspace.id, request=request,
+        metadata={"provider": "meta", "page_id": page_id},
+    )
+    await db.commit()
+
+    if success:
+        return wrap_data({"message": "Webhook subscription successful", "page_id": page_id})
+    return wrap_error("Failed to subscribe to webhooks")

@@ -42,6 +42,11 @@ def parse_webhook_payload(provider: str, payload: Dict) -> Dict:
         "media_type": None,
         "mime_type": None,
         "caption": None,
+        "channel": None,            # instagram | messenger | lead_ads
+        "attachment_url": None,
+        "leadgen_id": None,
+        "meta_delivery_watermark": None,
+        "meta_read_watermark": None,
     }
 
     try:
@@ -77,18 +82,50 @@ def parse_webhook_payload(provider: str, payload: Dict) -> Dict:
 
         elif provider == "meta":
             entry = payload.get("entry", [])[0]
+
+            # Channel discrimination: instagram vs messenger
+            object_type = payload.get("object", "")
+            if object_type == "instagram":
+                normalized["channel"] = "instagram"
+            else:
+                normalized["channel"] = "messenger"
+
             # Messaging (Messenger/Instagram)
             if "messaging" in entry:
                 msg_event = entry["messaging"][0]
-                normalized["trigger_type"] = "MESSAGE_INBOUND"
-                normalized["provider_user_id"] = msg_event.get("sender", {}).get("id")
-                normalized["content"] = msg_event.get("message", {}).get("text")
+
+                # Delivery receipts (watermark-based)
+                if "delivery" in msg_event:
+                    normalized["trigger_type"] = "META_STATUS_UPDATE"
+                    normalized["meta_delivery_watermark"] = msg_event["delivery"].get("watermark")
+                elif "read" in msg_event:
+                    normalized["trigger_type"] = "META_STATUS_UPDATE"
+                    normalized["meta_read_watermark"] = msg_event["read"].get("watermark")
+                elif msg_event.get("message"):
+                    # Standard inbound message
+                    normalized["trigger_type"] = "MESSAGE_INBOUND"
+                    normalized["provider_user_id"] = msg_event.get("sender", {}).get("id")
+                    message = msg_event.get("message", {})
+                    normalized["content"] = message.get("text")
+
+                    # Attachment parsing
+                    attachments = message.get("attachments", [])
+                    if attachments:
+                        att = attachments[0]
+                        att_type = att.get("type")
+                        normalized["media_type"] = att_type
+                        normalized["attachment_url"] = att.get("payload", {}).get("url")
+                        if not normalized["content"]:
+                            normalized["content"] = f"[{att_type}]"
+
             # Lead Ads
             elif "changes" in entry:
                 change = entry["changes"][0]
                 if change.get("field") == "leadgen":
                     normalized["trigger_type"] = "LEAD_AD_SUBMIT"
-                    normalized["provider_user_id"] = change.get("value", {}).get("leadgen_id")
+                    normalized["leadgen_id"] = change.get("value", {}).get("leadgen_id")
+                    normalized["provider_user_id"] = normalized["leadgen_id"]
+                    normalized["channel"] = "lead_ads"
                     normalized["content"] = "Lead Ad Submission"
     except (IndexError, KeyError, AttributeError):
         pass
@@ -163,6 +200,64 @@ async def _process_status_updates(session, statuses: list, workspace_id, correla
                         related_ids={"message_id": str(msg.id)},
                         payload={"status": wa_status, "provider_message_id": provider_msg_id})
 
+
+async def _process_meta_status_updates(session, info: dict, workspace_id, correlation_id: str):
+    """Process Meta delivery/read status webhooks using watermark timestamps."""
+    from app.services.runtime_event_service import log_event
+    from sqlmodel import or_
+
+    delivery_watermark = info.get("meta_delivery_watermark")
+    read_watermark = info.get("meta_read_watermark")
+
+    if delivery_watermark:
+        watermark_ts = datetime.utcfromtimestamp(int(delivery_watermark) / 1000)
+        result = await session.execute(
+            select(Message).where(
+                Message.workspace_id == workspace_id,
+                Message.platform == "meta",
+                Message.direction == "outbound",
+                Message.delivery_status == DeliveryStatus.SENT,
+                Message.sent_at < watermark_ts,
+            )
+        )
+        for msg in result.scalars().all():
+            old_priority = _STATUS_PRIORITY.get(msg.delivery_status, 0)
+            new_priority = _STATUS_PRIORITY.get(DeliveryStatus.DELIVERED, 0)
+            if new_priority > old_priority:
+                msg.delivery_status = DeliveryStatus.DELIVERED
+                msg.delivered_at = watermark_ts
+                session.add(msg)
+
+    if read_watermark:
+        watermark_ts = datetime.utcfromtimestamp(int(read_watermark) / 1000)
+        result = await session.execute(
+            select(Message).where(
+                Message.workspace_id == workspace_id,
+                Message.platform == "meta",
+                Message.direction == "outbound",
+                or_(
+                    Message.delivery_status == DeliveryStatus.SENT,
+                    Message.delivery_status == DeliveryStatus.DELIVERED,
+                ),
+                Message.sent_at < watermark_ts,
+            )
+        )
+        for msg in result.scalars().all():
+            old_priority = _STATUS_PRIORITY.get(msg.delivery_status, 0)
+            new_priority = _STATUS_PRIORITY.get(DeliveryStatus.READ, 0)
+            if new_priority > old_priority:
+                msg.delivery_status = DeliveryStatus.READ
+                msg.read_at = watermark_ts
+                if not msg.delivered_at:
+                    msg.delivered_at = watermark_ts
+                session.add(msg)
+
+    await log_event(session, event_type="message.meta_status_updated", source="webhook",
+                    workspace_id=workspace_id, correlation_id=correlation_id,
+                    payload={"delivery_watermark": delivery_watermark,
+                             "read_watermark": read_watermark})
+
+
 @celery_app.task(name="app.workers.tasks.process_webhook_event")
 def process_webhook_event(event_id: str):
     """
@@ -218,6 +313,18 @@ def process_webhook_event(event_id: str):
                     await session.commit()
                     return
 
+                # 1a2. Handle Meta delivery/read status updates (watermark-based)
+                if info.get("trigger_type") == "META_STATUS_UPDATE":
+                    await _process_meta_status_updates(
+                        session, info, event.workspace_id,
+                        str(event.correlation_id)
+                    )
+                    event.status = WebhookStatus.PROCESSED
+                    event.processed_at = datetime.utcnow()
+                    session.add(event)
+                    await session.commit()
+                    return
+
                 if not info["trigger_type"]:
                     logger.info(f"No actionable trigger found in payload for event {event_id}")
                     event.status = WebhookStatus.PROCESSED
@@ -240,13 +347,16 @@ def process_webhook_event(event_id: str):
 
                 if info["trigger_type"] == "MESSAGE_INBOUND":
                     msg_metadata = {}
+                    if info.get("channel"):
+                        msg_metadata["channel"] = info["channel"]
+                    if info.get("attachment_url"):
+                        msg_metadata["attachment_url"] = info["attachment_url"]
+                        msg_metadata["media_type"] = info.get("media_type")
                     if info.get("media_id"):
-                        msg_metadata = {
-                            "media_id": info["media_id"],
-                            "media_type": info["media_type"],
-                            "mime_type": info["mime_type"],
-                        }
-                        # Download and store media
+                        msg_metadata["media_id"] = info["media_id"]
+                        msg_metadata["media_type"] = info["media_type"]
+                        msg_metadata["mime_type"] = info["mime_type"]
+                        # Download and store media (WhatsApp)
                         try:
                             from app.services.media_service import download_and_store_media
                             media_path = await download_and_store_media(
@@ -268,6 +378,73 @@ def process_webhook_event(event_id: str):
                         additional_metadata=msg_metadata,
                     )
                     session.add(inbound_msg)
+
+                # 2b. Lead Ads: fetch lead data and enrich contact
+                if info["trigger_type"] == "LEAD_AD_SUBMIT" and info.get("leadgen_id"):
+                    from app.services.meta_service import fetch_lead_data, parse_lead_fields
+                    from app.models.models import Integration
+                    from app.core.security import decrypt_data
+                    from app.services.metrics_service import metrics
+
+                    integration_result = await session.execute(
+                        select(Integration).where(
+                            Integration.workspace_id == event.workspace_id,
+                            Integration.provider == "meta"
+                        )
+                    )
+                    integration = integration_result.scalars().first()
+                    if integration and integration.encrypted_config:
+                        try:
+                            config = decrypt_data(integration.encrypted_config)
+                            lead_raw = await fetch_lead_data(
+                                info["leadgen_id"], config.get("access_token")
+                            )
+                            lead_fields = parse_lead_fields(
+                                lead_raw.get("field_data", [])
+                            )
+
+                            # Enrich contact metadata
+                            updated_meta = dict(contact.additional_metadata or {})
+                            if lead_fields.get("email"):
+                                updated_meta["email"] = lead_fields["email"]
+                            if lead_fields.get("phone"):
+                                updated_meta["phone"] = lead_fields["phone"]
+                            updated_meta["lead_source"] = "meta_lead_ad"
+                            updated_meta["leadgen_id"] = info["leadgen_id"]
+                            contact.additional_metadata = updated_meta
+
+                            if lead_fields.get("first_name") and not contact.first_name:
+                                contact.first_name = lead_fields["first_name"]
+                            if lead_fields.get("last_name") and not contact.last_name:
+                                contact.last_name = lead_fields["last_name"]
+                            session.add(contact)
+
+                            # Store lead as message
+                            lead_msg = Message(
+                                workspace_id=event.workspace_id,
+                                conversation_id=conversation.id,
+                                direction="inbound",
+                                content=f"Lead Ad: {lead_fields.get('full_name', lead_fields.get('first_name', 'Unknown'))}",
+                                platform="meta",
+                                delivery_status="delivered",
+                                additional_metadata={
+                                    "type": "lead_ad_submission",
+                                    "leadgen_id": info["leadgen_id"],
+                                    "lead_fields": lead_fields,
+                                    "channel": "lead_ads",
+                                },
+                            )
+                            session.add(lead_msg)
+                            metrics.increment("meta_leads_ingested")
+                            await log_event(
+                                session, event_type="meta.lead_ingested",
+                                source="webhook",
+                                workspace_id=event.workspace_id,
+                                correlation_id=str(event.correlation_id),
+                                payload={"leadgen_id": info["leadgen_id"]},
+                            )
+                        except Exception as lead_err:
+                            logger.warning(f"Lead data fetch failed for {info['leadgen_id']}: {lead_err}")
 
                 # 3. Find Matching Published Flow (prefer published_version_id pointer)
                 flow_version = None

@@ -36,6 +36,7 @@ class Settings(BaseSettings):
     META_CLIENT_ID: Optional[str] = None
     META_CLIENT_SECRET: Optional[str] = None
     META_APP_SECRET: Optional[str] = None
+    META_OAUTH_REDIRECT_URI: Optional[str] = None
     WHATSAPP_VERIFY_TOKEN: Optional[str] = None
     ZOHO_CLIENT_ID: Optional[str] = None
     ZOHO_CLIENT_SECRET: Optional[str] = None

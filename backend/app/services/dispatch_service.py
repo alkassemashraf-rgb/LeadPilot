@@ -227,7 +227,12 @@ class DispatchService:
                     page_id=integration.provider_workspace_id,
                     page_access_token=config.get("access_token")
                 )
-                provider_message_id = await adapter.send_text(recipient_id, msg.content)
+                if media_url and media_type:
+                    provider_message_id = await adapter.send_media(
+                        recipient_id, media_type, media_url, caption=media_caption
+                    )
+                else:
+                    provider_message_id = await adapter.send_text(recipient_id, msg.content)
             else:
                 raise Exception(f"Unsupported platform: {msg.platform}")
 

@@ -21,6 +21,7 @@ from app.api.v1.qualification import router as qualification_router
 from app.api.v1.entitlements import router as entitlements_router
 from app.api.v1.settings_profile import router as settings_profile_router
 from app.api.v1.qualification_criteria import router as qual_criteria_router
+from app.api.v1.meta_oauth import router as meta_oauth_router
 from fastapi import HTTPException
 import uuid
 import logging
@@ -167,6 +168,7 @@ app.include_router(qualification_router, prefix=f"{settings.API_V1_STR}/qualific
 app.include_router(entitlements_router, prefix=f"{settings.API_V1_STR}/entitlements", tags=["entitlements"])
 app.include_router(settings_profile_router, prefix=f"{settings.API_V1_STR}/settings", tags=["settings-profile"])
 app.include_router(qual_criteria_router, prefix=f"{settings.API_V1_STR}/prompt-studio", tags=["prompt-studio"])
+app.include_router(meta_oauth_router, prefix=f"{settings.API_V1_STR}/integrations/meta/oauth", tags=["integrations"])
 
 @app.get("/")
 async def root():

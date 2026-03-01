@@ -268,6 +268,7 @@ class ChannelIdentity(BaseIDModel, table=True):
     contact_id: UUID = Field(foreign_key="contact.id")
     provider: str # whatsapp, meta, etc
     provider_user_id: str # phone number or fb id
+    channel: Optional[str] = Field(default=None) # instagram, messenger (sub-channel of meta)
     
 class Conversation(WorkspaceScopedModel, table=True):
     __table_args__ = (
