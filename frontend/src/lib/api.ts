@@ -17,7 +17,9 @@ const getBaseUrl = () => {
             return "http://localhost:8000";
         }
     }
-    return "";
+    // Strict fallback for Next.js internal server-side static generation builds (SSG)
+    // where window is undefined and env vars might be missing.
+    return "http://127.0.0.1:8000";
 };
 
 const API_BASE_URL = getBaseUrl();
@@ -166,3 +168,77 @@ class ApiClient {
 }
 
 export const apiClient = new ApiClient();
+
+// ── Marketing Website Functions ──
+
+export interface CatalogPlan {
+    id: string;
+    name: string;
+    display_name: string;
+    description: string | null;
+    sort_order: number;
+    entitlements: any[];
+}
+
+export interface CatalogModule {
+    key: string;
+    label: string;
+    is_enabled: boolean;
+}
+
+export interface CatalogProvider {
+    key: string;
+    label: string;
+    description: string;
+    icon_hint: string;
+    fields: { name: string; label: string; type: string }[];
+}
+
+export interface CatalogTemplate {
+    id: string;
+    slug: string;
+    name: string;
+    description: string;
+    category: string;
+    industry_tags: string[];
+    platforms: string[];
+    required_integrations: string[];
+    is_featured: boolean;
+    clone_count: number;
+}
+
+export const APP_URL = "http://localhost:3000";
+
+export async function getPlans(): Promise<CatalogPlan[]> {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/catalog/plans`, { next: { revalidate: 60 } });
+        const json = await res.json();
+        return json.success ? json.data : [];
+    } catch { return []; }
+}
+
+export async function getModules(): Promise<CatalogModule[]> {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/catalog/modules`, { next: { revalidate: 60 } });
+        const json = await res.json();
+        return json.success ? json.data : [];
+    } catch { return []; }
+}
+
+export async function getIntegrationProviders(): Promise<CatalogProvider[]> {
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/catalog/integration-providers`, { next: { revalidate: 60 } });
+        const json = await res.json();
+        return json.success ? json.data : [];
+    } catch { return []; }
+}
+
+export async function getPublicTemplates(category?: string): Promise<CatalogTemplate[]> {
+    const params = category ? `?category=${encodeURIComponent(category)}` : "";
+    try {
+        const res = await fetch(`${API_BASE_URL}/api/v1/catalog/templates${params}`, { next: { revalidate: 60 } });
+        const json = await res.json();
+        return json.success ? json.data : [];
+    } catch { return []; }
+}
+

@@ -1,0 +1,82 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 500" width="100%" height="100%">
+  <defs>
+    <style>
+      @keyframes fillBar {
+        to { height: var(--target-height); y: var(--target-y); opacity: 1; }
+      }
+      @keyframes dashCircle {
+        to { stroke-dashoffset: var(--target-dashoffset); }
+      }
+      .bg { fill: #040914; }
+      .panel { fill: #0B1320; stroke: #10B981; stroke-width: 1.5; rx: 12; }
+      .text-title { font-family: system-ui, sans-serif; font-size: 16px; font-weight: bold; fill: #F1F5F9; }
+      .text-number { font-family: system-ui, sans-serif; font-size: 32px; font-weight: bold; fill: #10B981; }
+      .text-sub { font-family: system-ui, sans-serif; font-size: 13px; fill: #94A3B8; }
+      
+      .bar { 
+        fill: #10B981; 
+        rx: 4; 
+        opacity: 0;
+        animation: fillBar 1s ease-out forwards; 
+      }
+      .circle-chart {
+        fill: none;
+        stroke: #38BDF8;
+        stroke-width: 20;
+        stroke-linecap: round;
+        stroke-dasharray: 400;
+        stroke-dashoffset: 400;
+        animation: dashCircle 1.5s ease-out forwards;
+      }
+    </style>
+  </defs>
+
+  <rect class="bg" width="800" height="500" />
+  
+  <rect class="panel" x="80" y="80" width="640" height="340" />
+  
+  <text x="120" y="130" class="text-title">Pipeline Health &amp; Conversion Dashboard</text>
+
+  <!-- Key Metrics -->
+  <g transform="translate(120, 180)">
+    <text x="0" y="0" class="text-sub">Total Qualified Pipeline</text>
+    <text x="0" y="40" class="text-number">$1.24M</text>
+    
+    <text x="210" y="0" class="text-sub">Lead/Opportunity Rate</text>
+    <text x="210" y="40" class="text-number" style="fill: #38BDF8">48.2%</text>
+
+    <!-- Animated Bar Chart (width ~300) -->
+    <g transform="translate(0, 160)">
+      <!-- Base grid lines -->
+      <line x1="0" y1="0" x2="300" y2="0" stroke="#1E293B" />
+      <line x1="0" y1="-50" x2="300" y2="-50" stroke="#1E293B" />
+      <line x1="0" y1="-100" x2="300" y2="-100" stroke="#1E293B" />
+      <line x1="0" y1="-150" x2="300" y2="-150" stroke="#1E293B" />
+      
+      <!-- Bars building up -->
+      <rect x="20" y="0" width="30" height="0" class="bar" style="--target-height: 40px; --target-y: -40px; animation-delay: 0.2s;" />
+      <rect x="70" y="0" width="30" height="0" class="bar" style="--target-height: 80px; --target-y: -80px; animation-delay: 0.4s;" />
+      <rect x="120" y="0" width="30" height="0" class="bar" style="--target-height: 60px; --target-y: -60px; animation-delay: 0.6s;" />
+      <rect x="170" y="0" width="30" height="0" class="bar" style="--target-height: 100px; --target-y: -100px; animation-delay: 0.8s;" />
+      <rect x="220" y="0" width="30" height="0" class="bar" style="--target-height: 140px; --target-y: -140px; animation-delay: 1.0s;" />
+      
+      <text x="35" y="20" class="text-sub" text-anchor="middle">Q1</text>
+      <text x="85" y="20" class="text-sub" text-anchor="middle">Q2</text>
+      <text x="135" y="20" class="text-sub" text-anchor="middle">Q3</text>
+      <text x="185" y="20" class="text-sub" text-anchor="middle">Q4</text>
+      <text x="235" y="20" class="text-sub" text-anchor="middle">YTD</text>
+    </g>
+  </g>
+
+  <!-- Donut Chart (moved far right, radius shrunk slightly to avoid overcrowding) -->
+  <g transform="translate(600, 240)">
+    <!-- background circle -->
+    <circle cx="0" cy="0" r="60" fill="none" stroke="#1E293B" stroke-width="18" />
+    <!-- animated stroke circle representing ~75% -->
+    <circle cx="0" cy="0" r="60" class="circle-chart" style="--target-dashoffset: 100;" transform="rotate(-90)" />
+    
+    <text x="0" y="0" class="text-title" text-anchor="middle" font-size="20">144</text>
+    <text x="0" y="20" class="text-sub" text-anchor="middle" font-size="11">Deals Won</text>
+  </g>
+  
+</svg>

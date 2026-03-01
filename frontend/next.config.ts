@@ -2,13 +2,31 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: 'standalone',
-  // Skip type-checking and linting during Docker/CI builds — these run
-  // separately in pre-commit hooks and GitHub Actions where errors are surfaced.
+  // Skip type-checking and linting during Docker/CI builds
   typescript: {
     ignoreBuildErrors: true,
   },
   eslint: {
     ignoreDuringBuilds: true,
+  },
+  async redirects() {
+    return [
+      {
+        source: '/admin',
+        destination: '/login',
+        permanent: true,
+      },
+      {
+        source: '/sign-in',
+        destination: '/login',
+        permanent: true,
+      },
+      {
+        source: '/sign-up',
+        destination: '/signup',
+        permanent: true,
+      }
+    ];
   },
 };
 
