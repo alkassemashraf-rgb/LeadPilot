@@ -14,12 +14,12 @@ const nextConfig: NextConfig = {
       {
         source: '/sign-in',
         destination: '/login',
-        permanent: true,
+        permanent: false,
       },
       {
         source: '/sign-up',
         destination: '/signup',
-        permanent: true,
+        permanent: false,
       }
     ];
   },
