@@ -3,15 +3,31 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
-import { Menu, X, Zap } from "lucide-react";
+import { Menu, X, Zap, ChevronDown } from "lucide-react";
 
-const navLinks = [
-  { label: "Product",   href: "/product" },
-  { label: "Features",  href: "/features" },
-  { label: "Use Cases", href: "/use-cases" },
-  { label: "Plans",     href: "/plans" },
-  { label: "About",     href: "/about" },
-  { label: "Contact",   href: "/contact" },
+type NavItem = {
+  label: string;
+  href?: string;
+  dropdown?: { label: string; href: string }[];
+};
+
+const navLinks: NavItem[] = [
+  {
+    label: "Platform",
+    dropdown: [
+      { label: "Product Overview", href: "/product" },
+      { label: "All Features", href: "/features" },
+      { label: "Use Cases", href: "/use-cases" },
+    ],
+  },
+  { label: "Pricing", href: "/plans" },
+  {
+    label: "Company",
+    dropdown: [
+      { label: "About Us", href: "/about" },
+      { label: "Contact", href: "/contact" },
+    ],
+  },
 ];
 
 export default function MarketingHeader() {
@@ -29,13 +45,11 @@ export default function MarketingHeader() {
     <header
       className="sticky top-0 z-50 w-full transition-all duration-300"
       style={{
-        background: scrolled ? "rgba(7,14,28,0.92)" : "rgba(7,14,28,0.6)",
-        backdropFilter: "blur(20px)",
-        WebkitBackdropFilter: "blur(20px)",
-        borderBottom: scrolled
-          ? "1px solid rgba(20,184,166,0.12)"
-          : "1px solid rgba(255,255,255,0.05)",
-        boxShadow: scrolled ? "0 8px 32px rgba(0,0,0,0.3)" : "none",
+        background: scrolled ? "rgba(4,9,20,0.85)" : "rgba(4,9,20,0.5)",
+        backdropFilter: "blur(24px)",
+        WebkitBackdropFilter: "blur(24px)",
+        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        boxShadow: scrolled ? "0 4px 24px rgba(0,0,0,0.4)" : "none",
       }}
     >
       <nav
@@ -46,47 +60,57 @@ export default function MarketingHeader() {
         <Link href="/" className="flex items-center gap-2.5 group" aria-label="LeadPilot home">
           <div
             className="w-8 h-8 rounded-lg flex items-center justify-center relative"
-            style={{ background: "linear-gradient(135deg, #0F766E, #14B8A6)" }}
+            style={{ background: "#0B1320", border: "1px solid rgba(255,255,255,0.1)" }}
           >
             <Zap className="w-4 h-4 text-white" aria-hidden="true" />
-            {/* pulse ring */}
-            <span
-              className="absolute inset-0 rounded-lg"
-              style={{
-                border: "1px solid rgba(20,184,166,0.6)",
-                animation: "mk-pulse-ring 2.5s cubic-bezier(0.25,0.5,0.5,1) infinite",
-              }}
-              aria-hidden="true"
-            />
           </div>
           <span className="text-white font-bold text-lg tracking-tight">
-            Lead<span style={{ color: "#14B8A6" }}>Pilot</span>
+            LeadPilot
           </span>
         </Link>
 
         {/* Desktop nav */}
-        <ul className="hidden md:flex items-center gap-0.5" role="list">
-          {navLinks.map(({ label, href }) => {
-            const active = pathname === href || (href !== "/" && pathname.startsWith(href));
+        <ul className="hidden md:flex items-center gap-2" role="list">
+          {navLinks.map((navItem) => {
+            const hasActiveDropdown = navItem.dropdown?.some((sub) => pathname === sub.href || pathname.startsWith(sub.href + "/"));
+            const active = navItem.href ? pathname === navItem.href || (navItem.href !== "/" && pathname.startsWith(navItem.href)) : hasActiveDropdown;
+
             return (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className="relative px-3.5 py-2 rounded-md text-sm font-medium transition-colors duration-200"
-                  style={{ color: active ? "#14B8A6" : "rgba(241,245,249,0.7)" }}
-                  aria-current={active ? "page" : undefined}
-                >
-                  {active && (
-                    <span
-                      className="absolute bottom-1 left-1/2 -translate-x-1/2 h-0.5 w-4 rounded-full"
-                      style={{ background: "#14B8A6" }}
-                      aria-hidden="true"
-                    />
-                  )}
-                  <span className="relative hover:text-white transition-colors duration-150">
-                    {label}
-                  </span>
-                </Link>
+              <li key={navItem.label} className="relative group/nav">
+                {navItem.dropdown ? (
+                  <>
+                    <button
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 cursor-pointer"
+                      style={{ color: active ? "#FFFFFF" : "rgba(241,245,249,0.7)" }}
+                    >
+                      <span className="group-hover/nav:text-white transition-colors duration-150">
+                        {navItem.label}
+                      </span>
+                      <ChevronDown className="w-3.5 h-3.5 opacity-60 group-hover/nav:text-white transition-transform duration-200 group-hover/nav:rotate-180" />
+                    </button>
+                    {/* Dropdown Menu */}
+                    <div className="absolute top-full left-0 pt-2 opacity-0 translate-y-2 pointer-events-none group-hover/nav:opacity-100 group-hover/nav:translate-y-0 group-hover/nav:pointer-events-auto transition-all duration-200 z-50">
+                      <div className="w-48 p-2 rounded-xl border flex flex-col gap-1 shadow-2xl" style={{ background: "rgba(11,19,32,0.95)", backdropFilter: "blur(12px)", borderColor: "rgba(255,255,255,0.08)" }}>
+                        {navItem.dropdown.map((sub) => (
+                          <Link key={sub.href} href={sub.href} className="px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                            {sub.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <Link
+                    href={navItem.href!}
+                    className="relative px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+                    style={{ color: active ? "#FFFFFF" : "rgba(241,245,249,0.7)" }}
+                    aria-current={active ? "page" : undefined}
+                  >
+                    <span className="relative hover:text-white transition-colors duration-150">
+                      {navItem.label}
+                    </span>
+                  </Link>
+                )}
               </li>
             );
           })}
@@ -133,19 +157,41 @@ export default function MarketingHeader() {
       >
         <div className="px-4 pb-5 pt-3">
           <ul className="space-y-1" role="list">
-            {navLinks.map(({ label, href }) => (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className="block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200"
-                  style={{
-                    color: pathname === href ? "#14B8A6" : "rgba(241,245,249,0.8)",
-                    background: pathname === href ? "rgba(20,184,166,0.08)" : "transparent",
-                  }}
-                  onClick={() => setOpen(false)}
-                >
-                  {label}
-                </Link>
+            {navLinks.map((navItem) => (
+              <li key={navItem.label}>
+                {navItem.dropdown ? (
+                  <div className="space-y-1">
+                    <div className="px-3 py-2 text-xs font-bold uppercase tracking-widest text-slate-500 mt-2">
+                      {navItem.label}
+                    </div>
+                    {navItem.dropdown.map((sub) => (
+                      <Link
+                        key={sub.href}
+                        href={sub.href}
+                        className="block px-3 py-2.5 ml-2 rounded-lg text-sm font-medium transition-colors duration-200"
+                        style={{
+                          color: pathname === sub.href ? "#FFFFFF" : "rgba(241,245,249,0.8)",
+                          background: pathname === sub.href ? "rgba(255,255,255,0.06)" : "transparent",
+                        }}
+                        onClick={() => setOpen(false)}
+                      >
+                        {sub.label}
+                      </Link>
+                    ))}
+                  </div>
+                ) : (
+                  <Link
+                    href={navItem.href!}
+                    className="block px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200 mt-2"
+                    style={{
+                      color: pathname === navItem.href ? "#FFFFFF" : "rgba(241,245,249,0.8)",
+                      background: pathname === navItem.href ? "rgba(255,255,255,0.06)" : "transparent",
+                    }}
+                    onClick={() => setOpen(false)}
+                  >
+                    {navItem.label}
+                  </Link>
+                )}
               </li>
             ))}
           </ul>

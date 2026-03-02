@@ -6,6 +6,14 @@ RUN npm ci --prefer-offline
 COPY frontend/ ./
 RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
+# --- Stage 1b: Build Website ---
+FROM node:20-bookworm-slim AS website-builder
+WORKDIR /app/Website
+COPY Website/package*.json ./
+RUN npm ci --prefer-offline
+COPY Website/ ./
+RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
+
 # --- Stage 2: Build Backend & Final Image ---
 FROM python:3.11-slim-bookworm
 
@@ -36,6 +44,11 @@ RUN touch /app/backend/leadpilot.db && chown user:user /app/backend/leadpilot.db
 COPY --chown=user:user --from=frontend-builder /app/frontend/.next/standalone /app/frontend/.next/standalone
 COPY --chown=user:user --from=frontend-builder /app/frontend/.next/static /app/frontend/.next/standalone/.next/static
 COPY --chown=user:user --from=frontend-builder /app/frontend/public /app/frontend/.next/standalone/public
+
+# Copy Website build from Stage 1b
+COPY --chown=user:user --from=website-builder /app/Website/.next/standalone /app/Website/.next/standalone
+COPY --chown=user:user --from=website-builder /app/Website/.next/static /app/Website/.next/standalone/.next/static
+COPY --chown=user:user --from=website-builder /app/Website/public /app/Website/.next/standalone/public
 
 # Copy start script and nginx config
 COPY nginx.conf /etc/nginx/nginx.conf

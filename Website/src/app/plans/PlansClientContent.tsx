@@ -14,6 +14,7 @@ import Link from "next/link";
 import type { CatalogPlan } from "@/lib/api";
 import { APP_URL } from "@/lib/api";
 import { MODULE_MARKETING_MAP } from "@/lib/moduleMap";
+import AnimateOnScroll from "@/components/AnimateOnScroll";
 
 // ── Pricing config (not in DB — marketing copy) ─────────────────────
 
@@ -245,23 +246,29 @@ export default function PlansClientContent({ plans }: { plans: CatalogPlan[] }) 
           }}
         />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#14B8A6" }}>
-            Pricing
-          </p>
-          <h1
-            id="plans-hero-heading"
-            className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-6 tracking-tight"
-          >
-            Start free.
-            <br />
-            <span className="gradient-text">Scale when you&apos;re ready.</span>
-          </h1>
-          <p className="text-lg max-w-xl mx-auto leading-relaxed" style={{ color: "rgba(148,163,184,0.9)" }}>
-            The Free plan is available now with no credit card required.
-            {waitlistPlanNames.length > 0 && (
-              <> {waitlistPlanNames.join(" and ")} plans are coming soon — join the waitlist for early access.</>
-            )}
-          </p>
+          <AnimateOnScroll animation="fadeIn">
+            <p className="text-xs font-bold uppercase tracking-widest mb-4" style={{ color: "#14B8A6" }}>
+              Pricing
+            </p>
+          </AnimateOnScroll>
+          <AnimateOnScroll animation="fadeUp" delay={80}>
+            <h1
+              id="plans-hero-heading"
+              className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-6 tracking-tight"
+            >
+              Start free.
+              <br />
+              <span className="gradient-text">Scale when you&apos;re ready.</span>
+            </h1>
+          </AnimateOnScroll>
+          <AnimateOnScroll animation="fadeUp" delay={160}>
+            <p className="text-lg max-w-xl mx-auto leading-relaxed" style={{ color: "rgba(148,163,184,0.9)" }}>
+              The Free plan is available now with no credit card required.
+              {waitlistPlanNames.length > 0 && (
+                <> {waitlistPlanNames.join(" and ")} plans are coming soon — join the waitlist for early access.</>
+              )}
+            </p>
+          </AnimateOnScroll>
         </div>
       </section>
 
@@ -272,175 +279,188 @@ export default function PlansClientContent({ plans }: { plans: CatalogPlan[] }) 
         aria-labelledby="plans-grid-heading"
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 id="plans-grid-heading" className="sr-only">Available plans</h2>
+          <AnimateOnScroll animation="fadeIn">
+            <h2 id="plans-grid-heading" className="sr-only">Available plans</h2>
+          </AnimateOnScroll>
 
           {plans.length === 0 ? (
-            <p className="text-center text-lg" style={{ color: "#64748B" }}>
-              Plans are loading. Check back soon.
-            </p>
+            <AnimateOnScroll animation="fadeIn">
+              <p className="text-center text-lg" style={{ color: "#64748B" }}>
+                Plans are loading. Check back soon.
+              </p>
+            </AnimateOnScroll>
           ) : (
-            <div className={`grid grid-cols-1 ${plans.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"} gap-6 max-w-5xl mx-auto`}>
-              {plans.map((plan) => {
-                const pricing = PLAN_PRICING[plan.name] ?? { price: "Contact Us", priceNote: "", tagline: plan.description ?? "", available: false };
-                const highlighted = plan.name === "free";
+            <AnimateOnScroll animation="fadeUp">
+              <div className={`grid grid-cols-1 ${plans.length === 3 ? "md:grid-cols-3" : "md:grid-cols-2 xl:grid-cols-4"} gap-6 max-w-5xl mx-auto`}>
+                {plans.map((plan) => {
+                  const pricing = PLAN_PRICING[plan.name] ?? { price: "Contact Us", priceNote: "", tagline: plan.description ?? "", available: false };
+                  const highlighted = plan.name === "free";
 
-                // Convert entitlements to marketing strings
-                const featureLines = plan.entitlements
-                  .map((e) => entitlementToString(e.module_key, e.hard_limit))
-                  .filter((s): s is string => s !== null);
+                  // Convert entitlements to marketing strings
+                  const featureLines = plan.entitlements
+                    .map((e) => entitlementToString(e.module_key, e.hard_limit))
+                    .filter((s): s is string => s !== null);
 
-                return (
-                  <div
-                    key={plan.id}
-                    className="relative rounded-2xl p-8 flex flex-col transition-all duration-300"
-                    style={
-                      highlighted
-                        ? {
-                          background: "rgba(15,118,110,0.08)",
-                          border: "1px solid rgba(15,118,110,0.4)",
-                          boxShadow: "0 0 50px rgba(15,118,110,0.2)",
-                        }
-                        : pricing.available
+                  return (
+                    <div
+                      key={plan.id}
+                      className="relative rounded-2xl p-8 flex flex-col transition-all duration-300"
+                      style={
+                        highlighted
                           ? {
-                            background: "rgba(255,255,255,0.04)",
-                            border: "1px solid rgba(255,255,255,0.1)",
+                            background: "rgba(15,118,110,0.08)",
+                            border: "1px solid rgba(15,118,110,0.4)",
+                            boxShadow: "0 0 50px rgba(15,118,110,0.2)",
                           }
-                          : {
-                            background: "rgba(255,255,255,0.02)",
-                            border: "1px solid rgba(255,255,255,0.06)",
-                          }
-                    }
-                  >
-                    {/* Badges */}
-                    {highlighted && (
-                      <div
-                        className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold text-white whitespace-nowrap"
-                        style={{ background: "linear-gradient(135deg, #0F766E, #14B8A6)" }}
-                      >
-                        Available Now
-                      </div>
-                    )}
-                    {!pricing.available && (
-                      <div
-                        className="absolute top-4 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded-full"
-                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
-                      >
-                        <Clock className="w-3 h-3" style={{ color: "#64748B" }} aria-hidden="true" />
-                        <span className="text-xs font-medium" style={{ color: "#64748B" }}>Coming Soon</span>
-                      </div>
-                    )}
+                          : pricing.available
+                            ? {
+                              background: "rgba(255,255,255,0.04)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                            }
+                            : {
+                              background: "rgba(255,255,255,0.02)",
+                              border: "1px solid rgba(255,255,255,0.06)",
+                            }
+                      }
+                    >
+                      {/* Badges */}
+                      {highlighted && (
+                        <div
+                          className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-full text-xs font-bold text-white whitespace-nowrap"
+                          style={{ background: "linear-gradient(135deg, #0F766E, #14B8A6)" }}
+                        >
+                          Available Now
+                        </div>
+                      )}
+                      {!pricing.available && (
+                        <div
+                          className="absolute top-4 right-4 flex items-center gap-1.5 px-2.5 py-1 rounded-full"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}
+                        >
+                          <Clock className="w-3 h-3" style={{ color: "#64748B" }} aria-hidden="true" />
+                          <span className="text-xs font-medium" style={{ color: "#64748B" }}>Coming Soon</span>
+                        </div>
+                      )}
 
-                    {/* Header */}
-                    <div className="mb-6">
-                      <h3
-                        className="text-lg font-bold mb-1"
-                        style={{ color: pricing.available ? "#F1F5F9" : "#64748B" }}
-                      >
-                        {plan.display_name}
-                      </h3>
-                      <p className="text-sm" style={{ color: pricing.available ? "#94A3B8" : "#475569" }}>
-                        {pricing.tagline}
-                      </p>
-                    </div>
+                      {/* Header */}
+                      <div className="mb-6">
+                        <h3
+                          className="text-lg font-bold mb-1"
+                          style={{ color: pricing.available ? "#F1F5F9" : "#64748B" }}
+                        >
+                          {plan.display_name}
+                        </h3>
+                        <p className="text-sm" style={{ color: pricing.available ? "#94A3B8" : "#475569" }}>
+                          {pricing.tagline}
+                        </p>
+                      </div>
 
-                    {/* Price */}
-                    <div className="mb-8">
-                      <span
-                        className="text-3xl font-bold"
-                        style={{ color: pricing.available ? "#FFFFFF" : "#475569" }}
-                      >
-                        {pricing.price}
-                      </span>
-                      {pricing.priceNote && (
-                        <span className="text-sm ml-2" style={{ color: "#64748B" }}>{pricing.priceNote}</span>
+                      {/* Price */}
+                      <div className="mb-8">
+                        <span
+                          className="text-3xl font-bold"
+                          style={{ color: pricing.available ? "#FFFFFF" : "#475569" }}
+                        >
+                          {pricing.price}
+                        </span>
+                        {pricing.priceNote && (
+                          <span className="text-sm ml-2" style={{ color: "#64748B" }}>{pricing.priceNote}</span>
+                        )}
+                      </div>
+
+                      {/* Features from DB entitlements */}
+                      <ul className="space-y-3 mb-8 flex-1" role="list">
+                        {featureLines.map((feat) => (
+                          <li key={feat} className="flex items-start gap-2.5">
+                            <Check
+                              className="w-4 h-4 mt-0.5 shrink-0"
+                              style={{ color: pricing.available ? "#14B8A6" : "#334155" }}
+                              aria-hidden="true"
+                            />
+                            <span className="text-sm" style={{ color: pricing.available ? "#CBD5E1" : "#475569" }}>
+                              {feat}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {/* CTA */}
+                      {pricing.available ? (
+                        <a
+                          href={`${APP_URL}/signup`}
+                          className="block text-center px-6 py-3 rounded-xl font-semibold text-white text-sm transition-all duration-200"
+                          style={{ background: "linear-gradient(135deg, #0F766E, #14B8A6)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 25px rgba(15,118,110,0.45)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; }}
+                        >
+                          Get Started Free
+                        </a>
+                      ) : (
+                        <a
+                          href="#waitlist"
+                          className="block text-center px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200"
+                          style={{
+                            background: "rgba(255,255,255,0.05)",
+                            border: "1px solid rgba(255,255,255,0.08)",
+                            color: "#475569",
+                          }}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = "#94A3B8";
+                            e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = "#475569";
+                            e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
+                          }}
+                        >
+                          Join Waitlist
+                        </a>
                       )}
                     </div>
-
-                    {/* Features from DB entitlements */}
-                    <ul className="space-y-3 mb-8 flex-1" role="list">
-                      {featureLines.map((feat) => (
-                        <li key={feat} className="flex items-start gap-2.5">
-                          <Check
-                            className="w-4 h-4 mt-0.5 shrink-0"
-                            style={{ color: pricing.available ? "#14B8A6" : "#334155" }}
-                            aria-hidden="true"
-                          />
-                          <span className="text-sm" style={{ color: pricing.available ? "#CBD5E1" : "#475569" }}>
-                            {feat}
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-
-                    {/* CTA */}
-                    {pricing.available ? (
-                      <a
-                        href={`${APP_URL}/signup`}
-                        className="block text-center px-6 py-3 rounded-xl font-semibold text-white text-sm transition-all duration-200"
-                        style={{ background: "linear-gradient(135deg, #0F766E, #14B8A6)" }}
-                        onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 0 25px rgba(15,118,110,0.45)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; }}
-                      >
-                        Get Started Free
-                      </a>
-                    ) : (
-                      <a
-                        href="#waitlist"
-                        className="block text-center px-6 py-3 rounded-xl font-semibold text-sm transition-all duration-200"
-                        style={{
-                          background: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.08)",
-                          color: "#475569",
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = "#94A3B8";
-                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = "#475569";
-                          e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)";
-                        }}
-                      >
-                        Join Waitlist
-                      </a>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            </AnimateOnScroll>
           )}
-
-          <p className="text-center mt-10 text-sm" style={{ color: "#475569" }}>
-            All plans include SSL, data privacy, and a secure hosting environment.{" "}
-            <Link href="/contact" className="underline underline-offset-2" style={{ color: "#14B8A6" }}>
-              Contact us
-            </Link>{" "}
-            with questions about pricing or custom arrangements.
-          </p>
+          <AnimateOnScroll animation="fadeIn" delay={200}>
+            <p className="text-center mt-10 text-sm" style={{ color: "#475569" }}>
+              All plans include SSL, data privacy, and a secure hosting environment.{" "}
+              <Link href="/contact" className="underline underline-offset-2" style={{ color: "#14B8A6" }}>
+                Contact us
+              </Link>{" "}
+              with questions about pricing or custom arrangements.
+            </p>
+          </AnimateOnScroll>
         </div>
       </section>
 
       {/* ─── WAITLIST ─────────────────────────────────────────────── */}
       {waitlistPlanNames.length > 0 && (
-        <section
-          id="waitlist"
-          className="py-24 border-t"
-          style={{ background: "#0E1826", borderColor: "rgba(255,255,255,0.07)" }}
-          aria-labelledby="waitlist-heading"
-        >
-          <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#14B8A6" }}>
-              Early Access
-            </p>
-            <h2 id="waitlist-heading" className="text-3xl font-bold text-white mb-4 tracking-tight">
-              Join the waitlist for paid plans.
-            </h2>
-            <p className="text-base mb-8" style={{ color: "#94A3B8" }}>
-              Be first in line when {waitlistPlanNames.join(" and ")} launch — with early-access pricing.
-            </p>
-            <WaitlistForm planNames={waitlistPlanNames} />
-          </div>
-        </section>
+        <AnimateOnScroll animation="fadeIn" delay={200}>
+          <section
+            id="waitlist"
+            className="py-24 border-t"
+            style={{ background: "#0E1826", borderColor: "rgba(255,255,255,0.07)" }}
+            aria-labelledby="waitlist-heading"
+          >
+            <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+              <AnimateOnScroll animation="fadeIn">
+                <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#14B8A6" }}>
+                  Early Access
+                </p>
+                <h2 id="waitlist-heading" className="text-3xl font-bold text-white mb-4 tracking-tight">
+                  Join the waitlist for paid plans.
+                </h2>
+              </AnimateOnScroll>
+              <AnimateOnScroll animation="fadeUp" delay={80}>
+                <p className="text-base mb-8" style={{ color: "#94A3B8" }}>
+                  Be first in line when {waitlistPlanNames.join(" and ")} launch — with early-access pricing.
+                </p>
+                <WaitlistForm planNames={waitlistPlanNames} />
+              </AnimateOnScroll>
+            </div>
+          </section>
+        </AnimateOnScroll>
       )}
 
       {/* ─── FAQ ──────────────────────────────────────────────────── */}
@@ -450,20 +470,24 @@ export default function PlansClientContent({ plans }: { plans: CatalogPlan[] }) 
         aria-labelledby="faq-heading"
       >
         <div className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 id="faq-heading" className="text-3xl font-bold text-white mb-10 tracking-tight text-center">
-            Pricing FAQ
-          </h2>
-          <div className="space-y-3">
-            {faqs.map((faq) => (
-              <FAQItem key={faq.question} {...faq} />
-            ))}
-          </div>
-          <p className="mt-10 text-center text-sm" style={{ color: "#475569" }}>
-            Still have questions?{" "}
-            <Link href="/contact" className="underline underline-offset-2" style={{ color: "#14B8A6" }}>
-              Contact us
-            </Link>
-          </p>
+          <AnimateOnScroll animation="fadeIn">
+            <h2 id="faq-heading" className="text-3xl font-bold text-white mb-10 tracking-tight text-center">
+              Pricing FAQ
+            </h2>
+          </AnimateOnScroll>
+          <AnimateOnScroll animation="fadeUp" delay={80}>
+            <div className="space-y-3">
+              {faqs.map((faq) => (
+                <FAQItem key={faq.question} {...faq} />
+              ))}
+            </div>
+            <p className="mt-10 text-center text-sm" style={{ color: "#475569" }}>
+              Still have questions?{" "}
+              <Link href="/contact" className="underline underline-offset-2" style={{ color: "#14B8A6" }}>
+                Contact us
+              </Link>
+            </p>
+          </AnimateOnScroll>
         </div>
       </section>
     </>

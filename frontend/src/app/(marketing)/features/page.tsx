@@ -3,6 +3,7 @@ import { getModules } from "@/lib/api";
 import { MODULE_MARKETING_MAP, FEATURE_CATEGORIES } from "@/lib/moduleMap";
 import FeatureCard from "@/components/marketing/FeatureCard";
 import CTASection from "@/components/marketing/CTASection";
+import AnimateOnScroll from "@/components/marketing/AnimateOnScroll";
 import * as Icons from "lucide-react";
 import { type LucideIcon } from "lucide-react";
 
@@ -53,27 +54,33 @@ export default async function FeaturesPage() {
           }}
         />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p
-            className="text-xs font-bold uppercase tracking-widest mb-4"
-            style={{ color: "#14B8A6" }}
-          >
-            Platform Features
-          </p>
-          <h1
-            id="features-hero-heading"
-            className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-6 tracking-tight"
-          >
-            The full feature set.
-            <br />
-            <span className="gradient-text">Nothing missing.</span>
-          </h1>
-          <p
-            className="text-lg max-w-2xl mx-auto leading-relaxed"
-            style={{ color: "rgba(148,163,184,0.9)" }}
-          >
-            Every feature in LeadPilot is built with one goal: turn inbound interest into
-            qualified pipeline with less effort from your team.
-          </p>
+          <AnimateOnScroll animation="fadeIn">
+            <p
+              className="text-xs font-bold uppercase tracking-widest mb-4"
+              style={{ color: "#14B8A6" }}
+            >
+              Platform Features
+            </p>
+          </AnimateOnScroll>
+          <AnimateOnScroll animation="fadeUp" delay={80}>
+            <h1
+              id="features-hero-heading"
+              className="text-4xl sm:text-5xl md:text-6xl font-bold text-white mb-6 tracking-tight"
+            >
+              The full feature set.
+              <br />
+              <span className="gradient-text">Nothing missing.</span>
+            </h1>
+          </AnimateOnScroll>
+          <AnimateOnScroll animation="fadeUp" delay={160}>
+            <p
+              className="text-lg max-w-2xl mx-auto leading-relaxed"
+              style={{ color: "rgba(148,163,184,0.9)" }}
+            >
+              Every feature in LeadPilot is built with one goal: turn inbound interest into
+              qualified pipeline with less effort from your team.
+            </p>
+          </AnimateOnScroll>
         </div>
       </section>
 
@@ -115,19 +122,21 @@ export default async function FeaturesPage() {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 id="features-grid-heading" className="sr-only">All features</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {allFeatures.map((feat) => (
-              <FeatureCard
-                key={feat.moduleKey}
-                iconName={feat.iconName}
-                benefit={feat.benefit}
-                title={feat.marketingTitle}
-                description={feat.description}
-                dark
-                comingSoon={!feat.isEnabled}
-              />
-            ))}
-          </div>
+          <AnimateOnScroll animation="fadeUp">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {allFeatures.map((feat) => (
+                <FeatureCard
+                  key={feat.moduleKey}
+                  iconName={feat.iconName}
+                  benefit={feat.benefit}
+                  title={feat.marketingTitle}
+                  description={feat.description}
+                  dark
+                  comingSoon={!feat.isEnabled}
+                />
+              ))}
+            </div>
+          </AnimateOnScroll>
         </div>
       </section>
 
@@ -144,33 +153,37 @@ export default async function FeaturesPage() {
             aria-labelledby={`${anchorId}-heading`}
           >
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center gap-3 mb-10">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ background: "rgba(15,118,110,0.1)", border: "1px solid rgba(15,118,110,0.2)" }}
-                >
-                  <CatIcon className="w-5 h-5" style={{ color: "#0F766E" }} aria-hidden="true" />
+              <AnimateOnScroll animation="fadeRight">
+                <div className="flex items-center gap-3 mb-10">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{ background: "rgba(15,118,110,0.1)", border: "1px solid rgba(15,118,110,0.2)" }}
+                  >
+                    <CatIcon className="w-5 h-5" style={{ color: "#0F766E" }} aria-hidden="true" />
+                  </div>
+                  <h2
+                    id={`${anchorId}-heading`}
+                    className="text-xl font-bold tracking-tight"
+                    style={{ color: "#0F172A" }}
+                  >
+                    {label}
+                  </h2>
                 </div>
-                <h2
-                  id={`${anchorId}-heading`}
-                  className="text-xl font-bold tracking-tight"
-                  style={{ color: "#0F172A" }}
-                >
-                  {label}
-                </h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-                {catFeats.map((feat) => (
-                  <FeatureCard
-                    key={feat.moduleKey}
-                    iconName={feat.iconName}
-                    benefit={feat.benefit}
-                    title={feat.marketingTitle}
-                    description={feat.description}
-                    comingSoon={!feat.isEnabled}
-                  />
-                ))}
-              </div>
+              </AnimateOnScroll>
+              <AnimateOnScroll animation="fadeUp" delay={80}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {catFeats.map((feat) => (
+                    <FeatureCard
+                      key={feat.moduleKey}
+                      iconName={feat.iconName}
+                      benefit={feat.benefit}
+                      title={feat.marketingTitle}
+                      description={feat.description}
+                      comingSoon={!feat.isEnabled}
+                    />
+                  ))}
+                </div>
+              </AnimateOnScroll>
             </div>
           </section>
         );

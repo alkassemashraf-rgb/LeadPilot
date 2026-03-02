@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  basePath: '/app',
   output: 'standalone',
   // Skip type-checking and linting during Docker/CI builds
   typescript: {

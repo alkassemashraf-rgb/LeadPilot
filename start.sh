@@ -95,11 +95,18 @@ echo "[SVC] Starting FastAPI backend on :8000..."
 python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 &
 
 # ─────────────────────────────────────────────────────────────
-# Step 7: Start Next.js frontend
+# Step 7: Start Next.js frontend (App)
 # ─────────────────────────────────────────────────────────────
 echo "[SVC] Starting Next.js frontend on :3000..."
 cd /app/frontend/.next/standalone
 HOSTNAME=0.0.0.0 PORT=3000 node server.js &
+
+# ─────────────────────────────────────────────────────────────
+# Step 7.5: Start Next.js website (Marketing)
+# ─────────────────────────────────────────────────────────────
+echo "[SVC] Starting Next.js website on :3002..."
+cd /app/Website/.next/standalone
+HOSTNAME=0.0.0.0 PORT=3002 node server.js &
 
 # ─────────────────────────────────────────────────────────────
 # Step 8: Start Nginx (single public entry point on port 7860)

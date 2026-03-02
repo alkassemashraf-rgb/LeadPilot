@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { APP_URL } from "@/lib/api";
+import AnimateOnScroll from "./AnimateOnScroll";
 
-interface CTASectionProps {
+interface Props {
   headline?: string;
   subheadline?: string;
   primaryLabel?: string;
@@ -10,82 +10,65 @@ interface CTASectionProps {
   secondaryHref?: string;
 }
 
-function SmartLink({
-  href,
-  className,
-  children,
-}: {
-  href: string;
-  className: string;
-  children: React.ReactNode;
-}) {
-  if (href.startsWith("http")) {
-    return (
-      <a href={href} className={className}>
-        {children}
-      </a>
-    );
-  }
-  return (
-    <Link href={href} className={className}>
-      {children}
-    </Link>
-  );
-}
-
 export default function CTASection({
   headline = "Your leads aren't waiting. Neither should you.",
-  subheadline = "Start capturing and qualifying leads today — no credit card required.",
-  primaryLabel = "Book a Demo",
-  primaryHref = "/contact",
-  secondaryLabel = "Sign Up Free",
-  secondaryHref = `${APP_URL}/signup`,
-}: CTASectionProps) {
+  subheadline = "Start capturing and qualifying leads today — free, no credit card required.",
+  primaryLabel = "Start for Free",
+  primaryHref = "/signup",
+  secondaryLabel = "See Product",
+  secondaryHref = "/product",
+}: Props) {
   return (
     <section
-      className="relative overflow-hidden py-32"
-      style={{ background: "var(--dark-bg)" }}
-      aria-labelledby="cta-heading"
+      className="relative overflow-hidden py-28"
+      style={{ background: "var(--mk-dark-bg)" }}
+      aria-labelledby="mk-cta-heading"
     >
-      {/* Background glow and grids */}
-      <div className="absolute inset-0 cockpit-grid opacity-20" aria-hidden="true" />
+      {/* Radial glow */}
       <div
         aria-hidden="true"
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 60% 50% at 50% 100%, rgba(34, 211, 238, 0.15) 0%, transparent 70%)",
+            "radial-gradient(ellipse 70% 60% at 50% 120%, rgba(15,118,110,0.3) 0%, transparent 65%)",
         }}
       />
+      {/* Shimmer top border */}
+      <div
+        className="absolute top-0 left-0 right-0 h-px mk-shimmer-border"
+        aria-hidden="true"
+      />
 
-      <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center animate-fade-up">
-        <h2
-          id="cta-heading"
-          className="text-3xl sm:text-4xl font-bold text-white mb-4 tracking-tight"
-        >
-          {headline}
-        </h2>
-        <p
-          className="text-lg mb-10"
-          style={{ color: "rgba(148,163,184,0.9)" }}
-        >
-          {subheadline}
-        </p>
-
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-          <SmartLink
-            href={primaryHref}
-            className="px-8 py-4 rounded-xl font-semibold text-base btn-primary glow-primary"
+      <div className="relative max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <AnimateOnScroll animation="fadeUp">
+          <h2
+            id="mk-cta-heading"
+            className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-5 tracking-tight"
           >
-            {primaryLabel}
-          </SmartLink>
-          <SmartLink
-            href={secondaryHref}
-            className="px-8 py-4 rounded-xl font-semibold text-sm glass-panel hover:border-cyan-400 transition-colors text-white"
-          >
-            {secondaryLabel}
-          </SmartLink>
-        </div>
+            {headline}
+          </h2>
+        </AnimateOnScroll>
+        <AnimateOnScroll animation="fadeUp" delay={80}>
+          <p className="text-lg mb-10" style={{ color: "rgba(148,163,184,0.9)" }}>
+            {subheadline}
+          </p>
+        </AnimateOnScroll>
+        <AnimateOnScroll animation="zoomIn" delay={160}>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link
+              href={primaryHref}
+              className="px-9 py-4 rounded-xl font-semibold text-base mk-btn-primary"
+            >
+              {primaryLabel}
+            </Link>
+            <Link
+              href={secondaryHref}
+              className="px-9 py-4 rounded-xl font-semibold text-sm mk-btn-ghost-dark"
+            >
+              {secondaryLabel}
+            </Link>
+          </div>
+        </AnimateOnScroll>
       </div>
     </section>
   );
