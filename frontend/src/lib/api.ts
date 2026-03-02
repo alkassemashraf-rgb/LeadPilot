@@ -13,12 +13,14 @@ const getBaseUrl = () => {
     if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL;
 
     if (typeof window !== "undefined") {
+        // Browser context: localhost dev hits backend directly; production uses
+        // relative paths so nginx can proxy /api/* to the backend.
         if (window.location.hostname === "localhost") {
             return "http://localhost:8000";
         }
+        return ""; // relative URLs — works in any production deployment (HF, Docker, etc.)
     }
-    // Strict fallback for Next.js internal server-side static generation builds (SSG)
-    // where window is undefined and env vars might be missing.
+    // Server-side (SSR inside Docker): backend is accessible at 127.0.0.1:8000 internally.
     return "http://127.0.0.1:8000";
 };
 
