@@ -318,8 +318,8 @@ DATASET_README = """\
 ---
 license: mit
 task_categories:
+  - text-generation
   - text-classification
-  - conversational
 language:
   - en
   - ar
