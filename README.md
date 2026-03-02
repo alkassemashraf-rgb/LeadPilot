@@ -5,6 +5,8 @@ colorFrom: blue
 colorTo: indigo
 sdk: docker
 pinned: false
+datasets:
+  - ashrafkassem/leadpilot-data
 ---
 
 # LeadPilot - Multi-tenant SaaS Automation Platform

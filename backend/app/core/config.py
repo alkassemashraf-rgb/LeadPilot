@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     # Webhook Hardening
     WEBHOOK_MAX_PAYLOAD_BYTES: int = 1_048_576  # 1 MB
 
+    # HuggingFace Dataset Export
+    HF_TOKEN: Optional[str] = None
+    HF_DATASET_REPO: str = "ashrafkassem/leadpilot-data"
+
     @model_validator(mode="after")
     def validate_email_settings(self) -> "Settings":
         import logging

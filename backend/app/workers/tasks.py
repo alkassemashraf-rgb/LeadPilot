@@ -619,3 +619,49 @@ def purge_runtime_events_task():
         logger.info(f"Purged {total_purged} runtime events older than {app_settings.RUNTIME_EVENT_RETENTION_DAYS} days")
 
     run_async(_run())
+
+
+@celery_app.task(name="app.workers.tasks.export_to_hf_task")
+def export_to_hf_task():
+    """Daily task: export all LeadPilot data (static + dynamic) to HuggingFace dataset repo.
+    Silently no-ops if HF_TOKEN or HF_DATASET_REPO is not configured."""
+    import sys as _sys
+    import os as _os
+    from app.core.config import settings as app_settings
+
+    if not app_settings.HF_TOKEN or not app_settings.HF_DATASET_REPO:
+        logger.warning(
+            "[export_to_hf_task] HF_TOKEN or HF_DATASET_REPO not configured — skipping export."
+        )
+        return
+
+    async def _run():
+        # Locate scripts/ directory relative to this file: app/workers/tasks.py → backend/scripts/
+        scripts_dir = _os.path.join(
+            _os.path.dirname(  # backend/
+                _os.path.dirname(  # app/
+                    _os.path.dirname(_os.path.abspath(__file__))  # app/workers/
+                )
+            ),
+            "scripts",
+        )
+        if scripts_dir not in _sys.path:
+            _sys.path.insert(0, scripts_dir)
+
+        from export_to_hf import run_export
+
+        try:
+            await run_export(
+                mode="all",
+                batch_size=5000,
+                dry_run=False,
+                hf_token=app_settings.HF_TOKEN,
+                repo_id=app_settings.HF_DATASET_REPO,
+            )
+            logger.info("[export_to_hf_task] Export completed successfully.")
+        except Exception:
+            logger.exception(
+                "[export_to_hf_task] Export failed — will retry on next scheduled run."
+            )
+
+    run_async(_run())

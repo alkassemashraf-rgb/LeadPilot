@@ -35,6 +35,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.expire_plan_overrides_task",
         "schedule": 300.0,
     },
+    "export_to_hf_daily_0200": {
+        "task": "app.workers.tasks.export_to_hf_task",
+        "schedule": crontab(hour=2, minute=0),
+    },
 }
 
 celery_app.autodiscover_tasks(["app.workers"])
