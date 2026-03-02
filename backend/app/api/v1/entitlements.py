@@ -1,6 +1,7 @@
 """
-Entitlements Router — Mission 28
+Entitlements Router — Mission 28 / Mission 34
 Product-facing endpoint: returns effective tier + modules + usage for the active workspace.
+Mission 34: adds plan_source ("override"|"base"|"free") and override_expires_at to plan_info.
 """
 from typing import Any
 
@@ -21,7 +22,7 @@ from app.models.models import (
     SystemModuleConfig,
 )
 from app.schemas.envelope import wrap_data
-from app.services.entitlements import get_workspace_entitlements, _ensure_workspace_plan
+from app.services.entitlements import get_workspace_entitlements, _get_effective_plan
 
 router = APIRouter()
 
@@ -36,25 +37,27 @@ async def get_entitlements(
     Return the effective entitlements for the active workspace.
     Includes plan info, module availability, and usage metrics.
     """
-    wp = await _ensure_workspace_plan(workspace.id, db)
+    plan_id, plan_source, override_expires_at = await _get_effective_plan(workspace.id, db)
 
     # Plan info
     plan_info = None
-    if wp:
-        plan = await db.get(Plan, wp.plan_id)
+    if plan_id:
+        plan = await db.get(Plan, plan_id)
         if plan:
             plan_info = {
                 "id": str(plan.id),
                 "code": plan.name,
                 "display_name": plan.display_name,
                 "description": plan.description,
+                "plan_source": plan_source,
+                "override_expires_at": override_expires_at.isoformat() if override_expires_at else None,
             }
 
     # Get plan entitlements (module_key list in the plan)
     plan_module_keys: set[str] = set()
-    if wp:
+    if plan_id:
         ent_result = await db.execute(
-            select(PlanEntitlement).where(PlanEntitlement.plan_id == wp.plan_id)
+            select(PlanEntitlement).where(PlanEntitlement.plan_id == plan_id)
         )
         plan_module_keys = {e.module_key for e in ent_result.scalars().all()}
 

@@ -548,6 +548,48 @@ def dispatch_pending_task(workspace_id: Optional[str] = None):
     run_async(_run())
 
 
+async def _expire_plan_overrides_core(db):
+    """Core expiry logic — accepts a session for testability."""
+    from app.models.models import PlanOverride
+    from app.services.audit_service import audit_event
+
+    now = datetime.utcnow()
+    result = await db.execute(
+        select(PlanOverride).where(
+            PlanOverride.status == "active",
+            PlanOverride.ends_at <= now,
+        )
+    )
+    stale = result.scalars().all()
+    for override in stale:
+        override.status = "expired"
+        await audit_event(
+            db=db,
+            action="PLAN_OVERRIDE_EXPIRED",
+            entity_type="plan_override",
+            entity_id=str(override.id),
+            actor_type="system",
+            workspace_id=override.workspace_id,
+            outcome="success",
+            metadata={"ends_at": override.ends_at.isoformat()},
+        )
+    if stale:
+        await db.commit()
+        logger.info(f"[expire_plan_overrides_task] Expired {len(stale)} plan override(s)")
+
+
+@celery_app.task(name="app.workers.tasks.expire_plan_overrides_task")
+def expire_plan_overrides_task():
+    """Every-5-min task: mark ACTIVE plan overrides past their ends_at as EXPIRED and write audit log."""
+    from sqlalchemy.ext.asyncio import AsyncSession
+
+    async def _run():
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            await _expire_plan_overrides_core(session)
+
+    run_async(_run())
+
+
 @celery_app.task(name="app.workers.tasks.purge_runtime_events_task")
 def purge_runtime_events_task():
     """Daily task to purge old runtime events based on retention policy."""

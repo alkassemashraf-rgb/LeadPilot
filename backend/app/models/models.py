@@ -511,6 +511,23 @@ class WorkspacePlan(BaseIDModel, table=True):
     assigned_by: Optional[UUID] = Field(default=None, foreign_key="user.id")
     assigned_at: datetime = Field(default_factory=datetime.utcnow)
 
+class PlanOverride(BaseIDModel, table=True):
+    """Time-bound plan override for a workspace (Mission 34). Supersedes WorkspacePlan during active window."""
+    __table_args__ = (
+        Index("idx_plan_override_ws_status", "workspace_id", "status"),
+        Index("idx_plan_override_ends_at", "ends_at"),
+    )
+
+    workspace_id: UUID = Field(foreign_key="workspace.id", index=True)
+    plan_id: UUID = Field(foreign_key="plan.id", index=True)
+    starts_at: datetime = Field(default_factory=datetime.utcnow)
+    ends_at: datetime
+    reason: Optional[str] = None
+    status: str = Field(default="active")  # "active" | "revoked" | "expired"
+    revoked_at: Optional[datetime] = None
+    revoked_by_admin_id: Optional[UUID] = Field(default=None, foreign_key="user.id")
+    created_by_admin_id: UUID = Field(foreign_key="user.id")
+
 class WorkspaceEntitlementOverride(BaseIDModel, table=True):
     __table_args__ = (UniqueConstraint("workspace_id", "module_key"),)
 

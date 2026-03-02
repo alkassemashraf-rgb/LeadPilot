@@ -31,6 +31,10 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.purge_runtime_events_task",
         "schedule": crontab(hour=3, minute=0),
     },
+    "expire_plan_overrides_every_5min": {
+        "task": "app.workers.tasks.expire_plan_overrides_task",
+        "schedule": 300.0,
+    },
 }
 
 celery_app.autodiscover_tasks(["app.workers"])

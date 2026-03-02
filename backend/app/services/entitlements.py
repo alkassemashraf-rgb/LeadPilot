@@ -2,6 +2,7 @@
 Entitlement service for Mission 14 — Commercial Plans & Usage Enforcement.
 
 Layered enforcement:
+  0. Plan override (PlanOverride) — time-bound plan grant (Mission 34)
   1. Global module toggle (SystemModuleConfig) — kill switch
   2. Plan entitlement (PlanEntitlement) — is the module in the workspace's plan?
   3. Workspace override (WorkspaceEntitlementOverride) — admin override on limit
@@ -10,7 +11,7 @@ Layered enforcement:
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from uuid import UUID
 
 from fastapi import Depends, Header, HTTPException, Request
@@ -22,6 +23,7 @@ from app.core.modules import check_module_enabled
 from app.models.models import (
     Plan,
     PlanEntitlement,
+    PlanOverride,
     WorkspacePlan,
     WorkspaceEntitlementOverride,
     UsageMeter,
@@ -68,6 +70,51 @@ async def _ensure_workspace_plan(workspace_id: UUID, db: AsyncSession) -> Option
     return wp
 
 
+async def _get_effective_plan(
+    workspace_id: UUID,
+    db: AsyncSession,
+    now: Optional[datetime] = None,
+) -> Tuple[Optional[UUID], str, Optional[datetime]]:
+    """
+    Return (plan_id, source, override_expires_at) for a workspace.
+
+    Precedence:
+      1. Active PlanOverride within time window → source="override"
+      2. WorkspacePlan (base, auto-assigns free) → source="base"
+      3. No plan at all → source="free", plan_id=None
+
+    Self-heals stale ACTIVE overrides where ends_at <= now.
+    """
+    now = now or datetime.utcnow()
+
+    result = await db.execute(
+        select(PlanOverride)
+        .where(
+            PlanOverride.workspace_id == workspace_id,
+            PlanOverride.status == "active",
+        )
+        .order_by(PlanOverride.created_at.desc())
+    )
+    override = result.scalars().first()
+
+    if override:
+        if override.ends_at <= now:
+            # Self-heal: Celery worker hasn't fired yet
+            override.status = "expired"
+            await db.flush()
+            logger.info(
+                f"[entitlements] Self-healed stale PlanOverride {override.id} for workspace {workspace_id}"
+            )
+        else:
+            return override.plan_id, "override", override.ends_at
+
+    # Fall back to permanent base plan
+    wp = await _ensure_workspace_plan(workspace_id, db)
+    if not wp:
+        return None, "free", None
+    return wp.plan_id, "base", None
+
+
 async def check_entitlement(
     workspace_id: UUID,
     module_key: str,
@@ -85,15 +132,15 @@ async def check_entitlement(
             reason=f"Module '{module_key}' is globally disabled.",
         )
 
-    # Layer 2: Get workspace plan + entitlement for this module
-    wp = await _ensure_workspace_plan(workspace_id, db)
-    if not wp:
+    # Layer 2: Get effective plan (override > base)
+    plan_id, _source, _expires_at = await _get_effective_plan(workspace_id, db)
+    if not plan_id:
         # No plan and couldn't auto-assign — allow (graceful fallback)
         return EntitlementResult(allowed=True, reason="No plan configured; defaulting to allow.")
 
     ent_result = await db.execute(
         select(PlanEntitlement).where(
-            PlanEntitlement.plan_id == wp.plan_id,
+            PlanEntitlement.plan_id == plan_id,
             PlanEntitlement.module_key == module_key,
         )
     )
@@ -203,17 +250,17 @@ async def get_workspace_entitlements(
     Return merged entitlements + usage for a workspace.
     Used by the client-side banner and admin workspace detail.
     """
-    wp = await _ensure_workspace_plan(workspace_id, db)
-    if not wp:
+    plan_id, _source, _expires_at = await _get_effective_plan(workspace_id, db)
+    if not plan_id:
         return []
 
     # Get plan info
-    plan = await db.get(Plan, wp.plan_id)
+    plan = await db.get(Plan, plan_id)
     plan_name = plan.display_name if plan else "Unknown"
 
     # Get all entitlements for the plan
     ent_result = await db.execute(
-        select(PlanEntitlement).where(PlanEntitlement.plan_id == wp.plan_id)
+        select(PlanEntitlement).where(PlanEntitlement.plan_id == plan_id)
     )
     entitlements = ent_result.scalars().all()
 

@@ -6,7 +6,7 @@ import { adminApi, MODULE_LABELS } from "@/lib/admin-api";
 import {
     Building2, Users, Loader2, ChevronLeft, RefreshCw,
     ToggleLeft, ToggleRight, AlertCircle, CreditCard, Save,
-    Pencil, X, Check
+    Pencil, X, Check, Clock, Zap
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,7 @@ export default function WorkspaceDetailPage() {
     const [modules, setModules] = useState<any[]>([]);
     const [planData, setPlanData] = useState<any>(null);
     const [plans, setPlans] = useState<any[]>([]);
+    const [planStatus, setPlanStatus] = useState<any>(null);
     const [loading, setLoading] = useState(true);
     const [toggling, setToggling] = useState<string | null>(null);
     const [assigningPlan, setAssigningPlan] = useState(false);
@@ -26,13 +27,21 @@ export default function WorkspaceDetailPage() {
     const [editLimitValue, setEditLimitValue] = useState<string>("");
     const [savingLimit, setSavingLimit] = useState(false);
 
+    // Plan override form state
+    const [overridePlanId, setOverridePlanId] = useState<string>("");
+    const [overrideDays, setOverrideDays] = useState<string>("30");
+    const [overrideReason, setOverrideReason] = useState<string>("");
+    const [applyingOverride, setApplyingOverride] = useState(false);
+    const [revokingOverride, setRevokingOverride] = useState(false);
+
     const load = async () => {
         setLoading(true);
-        const [wsRes, modRes, planRes, plansRes] = await Promise.all([
+        const [wsRes, modRes, planRes, plansRes, statusRes] = await Promise.all([
             adminApi.getWorkspaceDetail(id),
             adminApi.getWorkspaceModules(id),
             adminApi.getWorkspacePlan(id),
             adminApi.getPlans(),
+            adminApi.getWorkspacePlanStatus(id),
         ]);
 
         if (wsRes.success && wsRes.data) {
@@ -51,6 +60,10 @@ export default function WorkspaceDetailPage() {
 
         if (plansRes.success && plansRes.data) {
             setPlans(plansRes.data.items || []);
+        }
+
+        if (statusRes.success && statusRes.data) {
+            setPlanStatus(statusRes.data);
         }
 
         setLoading(false);
@@ -81,13 +94,48 @@ export default function WorkspaceDetailPage() {
         if (res.success) {
             toast.success(`Usage limit override for "${MODULE_LABELS[moduleKey] || moduleKey}" saved`);
             setEditingLimit(null);
-            // Reload plan data to reflect changes
             const planRes = await adminApi.getWorkspacePlan(id);
             if (planRes.success && planRes.data) setPlanData(planRes.data);
         } else {
             toast.error(res.error || "Failed to save override");
         }
         setSavingLimit(false);
+    };
+
+    const handleApplyOverride = async () => {
+        if (!overridePlanId) { toast.error("Select a plan"); return; }
+        const days = parseInt(overrideDays, 10);
+        if (isNaN(days) || days <= 0 || days > 365) { toast.error("Duration must be 1–365 days"); return; }
+        setApplyingOverride(true);
+        const res = await adminApi.createWorkspacePlanOverride(id, {
+            plan_id: overridePlanId,
+            duration_days: days,
+            reason: overrideReason.trim() || undefined,
+        });
+        if (res.success) {
+            toast.success("Plan override applied");
+            setOverridePlanId("");
+            setOverrideDays("30");
+            setOverrideReason("");
+            const statusRes = await adminApi.getWorkspacePlanStatus(id);
+            if (statusRes.success && statusRes.data) setPlanStatus(statusRes.data);
+        } else {
+            toast.error(res.error || "Failed to apply override");
+        }
+        setApplyingOverride(false);
+    };
+
+    const handleRevokeOverride = async () => {
+        setRevokingOverride(true);
+        const res = await adminApi.revokeWorkspacePlanOverride(id);
+        if (res.success) {
+            toast.success("Override revoked — workspace reverted to base plan");
+            const statusRes = await adminApi.getWorkspacePlanStatus(id);
+            if (statusRes.success && statusRes.data) setPlanStatus(statusRes.data);
+        } else {
+            toast.error(res.error || "Failed to revoke override");
+        }
+        setRevokingOverride(false);
     };
 
     useEffect(() => { load(); }, [id]);
@@ -97,7 +145,6 @@ export default function WorkspaceDetailPage() {
         const res = await adminApi.setWorkspaceModule(id, moduleName, !currentEffective);
         if (res.success) {
             toast.success(`Module "${MODULE_LABELS[moduleName] || moduleName}" override set`);
-            // Reload modules list
             const modRes = await adminApi.getWorkspaceModules(id);
             if (modRes.success && modRes.data) {
                 setModules(Array.isArray(modRes.data) ? modRes.data : []);
@@ -107,6 +154,27 @@ export default function WorkspaceDetailPage() {
         }
         setToggling(null);
     };
+
+    // Compute ends_at preview for override form
+    const overrideEndsAt = (() => {
+        const days = parseInt(overrideDays, 10);
+        if (isNaN(days) || days <= 0) return null;
+        const d = new Date();
+        d.setDate(d.getDate() + days);
+        return d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    })();
+
+    // Countdown string for active override
+    const overrideCountdown = (() => {
+        const endsAt = planStatus?.active_override?.ends_at;
+        if (!endsAt) return null;
+        const diff = new Date(endsAt).getTime() - Date.now();
+        if (diff <= 0) return "Expired";
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        if (days > 0) return `${days}d ${hours}h remaining`;
+        return `${hours}h remaining`;
+    })();
 
     if (loading) {
         return (
@@ -321,6 +389,135 @@ export default function WorkspaceDetailPage() {
                             <p className="text-[10px] text-slate-600 mt-1">* = admin override active · Click pencil to set a custom limit</p>
                         </div>
                     )}
+                </div>
+            </section>
+
+            {/* Plan Override (Mission 34) */}
+            <section>
+                <h2 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+                    <Zap className="w-5 h-5 text-violet-400" />
+                    Plan Override
+                </h2>
+
+                {/* Effective plan badge */}
+                {planStatus && (
+                    <div className="mb-4 flex items-center gap-3">
+                        <span className="text-xs text-slate-500">Effective plan:</span>
+                        <span className={cn(
+                            "text-xs font-semibold px-2.5 py-1 rounded-full",
+                            planStatus.effective?.plan_source === "override"
+                                ? "bg-violet-500/20 text-violet-300 border border-violet-500/30"
+                                : "bg-slate-700/60 text-slate-300 border border-white/10"
+                        )}>
+                            {planStatus.effective?.plan_display_name || "Free"}
+                            {planStatus.effective?.plan_source === "override" && (
+                                <span className="ml-1.5 text-violet-400">· Override</span>
+                            )}
+                        </span>
+                    </div>
+                )}
+
+                {/* Active override panel */}
+                {planStatus?.active_override && (
+                    <div className="mb-4 bg-violet-500/10 border border-violet-500/20 rounded-xl p-4 space-y-3">
+                        <div className="flex items-start justify-between gap-4">
+                            <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-violet-400 shrink-0" />
+                                    <span className="text-sm font-semibold text-white">
+                                        {planStatus.active_override.plan_display_name}
+                                    </span>
+                                    <span className="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded font-medium uppercase tracking-wide">
+                                        Active Override
+                                    </span>
+                                </div>
+                                {overrideCountdown && (
+                                    <p className="text-xs text-violet-300/70 ml-6">{overrideCountdown}</p>
+                                )}
+                                <p className="text-xs text-slate-400 ml-6">
+                                    Expires: {new Date(planStatus.active_override.ends_at).toLocaleString()}
+                                </p>
+                                {planStatus.active_override.reason && (
+                                    <p className="text-xs text-slate-400 ml-6 italic">"{planStatus.active_override.reason}"</p>
+                                )}
+                            </div>
+                            <button
+                                onClick={handleRevokeOverride}
+                                disabled={revokingOverride}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-medium transition-colors disabled:opacity-50"
+                            >
+                                {revokingOverride ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <X className="w-3.5 h-3.5" />}
+                                Revoke
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {/* Apply override form */}
+                <div className="bg-white/5 border border-white/10 rounded-xl p-5 space-y-4">
+                    {planStatus?.active_override && (
+                        <p className="text-xs text-amber-400/80 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                            An override is already active. Revoke it above before applying a new one.
+                        </p>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1.5">Plan</label>
+                            <select
+                                value={overridePlanId}
+                                onChange={(e) => setOverridePlanId(e.target.value)}
+                                disabled={!!planStatus?.active_override || applyingOverride}
+                                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white disabled:opacity-50"
+                            >
+                                <option value="">Select plan...</option>
+                                {plans.filter((p: any) => p.is_active).map((p: any) => (
+                                    <option key={p.id} value={p.id}>{p.display_name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                                Duration (days)
+                            </label>
+                            <input
+                                type="number"
+                                min={1}
+                                max={365}
+                                value={overrideDays}
+                                onChange={(e) => setOverrideDays(e.target.value)}
+                                disabled={!!planStatus?.active_override || applyingOverride}
+                                className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white disabled:opacity-50"
+                            />
+                            {overrideEndsAt && !planStatus?.active_override && (
+                                <p className="text-[10px] text-slate-500 mt-1">Expires {overrideEndsAt}</p>
+                            )}
+                        </div>
+                    </div>
+                    <div>
+                        <label className="block text-xs font-medium text-slate-400 mb-1.5">Reason (optional)</label>
+                        <textarea
+                            rows={2}
+                            value={overrideReason}
+                            onChange={(e) => setOverrideReason(e.target.value)}
+                            disabled={!!planStatus?.active_override || applyingOverride}
+                            className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-slate-600 resize-none disabled:opacity-50"
+                            placeholder="e.g. 30-day trial for enterprise demo"
+                        />
+                    </div>
+                    <div className="flex items-center justify-between gap-4">
+                        <p className="text-[11px] text-amber-400/70 flex items-center gap-1.5">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            Overrides bypass payment and apply immediately.
+                        </p>
+                        <button
+                            onClick={handleApplyOverride}
+                            disabled={!!planStatus?.active_override || applyingOverride || !overridePlanId}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
+                        >
+                            {applyingOverride ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                            Apply Override
+                        </button>
+                    </div>
                 </div>
             </section>
 

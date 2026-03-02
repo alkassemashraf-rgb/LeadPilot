@@ -320,6 +320,19 @@ export const adminApi = {
     removeWorkspaceOverride: (workspaceId: string, moduleKey: string) =>
         adminClient.delete(`/admin/workspaces/${workspaceId}/overrides/${moduleKey}`),
 
+    // Plan time-bound overrides (Mission 34)
+    getWorkspacePlanStatus: (workspaceId: string) =>
+        adminClient.get<any>(`/admin/workspaces/${workspaceId}/plan-status`),
+    createWorkspacePlanOverride: (workspaceId: string, data: {
+        plan_id: string;
+        duration_days?: number;
+        ends_at?: string;
+        starts_at?: string;
+        reason?: string;
+    }) => adminClient.post(`/admin/workspaces/${workspaceId}/plan-override`, data),
+    revokeWorkspacePlanOverride: (workspaceId: string, data?: { reason?: string }) =>
+        adminClient.post(`/admin/workspaces/${workspaceId}/plan-override/revoke`, data ?? {}),
+
     // Agencies (Mission 15)
     getAgencies: (params?: { skip?: number; limit?: number; query?: string }) => {
         const qs = new URLSearchParams();
