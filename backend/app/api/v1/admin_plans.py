@@ -172,6 +172,12 @@ async def create_workspace_plan_override(
     else:
         ends_at = starts_at + timedelta(days=body.duration_days)  # type: ignore[arg-type]
 
+    # Normalize to naive UTC (strip timezone info if provided as aware datetime)
+    if starts_at.tzinfo is not None:
+        starts_at = starts_at.replace(tzinfo=None)
+    if ends_at.tzinfo is not None:
+        ends_at = ends_at.replace(tzinfo=None)
+
     if ends_at <= starts_at:
         return wrap_error("ends_at must be after starts_at")
 
@@ -208,7 +214,13 @@ async def create_workspace_plan_override(
     await db.commit()
 
     return wrap_data({
-        "override_id": str(override.id),
+        "override": {
+            "id": str(override.id),
+            "plan_code": plan.name,
+            "starts_at": override.starts_at.isoformat(),
+            "ends_at": override.ends_at.isoformat(),
+            "reason": override.reason,
+        },
         "effective": effective,
     })
 
