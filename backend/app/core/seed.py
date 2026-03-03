@@ -110,43 +110,69 @@ async def seed_modules():
 async def seed_plans():
     """
     Ensures the default plans (Free, Growth, Enterprise) exist with their entitlements.
-    Idempotent: skips plans that already exist by name.
+    Idempotent:
+    - Creates plans that don't exist yet (with all entitlements).
+    - For plans that already exist, adds any entitlements that are missing.
+    - Never removes or modifies existing entitlements.
     """
     try:
         async with AsyncSessionLocal() as db:
-            result = await db.execute(select(Plan.name))
-            existing_plans = {row[0] for row in result.all()}
+            result = await db.execute(select(Plan.name, Plan.id))
+            existing_plans = {row[0]: row[1] for row in result.all()}
 
-            new_count = 0
+            new_plan_count = 0
+            new_ent_count = 0
+
             for name, display_name, sort_order, description, entitlements in DEFAULT_PLANS:
-                if name in existing_plans:
-                    continue
-
-                plan = Plan(
-                    name=name,
-                    display_name=display_name,
-                    sort_order=sort_order,
-                    description=description,
-                    is_active=True,
-                )
-                db.add(plan)
-                await db.flush()  # get plan.id
-
-                for module_key, hard_limit in entitlements.items():
-                    ent = PlanEntitlement(
-                        plan_id=plan.id,
-                        module_key=module_key,
-                        hard_limit=hard_limit,
+                if name not in existing_plans:
+                    plan = Plan(
+                        name=name,
+                        display_name=display_name,
+                        sort_order=sort_order,
+                        description=description,
+                        is_active=True,
                     )
-                    db.add(ent)
+                    db.add(plan)
+                    await db.flush()  # get plan.id
 
-                new_count += 1
+                    for module_key, hard_limit in entitlements.items():
+                        db.add(PlanEntitlement(
+                            plan_id=plan.id,
+                            module_key=module_key,
+                            hard_limit=hard_limit,
+                        ))
 
-            if new_count > 0:
+                    new_plan_count += 1
+
+                else:
+                    # Plan exists — add any entitlements that are missing
+                    plan_id = existing_plans[name]
+                    ent_result = await db.execute(
+                        select(PlanEntitlement.module_key).where(
+                            PlanEntitlement.plan_id == plan_id
+                        )
+                    )
+                    existing_keys = {row[0] for row in ent_result.all()}
+
+                    for module_key, hard_limit in entitlements.items():
+                        if module_key not in existing_keys:
+                            db.add(PlanEntitlement(
+                                plan_id=plan_id,
+                                module_key=module_key,
+                                hard_limit=hard_limit,
+                            ))
+                            new_ent_count += 1
+                            logger.info(
+                                f"[seed_plans] Added missing entitlement '{module_key}' to plan '{name}'."
+                            )
+
+            if new_plan_count > 0 or new_ent_count > 0:
                 await db.commit()
-                logger.info(f"[seed_plans] Seeded {new_count} plan(s) with entitlements.")
+                logger.info(
+                    f"[seed_plans] Seeded {new_plan_count} plan(s) and {new_ent_count} missing entitlement(s)."
+                )
             else:
-                logger.info("[seed_plans] All default plans already seeded; no action taken.")
+                logger.info("[seed_plans] All default plans and entitlements already seeded; no action taken.")
     except Exception as e:
         logger.error(f"[seed_plans] Failed to seed plans: {e}", exc_info=True)
 
