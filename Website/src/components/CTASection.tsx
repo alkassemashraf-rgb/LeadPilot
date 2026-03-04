@@ -14,7 +14,7 @@ export default function CTASection({
   headline = "Your leads aren't waiting. Neither should you.",
   subheadline = "Start capturing and qualifying leads today — free, no credit card required.",
   primaryLabel = "Start for Free",
-  primaryHref = "/signup",
+  primaryHref = "/app/signup",
   secondaryLabel = "See Product",
   secondaryHref = "/product",
 }: Props) {
@@ -55,12 +55,12 @@ export default function CTASection({
         </AnimateOnScroll>
         <AnimateOnScroll animation="zoomIn" delay={160}>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
+            <a
               href={primaryHref}
               className="px-9 py-4 rounded-xl font-semibold text-base mk-btn-primary"
             >
               {primaryLabel}
-            </Link>
+            </a>
             <Link
               href={secondaryHref}
               className="px-9 py-4 rounded-xl font-semibold text-sm mk-btn-ghost-dark"

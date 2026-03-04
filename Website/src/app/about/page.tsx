@@ -177,7 +177,7 @@ export default function AboutPage() {
         headline="Ready to work with us?"
         subheadline="Start with the Free plan or sign up to see LeadPilot in action."
         primaryLabel="Start for Free"
-        primaryHref="/signup"
+        primaryHref="/app/signup"
         secondaryLabel="Contact Us"
         secondaryHref="/contact"
       />

@@ -16,7 +16,7 @@ interface Props {
 
 export default function PlanCard({
   name, tagline, price, priceNote, features, notIncluded = [],
-  ctaLabel, ctaHref = "/signup", available, highlighted = false,
+  ctaLabel, ctaHref = "/app/signup", available, highlighted = false,
 }: Props) {
   return (
     <div
@@ -79,9 +79,9 @@ export default function PlanCard({
       </ul>
 
       {available ? (
-        <Link href={ctaHref} className="block text-center px-6 py-3 rounded-xl font-semibold text-sm mk-btn-primary">
+        <a href={ctaHref} className="block text-center px-6 py-3 rounded-xl font-semibold text-sm mk-btn-primary">
           {ctaLabel}
-        </Link>
+        </a>
       ) : (
         <a href="#waitlist" className="block text-center px-6 py-3 rounded-xl font-semibold text-sm mk-coming-soon-btn">
           Join Waitlist

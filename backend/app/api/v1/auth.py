@@ -512,8 +512,9 @@ def get_google_redirect_uri() -> str:
 
     # Use the frontend base URL so the redirect_uri matches the frontend callback page,
     # not the backend server (which runs on a different port in local dev).
+    # The Frontend app is mounted at /app (basePath), so the callback route is /app/auth/google/callback.
     base = (settings.APP_BASE_URL or settings.FRONTEND_URL).rstrip("/")
-    redirect_uri = f"{base}/auth/google/callback"
+    redirect_uri = f"{base}/app/auth/google/callback"
     logger.info(f"Google OAuth: Generated redirect_uri={redirect_uri}")
     return redirect_uri
 

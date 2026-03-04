@@ -209,7 +209,7 @@ export interface CatalogTemplate {
     clone_count: number;
 }
 
-export const APP_URL = "http://localhost:3000";
+export const APP_URL = "/app";
 
 export async function getPlans(): Promise<CatalogPlan[]> {
     try {

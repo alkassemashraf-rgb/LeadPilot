@@ -222,7 +222,7 @@ export default function UseCasesPage() {
         headline="Ready to try it in your business?"
         subheadline="Start with the Free plan — no credit card, no commitment."
         primaryLabel="Start for Free"
-        primaryHref="/signup"
+        primaryHref="/app/signup"
         secondaryLabel="See Plans"
         secondaryHref="/plans"
       />

@@ -10,7 +10,7 @@ import { useCatalog, type PlanCatalogEntry } from "@/lib/catalog";
 const tiers = [
   {
     name: "Free", tagline: "Start capturing and qualifying leads today", price: "$0", priceNote: "/ month, forever",
-    available: true, highlighted: true, ctaLabel: "Get Started Free", ctaHref: "/signup",
+    available: true, highlighted: true, ctaLabel: "Get Started Free", ctaHref: "/app/signup",
     features: ["Lead capture (limited monthly volume)", "AI qualification prompts (basic)", "Manual routing to team members", "Email notifications on new leads", "Basic analytics dashboard", "1 team seat", "Community support"],
     notIncluded: ["Automated routing rules", "CRM integrations", "Advanced AI playbooks", "Priority support"],
   },
@@ -240,9 +240,9 @@ export default function PlansPage() {
                   </ul>
 
                   {tier.available ? (
-                    <Link href={tier.ctaHref} className="block text-center px-6 py-3 rounded-xl font-semibold text-white text-sm mk-btn-primary">
+                    <a href={tier.ctaHref} className="block text-center px-6 py-3 rounded-xl font-semibold text-white text-sm mk-btn-primary">
                       {tier.ctaLabel}
-                    </Link>
+                    </a>
                   ) : (
                     <a href="#waitlist" className="block text-center px-6 py-3 rounded-xl font-semibold text-sm mk-coming-soon-btn">
                       Join Waitlist

@@ -11,7 +11,7 @@ const cols = {
   Company: [
     { label: "About",      href: "/about" },
     { label: "Contact",    href: "/contact" },
-    { label: "Start Free", href: "/signup" },
+    { label: "Start Free", href: "/app/signup" },
   ],
   Legal: [
     { label: "Privacy Policy",   href: "#" },
@@ -79,12 +79,12 @@ export default function MarketingFooter() {
             </div>
 
             {/* Mini CTA */}
-            <Link
-              href="/signup"
+            <a
+              href="/app/signup"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white mk-btn-primary"
             >
               Start for Free →
-            </Link>
+            </a>
           </div>
 
           {/* Nav columns */}
@@ -99,9 +99,11 @@ export default function MarketingFooter() {
               <ul className="space-y-3" role="list">
                 {links.map(({ label, href }) => (
                   <li key={label}>
-                    <Link href={href} className="text-sm mk-footer-link">
-                      {label}
-                    </Link>
+                    {href.startsWith("/app") ? (
+                      <a href={href} className="text-sm mk-footer-link">{label}</a>
+                    ) : (
+                      <Link href={href} className="text-sm mk-footer-link">{label}</Link>
+                    )}
                   </li>
                 ))}
               </ul>

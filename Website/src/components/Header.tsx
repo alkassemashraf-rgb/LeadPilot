@@ -118,18 +118,18 @@ export default function MarketingHeader() {
 
         {/* Desktop CTAs */}
         <div className="hidden md:flex items-center gap-3">
-          <Link
-            href="/login"
+          <a
+            href="/app/login"
             className="text-sm font-medium transition-colors duration-200 mk-footer-link px-2 py-1"
           >
             Log in
-          </Link>
-          <Link
-            href="/signup"
+          </a>
+          <a
+            href="/app/signup"
             className="px-4 py-2 rounded-lg text-sm font-semibold text-white mk-btn-primary"
           >
             Start for Free
-          </Link>
+          </a>
         </div>
 
         {/* Mobile toggle */}
@@ -199,20 +199,20 @@ export default function MarketingHeader() {
             className="flex flex-col gap-2.5 mt-4 pt-4"
             style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
           >
-            <Link
-              href="/login"
+            <a
+              href="/app/login"
               className="block py-2.5 rounded-lg text-sm font-medium text-center mk-footer-link"
               onClick={() => setOpen(false)}
             >
               Log in
-            </Link>
-            <Link
-              href="/signup"
+            </a>
+            <a
+              href="/app/signup"
               className="block py-2.5 rounded-xl text-sm font-semibold text-white text-center mk-btn-primary"
               onClick={() => setOpen(false)}
             >
               Start for Free
-            </Link>
+            </a>
           </div>
         </div>
       </div>
