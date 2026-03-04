@@ -63,15 +63,15 @@ function FlowSummary({ graph }: { graph: Record<string, any> }) {
         <div className="space-y-3">
             {/* Trigger */}
             {triggerNode && (
-                <div className="flex items-center gap-3 p-3 rounded-xl border border-teal-200 dark:border-teal-800 bg-teal-50 dark:bg-teal-950/20">
-                    <div className="p-2 rounded-lg bg-teal-600 text-white">
+                <div className="flex items-center gap-3 p-3.5 rounded-xl border border-teal-200/80 bg-gradient-to-r from-teal-50 to-transparent shadow-sm">
+                    <div className="p-2.5 rounded-lg bg-teal-600 text-white shadow-sm">
                         <Zap className="w-4 h-4" />
                     </div>
                     <div>
-                        <p className="text-xs font-semibold text-teal-700 dark:text-teal-300 uppercase tracking-wide">
+                        <p className="text-[10px] font-bold text-teal-600 uppercase tracking-widest mb-0.5">
                             Trigger
                         </p>
-                        <p className="text-sm font-medium text-foreground">
+                        <p className="text-sm font-semibold text-slate-900">
                             {NODE_TYPE_LABELS[triggerNode.data?.nodeType] ?? triggerNode.data?.nodeType}
                         </p>
                     </div>
@@ -80,14 +80,14 @@ function FlowSummary({ graph }: { graph: Record<string, any> }) {
 
             {/* Steps */}
             {actionNodes.map((node: any, i: number) => (
-                <div key={node.id} className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card">
-                    <div className="w-6 h-6 rounded-full border border-border bg-muted flex items-center justify-center text-xs font-bold text-muted-foreground shrink-0">
+                <div key={node.id} className="flex items-center gap-3 p-3.5 rounded-xl border border-slate-200 bg-white shadow-[0_2px_8px_-2px_rgba(0,0,0,0.05)] hover:shadow-md transition-all">
+                    <div className="w-7 h-7 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center text-xs font-bold text-slate-500 shrink-0">
                         {i + 1}
                     </div>
-                    <span className="text-muted-foreground">
+                    <span className="text-slate-600 p-1.5 rounded-md bg-slate-50 border border-slate-100">
                         {NODE_TYPE_ICONS[node.data?.nodeType] ?? <Bot className="w-4 h-4" />}
                     </span>
-                    <p className="text-sm font-medium text-foreground">
+                    <p className="text-sm font-semibold text-slate-800">
                         {NODE_TYPE_LABELS[node.data?.nodeType] ?? node.data?.nodeType}
                     </p>
                 </div>
@@ -202,7 +202,7 @@ export default function TemplateDetailPage() {
                             {template.platforms.map((p) => (
                                 <span
                                     key={p}
-                                    className="text-xs font-semibold px-2 py-1 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 uppercase tracking-wide"
+                                    className="text-xs font-bold px-3 py-1 rounded-full bg-slate-800 text-white uppercase tracking-wider shadow-sm"
                                 >
                                     {p}
                                 </span>
@@ -210,7 +210,7 @@ export default function TemplateDetailPage() {
                             {template.industry_tags.map((tag) => (
                                 <span
                                     key={tag}
-                                    className="text-xs font-semibold px-2 py-1 rounded-full bg-muted text-muted-foreground uppercase tracking-wide"
+                                    className="text-xs font-bold px-3 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600 uppercase tracking-wider"
                                 >
                                     {tag}
                                 </span>
@@ -220,16 +220,17 @@ export default function TemplateDetailPage() {
 
                     {/* Required integrations warning */}
                     {template.required_integrations.length > 0 && (
-                        <div className="flex items-start gap-2 p-4 rounded-xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/20 text-sm text-amber-700 dark:text-amber-300">
-                            <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-                            <div>
-                                <p className="font-semibold">Required integrations:</p>
-                                <ul className="mt-1 list-disc list-inside space-y-0.5">
+                        <div className="flex items-start gap-3 p-4 rounded-xl border border-amber-200 bg-amber-50 text-sm text-amber-800 shadow-sm relative overflow-hidden">
+                            <div className="absolute left-0 top-0 bottom-0 w-1 bg-amber-400" />
+                            <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-600" />
+                            <div className="space-y-1.5">
+                                <p className="font-semibold text-amber-900">Required integrations:</p>
+                                <ul className="list-disc list-inside space-y-0.5 text-amber-700 font-medium ml-1">
                                     {template.required_integrations.map((int) => (
                                         <li key={int}>{INTEGRATION_LABELS[int] ?? int}</li>
                                     ))}
                                 </ul>
-                                <p className="mt-2 text-xs">
+                                <p className="pt-1 text-xs text-amber-600/90 font-medium">
                                     Make sure these are connected in your workspace settings before using this template.
                                 </p>
                             </div>
@@ -251,7 +252,7 @@ export default function TemplateDetailPage() {
 
                 {/* Right: CTA */}
                 <div className="space-y-4">
-                    <div className="rounded-2xl border border-border bg-card p-5 shadow-sm space-y-4 sticky top-6">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-xl shadow-slate-200/50 space-y-5 sticky top-6">
                         <div>
                             <p className="text-sm font-medium text-foreground">
                                 {hasPublishedVersion

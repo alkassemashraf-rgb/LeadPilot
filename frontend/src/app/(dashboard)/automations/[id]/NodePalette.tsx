@@ -65,27 +65,28 @@ function PaletteItem({
             draggable={!disabled}
             onDragStart={onDragStart}
             className={cn(
-                "flex items-center gap-2.5 px-3 py-2 rounded-lg border transition-colors cursor-grab active:cursor-grabbing select-none",
+                "flex items-center gap-2.5 px-3 py-2.5 rounded-xl border transition-all select-none group",
                 disabled
-                    ? "opacity-40 cursor-not-allowed border-border bg-card"
-                    : "border-border bg-card hover:border-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/40"
+                    ? "opacity-50 cursor-not-allowed border-transparent bg-slate-50"
+                    : "border-transparent bg-white shadow-[0_1px_3px_0_rgba(0,0,0,0.02)] hover:border-teal-200 hover:shadow-md cursor-grab active:cursor-grabbing"
             )}
         >
-            <GripVertical className="w-3 h-3 text-muted-foreground/50 shrink-0" />
-            <span className="text-foreground/70">{icon}</span>
-            <span className="text-sm font-medium text-foreground flex-1 truncate">{label}</span>
+            <GripVertical className={cn("w-3 h-3 shrink-0 transition-colors", disabled ? "text-slate-300" : "text-slate-300 group-hover:text-teal-400")} />
+            <span className={cn("p-1.5 rounded-md", disabled ? "text-slate-400 bg-slate-100" : "text-teal-600 bg-teal-50")}>{icon}</span>
+            <span className={cn("text-sm font-semibold flex-1 truncate", disabled ? "text-slate-500" : "text-slate-800")}>{label}</span>
+
             {locked && (
-                <span className="flex items-center gap-0.5 text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-900 text-amber-600 shrink-0">
-                    <Lock className="w-2.5 h-2.5" /> Upgrade
+                <span className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded border bg-amber-50 text-amber-700 border-amber-200 shrink-0">
+                    <Lock className="w-3 h-3" /> Upgrade
                 </span>
             )}
             {comingSoon && !locked && (
-                <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-gray-500 shrink-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-slate-100 text-slate-500 shrink-0">
                     Soon
                 </span>
             )}
             {!locked && isTrigger && hasTrigger && (
-                <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-teal-100 dark:bg-teal-900 text-teal-600 shrink-0">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0 shadow-sm">
                     Added
                 </span>
             )}
@@ -134,8 +135,8 @@ export default function NodePalette({ hasTrigger }: NodePaletteProps) {
             </div>
 
             {/* Triggers */}
-            <div className="px-3 py-3 space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1 mb-2">
+            <div className="px-3 py-4 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-1 mb-3">
                     Triggers
                 </p>
                 {triggerTypes?.map((t) => (
@@ -148,31 +149,31 @@ export default function NodePalette({ hasTrigger }: NodePaletteProps) {
                         hasTrigger={hasTrigger}
                     />
                 )) ?? (
-                    <div className="space-y-1.5">
-                        <PaletteItem
-                            nodeType="MESSAGE_INBOUND"
-                            label="Inbound Message"
-                            iconHint="message"
-                            isTrigger
-                            hasTrigger={hasTrigger}
-                        />
-                        <PaletteItem
-                            nodeType="LEAD_AD_SUBMIT"
-                            label="Lead Ad Submission"
-                            iconHint="zap"
-                            isTrigger
-                            hasTrigger={hasTrigger}
-                        />
-                    </div>
-                )}
+                        <div className="space-y-1.5">
+                            <PaletteItem
+                                nodeType="MESSAGE_INBOUND"
+                                label="Inbound Message"
+                                iconHint="message"
+                                isTrigger
+                                hasTrigger={hasTrigger}
+                            />
+                            <PaletteItem
+                                nodeType="LEAD_AD_SUBMIT"
+                                label="Lead Ad Submission"
+                                iconHint="zap"
+                                isTrigger
+                                hasTrigger={hasTrigger}
+                            />
+                        </div>
+                    )}
             </div>
 
             {/* Divider */}
             <div className="mx-3 border-t border-border" />
 
             {/* Action Nodes */}
-            <div className="px-3 py-3 space-y-1.5">
-                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground px-1 mb-2">
+            <div className="px-3 py-4 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-1 mb-3">
                     Actions
                 </p>
                 {nodeTypes?.map((n) => (
@@ -185,26 +186,26 @@ export default function NodePalette({ hasTrigger }: NodePaletteProps) {
                         locked={isLocked(n)}
                     />
                 )) ?? (
-                    <div className="space-y-1.5">
-                        {[
-                            { key: "AI_REPLY", label: "AI Reply", iconHint: "bot" },
-                            { key: "SEND_MESSAGE", label: "Send Message", iconHint: "send" },
-                            { key: "HUMAN_HANDOVER", label: "Human Handover", iconHint: "user" },
-                            { key: "TAG_CONTACT", label: "Tag Contact", iconHint: "tag" },
-                            { key: "ZOHO_UPSERT_LEAD", label: "Zoho: Upsert Lead", iconHint: "database" },
-                            { key: "CONDITION", label: "Condition", iconHint: "git-branch", comingSoon: true },
-                            { key: "WAIT_DELAY", label: "Wait / Delay", iconHint: "clock", comingSoon: true },
-                        ].map((n) => (
-                            <PaletteItem
-                                key={n.key}
-                                nodeType={n.key}
-                                label={n.label}
-                                iconHint={n.iconHint}
-                                comingSoon={"comingSoon" in n ? n.comingSoon : false}
-                            />
-                        ))}
-                    </div>
-                )}
+                        <div className="space-y-1.5">
+                            {[
+                                { key: "AI_REPLY", label: "AI Reply", iconHint: "bot" },
+                                { key: "SEND_MESSAGE", label: "Send Message", iconHint: "send" },
+                                { key: "HUMAN_HANDOVER", label: "Human Handover", iconHint: "user" },
+                                { key: "TAG_CONTACT", label: "Tag Contact", iconHint: "tag" },
+                                { key: "ZOHO_UPSERT_LEAD", label: "Zoho: Upsert Lead", iconHint: "database" },
+                                { key: "CONDITION", label: "Condition", iconHint: "git-branch", comingSoon: true },
+                                { key: "WAIT_DELAY", label: "Wait / Delay", iconHint: "clock", comingSoon: true },
+                            ].map((n) => (
+                                <PaletteItem
+                                    key={n.key}
+                                    nodeType={n.key}
+                                    label={n.label}
+                                    iconHint={n.iconHint}
+                                    comingSoon={"comingSoon" in n ? n.comingSoon : false}
+                                />
+                            ))}
+                        </div>
+                    )}
             </div>
         </div>
     );
