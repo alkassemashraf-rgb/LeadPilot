@@ -46,6 +46,10 @@ function TemplateCard({ template, categories, platforms, enabledModules }: { tem
         if (res.success && res.data) {
             setCloned(true);
             setTimeout(() => router.push(res.data!.redirect_path), 800);
+        } else {
+            // Clone failed (usually: template requires variables to be filled in).
+            // Redirect to the detail page where the user can complete the form.
+            router.push(`/templates/${template.slug}`);
         }
         setCloning(false);
     };
