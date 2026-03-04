@@ -58,8 +58,8 @@ export function SimpleLineChart({ data, color = "#10B981", height = 200, loading
         <div className="w-full overflow-hidden" style={{ height }}>
             <svg viewBox={`0 0 ${width} ${containerHeight}`} className="w-full h-full overflow-visible">
                 {/* Grid lines (optional) */}
-                <line x1="0" y1={padding + chartHeight} x2={width} y2={padding + chartHeight} stroke="#e2e8f0" strokeWidth="1" />
-                <line x1="0" y1={padding} x2={width} y2={padding} stroke="#f1f5f9" strokeDasharray="4 4" strokeWidth="1" />
+                <line x1="0" y1={padding + chartHeight} x2={width} y2={padding + chartHeight} stroke="currentColor" className="text-slate-200 dark:text-slate-800" strokeWidth="1" />
+                <line x1="0" y1={padding} x2={width} y2={padding} stroke="currentColor" className="text-slate-100 dark:text-slate-800/50" strokeDasharray="4 4" strokeWidth="1" />
 
                 {/* Polyline */}
                 <polyline
@@ -76,11 +76,11 @@ export function SimpleLineChart({ data, color = "#10B981", height = 200, loading
                     const x = (i / (data.length - 1)) * width;
                     const y = padding + chartHeight - ((d.value / yMax) * chartHeight);
                     return (
-                        <circle key={i} cx={x} cy={y} r="4" fill="white" stroke={color} strokeWidth="2" />
+                        <circle key={i} cx={x} cy={y} r="4" fill="var(--card)" stroke={color} strokeWidth="2" />
                     );
                 })}
             </svg>
-            <div className="flex justify-between mt-2 text-[10px] text-slate-400 uppercase tracking-widest px-1">
+            <div className="flex justify-between mt-2 text-[10px] text-slate-400 dark:text-slate-500 uppercase tracking-widest px-1">
                 <span>{data[0]?.date && new Date(data[0].date).toLocaleDateString()}</span>
                 <span>{data[data.length - 1]?.date && new Date(data[data.length - 1].date).toLocaleDateString()}</span>
             </div>
@@ -98,7 +98,7 @@ interface BarChartProps {
 
 export function SimpleBarChart({ data, height = 200, loading }: BarChartProps) {
     if (loading) {
-        return <div className={`w-full bg-slate-50 animate-pulse rounded-lg`} style={{ height }} />;
+        return <div className={`w-full bg-slate-50 dark:bg-slate-800/50 animate-pulse rounded-lg`} style={{ height }} />;
     }
 
     if (!data || data.length === 0) {
@@ -122,7 +122,7 @@ export function SimpleBarChart({ data, height = 200, loading }: BarChartProps) {
                 return (
                     <div key={d.label} className="flex flex-col items-center flex-1 group relative">
                         {/* Tooltipish value */}
-                        <div className="absolute -top-6 text-xs font-bold text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute -top-6 text-xs font-bold text-slate-600 dark:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity">
                             {d.value}
                         </div>
 
@@ -133,7 +133,7 @@ export function SimpleBarChart({ data, height = 200, loading }: BarChartProps) {
                                 backgroundColor: d.color
                             }}
                         />
-                        <span className="text-[10px] uppercase font-medium text-slate-400 mt-2 tracking-wider text-center">
+                        <span className="text-[10px] uppercase font-medium text-slate-400 dark:text-slate-500 mt-2 tracking-wider text-center">
                             {d.label}
                         </span>
                     </div>

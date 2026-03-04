@@ -10,15 +10,15 @@ interface HealthStatProps {
 
 function HealthStat({ label, count, status, icon: Icon }: HealthStatProps) {
     const colors = {
-        healthy: "bg-emerald-50 text-emerald-700 border-emerald-100",
-        warning: "bg-amber-50 text-amber-700 border-amber-100",
-        error: "bg-red-50 text-red-700 border-red-100",
+        healthy: "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30",
+        warning: "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/30",
+        error: "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 border-red-100 dark:border-red-900/30",
     };
 
     return (
         <div className={`flex items-center justify-between p-4 rounded-xl border ${colors[status]} transition-all duration-300 hover:shadow-sm`}>
             <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg bg-white/50 backdrop-blur-sm`}>
+                <div className={`p-2 rounded-lg bg-white/50 dark:bg-slate-900/50 backdrop-blur-sm`}>
                     {Icon && <Icon className="w-4 h-4" />}
                 </div>
                 <span className="text-sm font-semibold">{label}</span>
@@ -37,14 +37,14 @@ interface DispatchHealthProps {
 
 export function DispatchHealthWidget({ pending, failed, stale, loading }: DispatchHealthProps) {
     if (loading) {
-        return <div className="h-[300px] bg-white border border-slate-100 animate-pulse rounded-xl shadow-sm" />;
+        return <div className="h-[300px] bg-white dark:bg-card border border-slate-100 dark:border-border animate-pulse rounded-xl shadow-sm" />;
     }
 
     return (
-        <div className="bg-white p-6 md:p-8 rounded-xl border border-slate-100 shadow-sm hover:shadow-md transition-shadow duration-300 h-full flex flex-col">
+        <div className="bg-white dark:bg-card p-6 md:p-8 rounded-xl border border-slate-100 dark:border-border shadow-sm hover:shadow-md transition-shadow duration-300 h-full flex flex-col">
             <div className="flex items-center justify-between mb-6">
-                <h3 className="text-lg font-bold text-slate-900">Dispatch Health</h3>
-                <Link href="/campaigns" className="text-xs px-3 py-1.5 bg-slate-50 text-blue-600 rounded-full hover:bg-blue-50 font-semibold transition-colors">
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-50">Dispatch Health</h3>
+                <Link href="/campaigns" className="text-xs px-3 py-1.5 bg-slate-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 rounded-full hover:bg-blue-50 dark:hover:bg-blue-900/50 font-semibold transition-colors">
                     View Queue →
                 </Link>
             </div>

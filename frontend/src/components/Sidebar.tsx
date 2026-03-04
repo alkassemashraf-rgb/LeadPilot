@@ -63,9 +63,9 @@ export function Sidebar() {
     };
 
     return (
-        <div className="fixed inset-y-0 left-0 w-64 bg-white border-r border-border flex flex-col">
+        <div className="fixed inset-y-0 left-0 w-64 bg-white dark:bg-card border-r border-border flex flex-col transition-colors">
             <div className="h-16 flex items-center px-6 border-bottom border-border">
-                <span className="text-primary font-bold text-xl tracking-tight">LeadPilot</span>
+                <span className="text-primary dark:text-teal-400 font-bold text-xl tracking-tight transition-colors">LeadPilot</span>
             </div>
 
             <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
@@ -78,8 +78,8 @@ export function Sidebar() {
                             className={cn(
                                 "flex items-center gap-3 px-3 py-2 rounded-md transition-colors text-sm font-medium",
                                 isActive
-                                    ? "bg-primary/10 text-primary"
-                                    : "text-foreground hover:bg-background hover:text-primary"
+                                    ? "bg-primary/10 dark:bg-primary/20 text-primary dark:text-teal-400"
+                                    : "text-foreground dark:text-slate-400 hover:bg-background dark:hover:bg-slate-800/50 hover:text-primary dark:hover:text-teal-400"
                             )}
                         >
                             <item.icon className="w-4 h-4" />
@@ -91,7 +91,7 @@ export function Sidebar() {
 
             <div className="p-4 border-t border-border">
                 <div className="flex items-center gap-3 px-3 py-2">
-                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-600 text-xs font-bold">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-800 flex items-center justify-center text-slate-600 dark:text-slate-300 text-xs font-bold transition-colors">
                         {getInitials(userName)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -99,7 +99,7 @@ export function Sidebar() {
                     </div>
                     <button
                         onClick={handleLogout}
-                        className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                        className="p-1.5 rounded-md text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 dark:hover:text-red-400 transition-colors"
                         title="Log out"
                     >
                         <LogOut className="w-4 h-4" />

@@ -24,7 +24,7 @@ const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
 export function DashboardThemeProvider({
     children,
-    defaultTheme = "system",
+    defaultTheme = "light",
     storageKey = "leadpilot-ui-theme",
     ...props
 }: ThemeProviderProps) {
