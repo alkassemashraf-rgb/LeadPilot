@@ -14,7 +14,7 @@ from sqlmodel import select
 
 from app.core.db import get_db
 from app.api.deps import get_current_user
-from app.models.models import Plan, PlanOverride, WorkspacePlan, Workspace, User
+from app.models.models import Plan, PlanOverride, Workspace, User
 from app.schemas.envelope import wrap_data, wrap_error
 from app.services.audit_service import audit_event
 from app.services.entitlements import _get_effective_plan, _ensure_workspace_plan
