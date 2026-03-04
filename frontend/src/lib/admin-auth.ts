@@ -37,7 +37,7 @@ export const adminAuth = {
     logout: (): void => {
         adminAuth.clearToken();
         if (typeof window !== "undefined") {
-            window.location.href = "/admin/login";
+            window.location.href = "/app/admin/login";
         }
     },
 };

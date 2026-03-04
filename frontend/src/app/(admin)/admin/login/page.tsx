@@ -96,7 +96,7 @@ export default function AdminLoginPage() {
                 </div>
 
                 <p className="text-center text-xs text-slate-600 mt-6">
-                    Not an admin? <a href="/login" className="text-slate-500 hover:text-slate-400 underline">Go to product login</a>
+                    Not an admin? <a href="/app/login" className="text-slate-500 hover:text-slate-400 underline">Go to product login</a>
                 </p>
             </div>
         </div>
