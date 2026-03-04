@@ -67,11 +67,8 @@ export function DashboardThemeProvider({
         },
     };
 
-    // Determine actual resolved theme to apply the class to the wrapper wrapper
-    let resolvedTheme = theme;
-    if (theme === "system" && mounted) {
-        resolvedTheme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-    }
+    // Force light mode unconditionally for now
+    let resolvedTheme = "light";
 
     // Wrap the children in a div that toggles the "dark" class.
     return (

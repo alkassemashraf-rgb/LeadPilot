@@ -100,10 +100,10 @@ export function Header() {
 
                     <div className="h-8 w-px bg-border mx-2"></div>
 
-                    {/* Theme Toggle */}
-                    <ThemeToggle />
+                    {/* Theme Toggle - Currently locked out until dark mode UI is fully stable */}
+                    {/* <ThemeToggle /> */}
 
-                    <div className="h-8 w-px bg-border mx-2"></div>
+                    {/* <div className="h-8 w-px bg-border mx-2"></div> */}
 
                     {/* Workspace Switcher */}
                     <div className="relative" ref={dropdownRef}>
