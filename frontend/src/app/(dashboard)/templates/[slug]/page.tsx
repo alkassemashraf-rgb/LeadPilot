@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getTemplate, cloneTemplate, type TemplateDetail } from "@/lib/templates-api";
+import { toast } from "sonner";
 
 const NODE_TYPE_ICONS: Record<string, React.ReactNode> = {
     MESSAGE_INBOUND: <MessageSquare className="w-4 h-4" />,
@@ -139,18 +140,18 @@ export default function TemplateDetailPage() {
             (v) => v.required && !variableValues[v.key] && !v.default_value
         );
         if (missingVars.length > 0) {
-            setError(`Please fill in: ${missingVars.map((v) => v.label).join(", ")}`);
+            toast.error(`Please fill in: ${missingVars.map((v) => v.label).join(", ")}`);
             return;
         }
         setCloning(true);
-        setError("");
         const hasVars = Object.keys(variableValues).length > 0;
         const res = await cloneTemplate(slug, undefined, hasVars ? variableValues : undefined);
         if (res.success && res.data) {
             setCloneSuccess(true);
+            toast.success("Template cloned successfully");
             setTimeout(() => router.push(res.data!.redirect_path), 1000);
         } else {
-            setError(res.error ?? "Failed to clone template.");
+            toast.error(res.error ?? "Failed to clone template.");
         }
         setCloning(false);
     };
@@ -330,10 +331,6 @@ export default function TemplateDetailPage() {
                             <div className="text-center text-sm text-muted-foreground py-2">
                                 Not available yet
                             </div>
-                        )}
-
-                        {error && (
-                            <p className="text-xs text-red-600 text-center">{error}</p>
                         )}
 
                         <Link
