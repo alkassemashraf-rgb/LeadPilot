@@ -17,10 +17,26 @@
   /* Deeper space black */
   --dark-surface: #0a1324;
   --dark-card: rgba(255, 255, 255, 0.02);
-  --dark-border: rgba(45, 212, 191, 0.15);
   /* Tech teal borders */
   --neon-cyan: #22d3ee;
   --neon-purple: #c084fc;
+}
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  .dark {
+    --background: #0f172a;
+    /* slate-900 */
+    --foreground: #f8fafc;
+    /* slate-50 */
+    --primary: #0F766E;
+    --secondary: #14B8A6;
+    --border: #1e293b;
+    /* slate-800 */
+    --card: #0b0f19;
+    /* dark card background */
+  }
 }
 
 @theme inline {

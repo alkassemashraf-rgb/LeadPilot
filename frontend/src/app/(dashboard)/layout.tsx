@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { AppShell } from "@/components/AppShell";
+import { DashboardThemeProvider } from "@/components/ThemeProvider";
 
 export default function DashboardLayout({
     children,
@@ -29,5 +30,9 @@ export default function DashboardLayout({
         );
     }
 
-    return <AppShell>{children}</AppShell>;
+    return (
+        <DashboardThemeProvider>
+            <AppShell>{children}</AppShell>
+        </DashboardThemeProvider>
+    );
 }

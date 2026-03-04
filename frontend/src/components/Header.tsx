@@ -4,6 +4,8 @@ import { apiClient } from "@/lib/api";
 import { auth } from "@/lib/auth";
 import Link from "next/link";
 
+import { ThemeToggle } from "./ThemeToggle";
+
 export function Header() {
     const [user, setUser] = useState<any>(null);
     const [workspaces, setWorkspaces] = useState<any[]>([]);
@@ -98,6 +100,11 @@ export function Header() {
 
                     <div className="h-8 w-px bg-border mx-2"></div>
 
+                    {/* Theme Toggle */}
+                    <ThemeToggle />
+
+                    <div className="h-8 w-px bg-border mx-2"></div>
+
                     {/* Workspace Switcher */}
                     <div className="relative" ref={dropdownRef}>
                         <button
@@ -127,9 +134,8 @@ export function Header() {
                                     <button
                                         key={ws.id}
                                         onClick={() => handleSwitch(ws)}
-                                        className={`w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-slate-50 transition-colors ${
-                                            String(ws.id) === String(activeWs?.id) ? "bg-primary/5" : ""
-                                        }`}
+                                        className={`w-full text-left px-3 py-2.5 flex items-center gap-3 hover:bg-slate-50 transition-colors ${String(ws.id) === String(activeWs?.id) ? "bg-primary/5" : ""
+                                            }`}
                                     >
                                         <div className="w-7 h-7 rounded bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-[10px]">
                                             {wsInitials(ws.name)}
