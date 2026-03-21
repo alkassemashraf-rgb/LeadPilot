@@ -680,3 +680,65 @@ class TemplateUsageStat(BaseIDModel, table=True):
     clone_count: int = Field(default=0)
     publish_count: int = Field(default=0)
     active_flows_count: int = Field(default=0)
+
+
+# --- OAuth Framework (Mission 37) ---
+
+class OAuthConnectionStatus(str, Enum):
+    ACTIVE = "active"
+    EXPIRED = "expired"
+    REVOKED = "revoked"
+    FAILED = "failed"
+
+
+class OAuthProvider(BaseIDModel, table=True):
+    """Registry of supported OAuth providers. Seeded at startup."""
+    __table_args__ = (
+        Index("idx_oauth_provider_code", "provider_code"),
+    )
+
+    provider_code: str = Field(unique=True, index=True)  # facebook, tiktok, hubspot, salesforce
+    display_name: str
+    auth_url: str
+    token_url: str
+    scopes_json: Optional[str] = Field(default=None)  # JSON array string
+    is_active: bool = Field(default=True)
+    supports_refresh_token: bool = Field(default=False)
+
+
+class OAuthConnection(BaseIDModel, table=True):
+    """Workspace-scoped (or user-scoped) OAuth token storage. Tokens encrypted at rest."""
+    __table_args__ = (
+        Index("idx_oauth_conn_workspace_provider", "workspace_id", "provider_code"),
+        Index("idx_oauth_conn_user_provider", "user_id", "provider_code"),
+    )
+
+    workspace_id: Optional[UUID] = Field(default=None, foreign_key="workspace.id", index=True)
+    user_id: Optional[UUID] = Field(default=None, foreign_key="user.id", index=True)
+    provider_code: str = Field(index=True)
+    external_account_id: Optional[str] = Field(default=None)
+    external_account_name: Optional[str] = Field(default=None)
+    access_token_encrypted: str  # Fernet-encrypted, NEVER expose plaintext
+    refresh_token_encrypted: Optional[str] = Field(default=None)  # Fernet-encrypted
+    expires_at: Optional[datetime] = Field(default=None)
+    token_type: Optional[str] = Field(default=None)
+    scopes_json: Optional[str] = Field(default=None)
+    metadata_json: Optional[str] = Field(default=None)
+    status: OAuthConnectionStatus = Field(default=OAuthConnectionStatus.ACTIVE)
+
+
+class OAuthState(SQLModel, table=True):
+    """Temporary CSRF-safe state storage for OAuth flows. Expires in 10 minutes."""
+    __table_args__ = (
+        Index("idx_oauth_state_token", "state_token"),
+        Index("idx_oauth_state_expires", "expires_at"),
+    )
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    provider_code: str = Field(index=True)
+    state_token: str = Field(unique=True, index=True)
+    workspace_id: Optional[UUID] = Field(default=None)
+    user_id: Optional[UUID] = Field(default=None)
+    redirect_after: Optional[str] = Field(default=None)
+    expires_at: datetime
+    created_at: datetime = Field(default_factory=datetime.utcnow)

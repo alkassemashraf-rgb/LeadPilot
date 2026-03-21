@@ -52,3 +52,13 @@ def decrypt_data(token: str) -> dict:
     f = Fernet(settings.ENCRYPTION_KEY_FERNET.encode())
     decrypted_data = f.decrypt(token.encode())
     return json.loads(decrypted_data.decode())
+
+def encrypt_string(value: str) -> str:
+    """Encrypt a plaintext string using Fernet. Used for OAuth token storage."""
+    f = Fernet(settings.ENCRYPTION_KEY_FERNET.encode())
+    return f.encrypt(value.encode()).decode()
+
+def decrypt_string(token: str) -> str:
+    """Decrypt a Fernet-encrypted string back to plaintext."""
+    f = Fernet(settings.ENCRYPTION_KEY_FERNET.encode())
+    return f.decrypt(token.encode()).decode()

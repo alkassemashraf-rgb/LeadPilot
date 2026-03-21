@@ -6,6 +6,7 @@ from app.core.config import settings
 from app.core.db import engine
 from app.api.v1 import auth, workspaces, health, prompt_config, test_chat, integrations, webhooks, automations, knowledge, analytics, templates
 from app.core.seed import seed_modules, seed_plans, seed_system_settings, seed_users, seed_templates
+from app.seeds.oauth_providers import seed_oauth_providers
 from app.api.v1.dispatch import router as dispatch_router
 from app.api.v1.inbox import router as inbox_router
 from app.api.v1.zoho import router as zoho_router
@@ -23,6 +24,8 @@ from app.api.v1.entitlements import router as entitlements_router
 from app.api.v1.settings_profile import router as settings_profile_router
 from app.api.v1.qualification_criteria import router as qual_criteria_router
 from app.api.v1.meta_oauth import router as meta_oauth_router
+from app.api.v1.oauth import router as oauth_router
+from app.api.v1.admin_oauth import router as admin_oauth_router
 from fastapi import HTTPException
 import uuid
 import logging
@@ -42,6 +45,10 @@ async def lifespan(app: FastAPI):
     await seed_system_settings()
     await seed_users()
     await seed_templates()
+    from app.core.db import get_db as _get_db
+    async for _db in _get_db():
+        await seed_oauth_providers(_db)
+        break
     yield
 
 app = FastAPI(
@@ -173,6 +180,8 @@ app.include_router(entitlements_router, prefix=f"{settings.API_V1_STR}/entitleme
 app.include_router(settings_profile_router, prefix=f"{settings.API_V1_STR}/settings", tags=["settings-profile"])
 app.include_router(qual_criteria_router, prefix=f"{settings.API_V1_STR}/prompt-studio", tags=["prompt-studio"])
 app.include_router(meta_oauth_router, prefix=f"{settings.API_V1_STR}/integrations/meta/oauth", tags=["integrations"])
+app.include_router(oauth_router, prefix=f"{settings.API_V1_STR}/oauth", tags=["oauth"])
+app.include_router(admin_oauth_router, prefix=f"{settings.API_V1_STR}/admin/oauth", tags=["admin-oauth"])
 
 @app.get("/")
 async def root():

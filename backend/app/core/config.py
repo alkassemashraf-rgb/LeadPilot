@@ -35,6 +35,16 @@ class Settings(BaseSettings):
     # Integrations
     META_CLIENT_ID: Optional[str] = None
     META_CLIENT_SECRET: Optional[str] = None
+
+    # OAuth Framework providers (Mission 37)
+    FACEBOOK_CLIENT_ID: Optional[str] = None
+    FACEBOOK_CLIENT_SECRET: Optional[str] = None
+    TIKTOK_CLIENT_KEY: Optional[str] = None
+    TIKTOK_CLIENT_SECRET: Optional[str] = None
+    HUBSPOT_CLIENT_ID: Optional[str] = None
+    HUBSPOT_CLIENT_SECRET: Optional[str] = None
+    SALESFORCE_CLIENT_ID: Optional[str] = None
+    SALESFORCE_CLIENT_SECRET: Optional[str] = None
     META_APP_SECRET: Optional[str] = None
     META_OAUTH_REDIRECT_URI: Optional[str] = None
     WHATSAPP_VERIFY_TOKEN: Optional[str] = None
