@@ -34,3 +34,28 @@ class FacebookOAuthAdapter(BaseOAuthAdapter):
             "expires_in": token_response.get("expires_in"),
             "token_type": token_response.get("token_type", "bearer"),
         }
+
+    async def fetch_user_profile(self, access_token: str) -> dict:
+        """Fetch user profile from Facebook Graph API."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "https://graph.facebook.com/me",
+                params={
+                    "fields": "id,name,email,picture.type(large)",
+                    "access_token": access_token,
+                },
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        picture_url = None
+        pic = data.get("picture", {})
+        if isinstance(pic, dict):
+            picture_url = pic.get("data", {}).get("url")
+
+        return {
+            "provider_user_id": data["id"],
+            "email": data.get("email"),
+            "full_name": data.get("name"),
+            "avatar_url": picture_url,
+        }

@@ -155,10 +155,14 @@ async def test_whatsapp_webhook_valid_signature(async_client: AsyncClient, db_se
     payload_bytes = json.dumps(payload).encode()
     secret = "test_secret_123"
 
-    with patch("app.api.v1.webhooks.settings") as mock_settings:
+    with (
+        patch("app.api.v1.webhooks.settings") as mock_settings,
+        patch("app.api.v1.webhooks.process_webhook_event") as mock_task,
+    ):
         mock_settings.META_APP_SECRET = secret
         mock_settings.WEBHOOK_MAX_PAYLOAD_BYTES = 1_048_576
         mock_settings.WHATSAPP_VERIFY_TOKEN = "test"
+        mock_task.delay = lambda *a, **kw: None
         signature = _sign_payload(payload_bytes, secret)
         r = await async_client.post(
             "/api/v1/webhooks/whatsapp",
@@ -200,10 +204,14 @@ async def test_whatsapp_webhook_no_secret_configured(async_client: AsyncClient, 
     payload = _whatsapp_text_payload()
     payload_bytes = json.dumps(payload).encode()
 
-    with patch("app.api.v1.webhooks.settings") as mock_settings:
+    with (
+        patch("app.api.v1.webhooks.settings") as mock_settings,
+        patch("app.api.v1.webhooks.process_webhook_event") as mock_task,
+    ):
         mock_settings.META_APP_SECRET = None
         mock_settings.WEBHOOK_MAX_PAYLOAD_BYTES = 1_048_576
         mock_settings.WHATSAPP_VERIFY_TOKEN = "test"
+        mock_task.delay = lambda *a, **kw: None
         r = await async_client.post(
             "/api/v1/webhooks/whatsapp",
             content=payload_bytes,

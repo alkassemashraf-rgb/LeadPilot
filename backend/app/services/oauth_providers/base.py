@@ -1,6 +1,6 @@
 """Base OAuth adapter interface. All provider adapters must implement this."""
 from abc import ABC, abstractmethod
-from typing import Optional
+
 from urllib.parse import urlencode
 
 
@@ -62,3 +62,16 @@ class BaseOAuthAdapter(ABC):
             "expires_in": token_response.get("expires_in"),
             "token_type": token_response.get("token_type", "bearer"),
         }
+
+    async def fetch_user_profile(self, access_token: str) -> dict:
+        """Fetch and normalize user profile from the provider using the access token.
+
+        Returns a dict with keys:
+            provider_user_id (str): unique user ID from the provider
+            email (str | None): user email, or None if unavailable
+            full_name (str | None): display name
+            avatar_url (str | None): profile picture URL
+
+        Override per provider. Raises NotImplementedError if not supported.
+        """
+        raise NotImplementedError(f"{self.provider_code} does not implement fetch_user_profile")

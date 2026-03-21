@@ -80,3 +80,22 @@ class TikTokOAuthAdapter(BaseOAuthAdapter):
             "expires_in": token_response.get("expires_in"),
             "token_type": "bearer",
         }
+
+    async def fetch_user_profile(self, access_token: str) -> dict:
+        """Fetch user profile from TikTok Open API. Email is not available via TikTok API."""
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(
+                "https://open.tiktokapis.com/v2/user/info/",
+                params={"fields": "open_id,display_name,avatar_url"},
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+        user = data.get("data", {}).get("user", {})
+        return {
+            "provider_user_id": user.get("open_id", ""),
+            "email": None,  # TikTok does not expose email via API
+            "full_name": user.get("display_name"),
+            "avatar_url": user.get("avatar_url"),
+        }

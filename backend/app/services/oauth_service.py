@@ -39,8 +39,13 @@ async def create_oauth_state(
     workspace_id: Optional[UUID] = None,
     user_id: Optional[UUID] = None,
     redirect_after: Optional[str] = None,
+    purpose: str = "integration",
 ) -> OAuthState:
-    """Generate a secure CSRF state token and persist it with a 10-minute TTL."""
+    """Generate a secure CSRF state token and persist it with a 10-minute TTL.
+
+    purpose: "integration" (default) for workspace OAuth connections,
+             "social_auth" for user authentication flows.
+    """
     state_token = secrets.token_urlsafe(32)
     expires_at = datetime.utcnow() + timedelta(minutes=_STATE_TTL_MINUTES)
     state = OAuthState(
@@ -49,6 +54,7 @@ async def create_oauth_state(
         workspace_id=workspace_id,
         user_id=user_id,
         redirect_after=redirect_after,
+        purpose=purpose,
         expires_at=expires_at,
     )
     db.add(state)

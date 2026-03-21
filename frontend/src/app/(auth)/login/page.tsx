@@ -64,6 +64,24 @@ export default function LoginPage() {
         }
     };
 
+    const handleSocialLogin = async (provider: "facebook" | "tiktok") => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const response = await apiClient.get(`/auth/oauth/${provider}/start`);
+            if (response.success && response.data?.authorization_url) {
+                sessionStorage.setItem("social_auth_provider", provider);
+                window.location.href = response.data.authorization_url;
+            } else {
+                setError(response.error || `Failed to start ${provider} login`);
+            }
+        } catch (err: any) {
+            setError(`Could not initialize ${provider} login. Please try again.`);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div>
@@ -97,6 +115,28 @@ export default function LoginPage() {
                         <path d="M1 1h22v22H1z" fill="none" />
                     </svg>
                     Continue with Google
+                </button>
+
+                <button
+                    onClick={() => handleSocialLogin("facebook")}
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-3 py-2 px-4 border border-[#E2E8F0] rounded-md shadow-sm bg-white text-sm font-medium text-[#334155] hover:bg-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#14B8A6] disabled:opacity-50 transition-colors"
+                >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="#1877F2">
+                        <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.41c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.236 2.686.236v2.97h-1.513c-1.491 0-1.956.93-1.956 1.886v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/>
+                    </svg>
+                    Continue with Facebook
+                </button>
+
+                <button
+                    onClick={() => handleSocialLogin("tiktok")}
+                    disabled={isLoading}
+                    className="w-full flex items-center justify-center gap-3 py-2 px-4 border border-[#E2E8F0] rounded-md shadow-sm bg-white text-sm font-medium text-[#334155] hover:bg-[#F8FAFC] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#14B8A6] disabled:opacity-50 transition-colors"
+                >
+                    <svg className="h-5 w-5" viewBox="0 0 24 24" fill="#000000">
+                        <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.28 8.28 0 0 0 4.84 1.54V6.78a4.85 4.85 0 0 1-1.07-.09z"/>
+                    </svg>
+                    Continue with TikTok
                 </button>
 
                 <div className="relative">

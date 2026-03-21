@@ -740,5 +740,25 @@ class OAuthState(SQLModel, table=True):
     workspace_id: Optional[UUID] = Field(default=None)
     user_id: Optional[UUID] = Field(default=None)
     redirect_after: Optional[str] = Field(default=None)
+    purpose: Optional[str] = Field(default="integration")  # "integration" | "social_auth"
     expires_at: datetime
     created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class UserIdentity(BaseIDModel, table=True):
+    """Stores social login identities (Facebook, TikTok, etc.) linked to a User.
+    Supports multiple providers per user. Created when a user signs in via social OAuth."""
+    __tablename__ = "user_identity"
+    __table_args__ = (
+        UniqueConstraint("provider_code", "provider_user_id", name="uq_user_identity_provider"),
+        Index("idx_user_identity_user_id", "user_id"),
+        Index("idx_user_identity_provider", "provider_code", "provider_user_id"),
+    )
+
+    user_id: UUID = Field(foreign_key="user.id", index=True)
+    provider_code: str = Field(index=True)          # "facebook", "tiktok"
+    provider_user_id: str                            # Unique ID from the provider
+    provider_email: Optional[str] = Field(default=None)
+    provider_name: Optional[str] = Field(default=None)
+    provider_avatar_url: Optional[str] = Field(default=None)
+    metadata_json: Optional[str] = Field(default=None)  # e.g. {"social_email_missing": true}

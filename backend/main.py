@@ -26,6 +26,7 @@ from app.api.v1.qualification_criteria import router as qual_criteria_router
 from app.api.v1.meta_oauth import router as meta_oauth_router
 from app.api.v1.oauth import router as oauth_router
 from app.api.v1.admin_oauth import router as admin_oauth_router
+from app.api.v1.social_auth import router as social_auth_router
 from fastapi import HTTPException
 import uuid
 import logging
@@ -119,6 +120,7 @@ async def maintenance_mode_guard(request: Request, call_next):
 # Routers
 app.include_router(health.router, prefix=f"{settings.API_V1_STR}", tags=["health"])
 app.include_router(auth.router, prefix=f"{settings.API_V1_STR}/auth", tags=["auth"])
+app.include_router(social_auth_router, prefix=f"{settings.API_V1_STR}/auth/oauth", tags=["social-auth"])
 app.include_router(admin_router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin"])
 app.include_router(admin_auth_router, prefix=f"{settings.API_V1_STR}/admin_auth", tags=["admin-auth"])
 app.include_router(admin_plans_router, prefix=f"{settings.API_V1_STR}/admin", tags=["admin-plans"])
