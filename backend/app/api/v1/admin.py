@@ -27,6 +27,7 @@ from app.models.models import (
     QualificationConfig,
     AutomationTemplate, AutomationTemplateVersion,
     TemplateVariable, TemplateUsageStat,
+    Conversation, AgentSession,
 )
 from app.domain.builder_translator import validate_graph, translate
 from app.schemas.envelope import ResponseEnvelope, wrap_data, wrap_error
@@ -2172,3 +2173,35 @@ async def get_metrics(
     """Return in-memory metrics counters (webhook, dispatch, etc.)."""
     from app.services.metrics_service import metrics as m
     return wrap_data(m.get_counts())
+
+
+# ─── Agent Session Debug ──────────────────────────────────────────────────────
+
+
+@router.get("/contacts/{contact_id}/session", response_model=ResponseEnvelope[dict])
+async def get_contact_agent_session(
+    contact_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_superadmin),
+) -> Any:
+    """Return the most recent AgentSession state for a contact (debug view)."""
+    result = await db.execute(
+        select(AgentSession)
+        .join(Conversation, AgentSession.conversation_id == Conversation.id)
+        .where(Conversation.contact_id == contact_id)
+        .where(AgentSession.is_archived.is_(False))
+        .order_by(AgentSession.updated_at.desc())
+        .limit(1)
+    )
+    record = result.scalars().first()
+    if not record:
+        return wrap_error("No agent session found for this contact")
+    return wrap_data({
+        "session_id": str(record.id),
+        "conversation_id": str(record.conversation_id),
+        "state": record.state,
+        "event_count": len(record.events or []),
+        "is_archived": record.is_archived,
+        "created_at": record.created_at.isoformat(),
+        "updated_at": record.updated_at.isoformat(),
+    })

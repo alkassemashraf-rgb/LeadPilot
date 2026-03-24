@@ -7,13 +7,14 @@ import logging
 from uuid import UUID
 
 from google.adk.runners import Runner
-from google.adk.sessions import InMemorySessionService
 from google.adk.events import Event
 from google.genai import types
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.core.adk.agents.orchestrator import build_orchestrator
+from app.core.adk.session_service import LeadPilotSessionService
+from app.core.db import engine
 from app.models.models import (
     ExecutionInstance,
     ExecutionStatus,
@@ -51,20 +52,48 @@ async def run_for_contact(
             instance=execution_instance,
         )
 
-        session_service = InMemorySessionService()
+        session_service = LeadPilotSessionService(db_engine=engine)
         adk_session_id = str(conversation_id)
         user_id = str(contact_id)
 
-        adk_session = await session_service.create_session(
+        existing = await session_service.get_session(
             app_name=_APP_NAME,
             user_id=user_id,
             session_id=adk_session_id,
         )
 
-        # Seed conversation history from DB
-        history_events = await _build_adk_history(conversation_id, session)
-        for event in history_events:
-            await session_service.append_event(adk_session, event)
+        if existing:
+            adk_session = existing
+        else:
+            initial_state = {
+                "qualification_progress": {
+                    "answered_questions": [],
+                    "answers": {},
+                    "status": "not_started",
+                    "qualified_at": None,
+                    "disqualified_reason": None,
+                },
+                "crm_sync": {
+                    "synced": False,
+                    "zoho_lead_id": None,
+                    "last_sync_at": None,
+                    "sync_count": 0,
+                },
+                "conversation_intent": None,
+                "escalation_requested": False,
+                "lead_score": None,
+                "score_updated_at": None,
+            }
+            adk_session = await session_service.create_session(
+                app_name=_APP_NAME,
+                user_id=user_id,
+                session_id=adk_session_id,
+                state=initial_state,
+            )
+            # One-time seed from last 20 DB messages (handles pre-M-C conversations)
+            history_events = await _build_adk_history(conversation_id, session, limit=20)
+            for event in history_events:
+                await session_service.append_event(adk_session, event)
 
         runner = Runner(
             agent=agent,
@@ -99,6 +128,9 @@ async def run_for_contact(
                 for call in function_calls:
                     await _log_tool_call(session, execution_instance, call)
 
+        # Persist updated session (events + state) to DB
+        await session_service.update_session(adk_session)
+
         execution_instance.status = ExecutionStatus.COMPLETED
         session.add(execution_instance)
         await session.commit()
@@ -126,16 +158,17 @@ async def run_for_contact(
 async def _build_adk_history(
     conversation_id: UUID,
     session: AsyncSession,
+    limit: int = 15,
 ) -> list[Event]:
     """
-    Load the last 15 messages from the DB and convert them to ADK Event objects
-    so conversation history can be seeded into the InMemorySessionService.
+    Load the last N messages from the DB and convert them to ADK Event objects
+    for seeding into a new session. Called once on new session creation only.
     """
     result = await session.execute(
         select(Message)
         .where(Message.conversation_id == conversation_id)
         .order_by(Message.created_at.desc())
-        .limit(15)
+        .limit(limit)
     )
     messages = list(result.scalars().all())
     messages.reverse()  # chronological order

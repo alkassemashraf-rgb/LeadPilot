@@ -768,3 +768,26 @@ class UserIdentity(BaseIDModel, table=True):
     provider_name: Optional[str] = Field(default=None)
     provider_avatar_url: Optional[str] = Field(default=None)
     metadata_json: Optional[str] = Field(default=None)  # e.g. {"social_email_missing": true}
+
+
+class AgentSession(SQLModel, table=True):
+    """
+    Persistent ADK session storage. One row per Conversation.
+    session_id == str(conversation.id) — they share the same UUID.
+    """
+    __tablename__ = "agent_session"
+
+    id: UUID = Field(default_factory=uuid4, primary_key=True)
+    conversation_id: UUID = Field(index=True, foreign_key="conversation.id")
+    app_name: str = Field(default="leadpilot")
+    user_id: str  # str(contact.id)
+
+    # ADK session state — qualification progress, intent, CRM sync status, etc.
+    state: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
+    # Compressed ADK event history (last 50 events)
+    events: List[Dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
+
+    is_archived: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
