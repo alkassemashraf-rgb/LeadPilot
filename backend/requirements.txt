@@ -21,6 +21,7 @@ cryptography
 huggingface_hub
 email-validator
 google-generativeai
+google-adk>=1.0.0
 aiosmtplib
 jinja2
 python-dotenv

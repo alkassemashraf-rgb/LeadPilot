@@ -194,7 +194,7 @@ class ExecutionInstance(WorkspaceScopedModel, table=True):
 
 class ExecutionStepLog(BaseIDModel, table=True):
     execution_instance_id: UUID = Field(foreign_key="executioninstance.id")
-    node_id: UUID = Field(foreign_key="flownode.id")
+    node_id: Optional[UUID] = Field(default=None, foreign_key="flownode.id")
     input_data: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     output_data: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSON))
     error_message: Optional[str] = None

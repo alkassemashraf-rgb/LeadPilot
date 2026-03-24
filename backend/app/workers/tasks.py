@@ -26,7 +26,7 @@ from app.models.models import (
 )
 from app.domain.contacts import normalize_phone
 from app.domain.contacts import resolve_or_create_contact
-from app.domain.runtime import execute_instance
+from app.core.adk.runner import run_for_contact
 from app.services.dispatch_service import DispatchService
 
 logger = get_task_logger(__name__)
@@ -490,8 +490,15 @@ def process_webhook_event(event_id: str):
                                     related_ids={"webhook_event_id": event_id, "execution_instance_id": str(instance.id)})
                     await session.commit()
 
-                    # 5. Execute Runtime
-                    await execute_instance(instance.id)
+                    # 5. Execute Runtime (ADK — Mission M-A)
+                    await run_for_contact(
+                        workspace_id=event.workspace_id,
+                        contact_id=contact.id,
+                        conversation_id=conversation.id,
+                        inbound_message=info.get("content") or "",
+                        execution_instance=instance,
+                        session=session,
+                    )
 
                 # Mark event success
                 event.status = WebhookStatus.PROCESSED
