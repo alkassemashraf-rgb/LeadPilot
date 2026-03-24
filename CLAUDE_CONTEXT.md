@@ -204,6 +204,32 @@ SQLModel ORM objects need `ConfigDict(from_attributes=True)` on Pydantic respons
 
 ---
 
+## ADK Architecture (Missions M-A through M-E)
+
+- Entry point: `app/core/adk/runner.py` → `run_for_contact()` (get-or-create session pattern)
+- Agent graph: `app/core/adk/agents/orchestrator.py` → `build_orchestrator()` → routes to
+  QualificationAgent, CRMAgent, ReplyAgent, HandoverAgent via `AgentTool`
+- Session service: `app/core/adk/session_service.py` → `LeadPilotSessionService`
+- Callbacks (M-E): `app/core/adk/callbacks.py` → `LeadPilotCallbackHandler` → `RuntimeEventLog`
+  - Fires on every agent start/end, LLM request/response, tool start/end
+  - Attached to orchestrator agent in `runner.py` after `build_orchestrator()`
+- Builder: `FlowVersion.adk_pipeline_config` stores ADK pipeline config (M-D)
+- Execution trace: `GET /api/v1/admin/executions/{id}/trace` → ordered `RuntimeEventLog` rows
+- Event types documented in `docs/missions/event-types.md`
+- Metrics: `MetricsService.gauge()` added (M-E); agent metrics exposed at `GET /admin/metrics`
+- Tests: 360 total (8 new M-E tests: `test_callbacks.py` + `test_e2e_agent_flow.py`)
+
+### Mission Status
+| Mission | Description | Status |
+|---|---|---|
+| M-A | ADK Core Integration | ✅ |
+| M-B | Multi-Agent Orchestration | ✅ |
+| M-C | Session & Memory | ✅ |
+| M-D | Flow Builder Revamp | ✅ |
+| M-E | Observability & Tests | ✅ |
+
+---
+
 ## Docs Location
 
 Project docs (mission notes): `docs/missions/`

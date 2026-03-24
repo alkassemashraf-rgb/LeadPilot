@@ -27,6 +27,11 @@ class MetricsService:
         with self._lock:
             return dict(self._counters)
 
+    def gauge(self, metric: str, value: float) -> None:
+        """Set a gauge metric (overwrites previous value, not additive)."""
+        with self._lock:
+            self._counters[f"gauge:{metric}"] = int(value)
+
     def reset(self):
         """Reset all counters (for testing)."""
         with self._lock:

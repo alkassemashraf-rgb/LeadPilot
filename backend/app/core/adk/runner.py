@@ -4,6 +4,7 @@ ADK runner — replaces execute_instance() from domain/runtime.py (Mission M-A).
 run_for_contact() is the new entry point called from workers/tasks.py.
 """
 import logging
+import time
 from uuid import UUID
 
 from google.adk.runners import Runner
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from app.core.adk.agents.orchestrator import build_orchestrator
+from app.core.adk.callbacks import LeadPilotCallbackHandler
 from app.core.adk.session_service import LeadPilotSessionService
 from app.core.db import engine
 from app.models.models import (
@@ -23,6 +25,7 @@ from app.models.models import (
     Message,
 )
 from app.services.runtime_event_service import log_event
+from app.services.metrics_service import metrics
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +60,21 @@ async def run_for_contact(
             instance=execution_instance,
             pipeline_config=pipeline_config,
         )
+
+        # Attach observability callbacks (M-E)
+        _cb = LeadPilotCallbackHandler(
+            workspace_id=str(workspace_id),
+            instance_id=str(execution_instance.id),
+            db_session=session,
+        )
+        agent.before_agent_callback = _cb.before_agent
+        agent.after_agent_callback = _cb.after_agent
+        agent.before_model_callback = _cb.before_model
+        agent.after_model_callback = _cb.after_model
+        agent.before_tool_callback = _cb.before_tool
+        agent.after_tool_callback = _cb.after_tool
+        agent.on_model_error_callback = _cb.on_model_error
+        agent.on_tool_error_callback = _cb.on_tool_error
 
         session_service = LeadPilotSessionService(db_engine=engine)
         adk_session_id = str(conversation_id)
@@ -112,6 +130,7 @@ async def run_for_contact(
             parts=[types.Part(text=inbound_message)],
         )
 
+        _turn_start = time.time()
         await log_event(
             session,
             event_type="runtime.adk_turn_started",
@@ -141,11 +160,15 @@ async def run_for_contact(
         session.add(execution_instance)
         await session.commit()
 
+        _turn_duration_ms = int((time.time() - _turn_start) * 1000)
+        metrics.increment("agent.turns_processed")
+        metrics.gauge("agent.avg_turn_duration_ms", _turn_duration_ms)
         await log_event(
             session,
             event_type="runtime.adk_turn_completed",
             source="adk_runner",
             workspace_id=workspace_id,
+            duration_ms=_turn_duration_ms,
             related_ids={
                 "execution_instance_id": str(execution_instance.id),
             },

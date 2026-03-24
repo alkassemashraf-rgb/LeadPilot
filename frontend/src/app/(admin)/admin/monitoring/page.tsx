@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { adminApi } from "@/lib/admin-api";
 import {
     Activity,
@@ -12,21 +13,31 @@ import {
     XCircle,
     AlertCircle,
     Info,
-    RotateCcw
+    RotateCcw,
+    ExternalLink,
+    BarChart2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type Tab = "integrations" | "webhooks" | "executions";
+type Tab = "integrations" | "webhooks" | "executions" | "agent-metrics";
 
 export default function AdminMonitoringPage() {
     const [activeTab, setActiveTab] = useState<Tab>("integrations");
     const [data, setData] = useState<any[]>([]);
+    const [metrics, setMetrics] = useState<Record<string, number>>({});
     const [loading, setLoading] = useState(true);
     const [replaying, setReplaying] = useState<string | null>(null);
 
     const fetchData = async () => {
         setLoading(true);
+        if (activeTab === "agent-metrics") {
+            const res = await adminApi.getAdminMetrics();
+            if (res.success && res.data) setMetrics(res.data as Record<string, number>);
+            else toast.error(res.error || "Failed to load metrics");
+            setLoading(false);
+            return;
+        }
         let res;
         if (activeTab === "integrations") res = await adminApi.getIntegrations();
         else if (activeTab === "webhooks") res = await adminApi.getWebhooks();
@@ -98,10 +109,31 @@ export default function AdminMonitoringPage() {
                     Executions
                     {activeTab === "executions" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400" />}
                 </button>
+                <button
+                    onClick={() => setActiveTab("agent-metrics")}
+                    className={cn(
+                        "pb-3 text-sm font-medium transition-colors relative flex items-center gap-1.5",
+                        activeTab === "agent-metrics" ? "text-amber-400" : "text-slate-500 hover:text-slate-300"
+                    )}
+                >
+                    <BarChart2 className="w-3.5 h-3.5" /> Agent Metrics
+                    {activeTab === "agent-metrics" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-amber-400" />}
+                </button>
             </div>
 
-            {/* Content Area */}
-            <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden min-h-[400px]">
+            {/* Agent Metrics Tab */}
+            {activeTab === "agent-metrics" && (
+                loading ? (
+                    <div className="flex flex-col items-center justify-center p-20 gap-4">
+                        <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
+                    </div>
+                ) : (
+                    <AgentMetricsPanel metrics={metrics} />
+                )
+            )}
+
+            {/* Content Area — other tabs */}
+            {activeTab !== "agent-metrics" && <div className="bg-white/5 border border-white/10 rounded-xl overflow-hidden min-h-[400px]">
                 {loading ? (
                     <div className="flex flex-col items-center justify-center p-20 gap-4">
                         <Loader2 className="w-8 h-8 text-amber-500 animate-spin" />
@@ -140,7 +172,8 @@ export default function AdminMonitoringPage() {
                                             <th className="px-6 py-3">Execution ID</th>
                                             <th className="px-6 py-3">Flow</th>
                                             <th className="px-6 py-3">Status</th>
-                                            <th className="px-6 py-3">Duration</th>
+                                            <th className="px-6 py-3">Started</th>
+                                            <th className="px-6 py-3">Trace</th>
                                         </>
                                     )}
                                 </tr>
@@ -186,7 +219,15 @@ export default function AdminMonitoringPage() {
                                                 <td className="px-6 py-4">
                                                     <StatusBadge status={item.status} />
                                                 </td>
-                                                <td className="px-6 py-4 text-slate-500">Started {new Date(item.created_at).toLocaleTimeString()}</td>
+                                                <td className="px-6 py-4 text-slate-500">{new Date(item.created_at).toLocaleTimeString()}</td>
+                                                <td className="px-6 py-4">
+                                                    <Link
+                                                        href={`/admin/executions/${item.id}`}
+                                                        className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300 transition-colors"
+                                                    >
+                                                        <ExternalLink className="w-3 h-3" /> View Trace
+                                                    </Link>
+                                                </td>
                                             </>
                                         )}
                                     </tr>
@@ -195,7 +236,7 @@ export default function AdminMonitoringPage() {
                         </table>
                     </div>
                 )}
-            </div>
+            </div>}
 
             <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex gap-4">
                 <AlertCircle className="w-5 h-5 text-amber-500 shrink-0" />
@@ -204,6 +245,30 @@ export default function AdminMonitoringPage() {
                     <p>Secret fields (tokens, keys) are automatically masked in this view. Only structural and status data are visible to monitoring staff.</p>
                 </div>
             </div>
+        </div>
+    );
+}
+
+function AgentMetricsPanel({ metrics }: { metrics: Record<string, number> }) {
+    const agentKeys = Object.entries(metrics).filter(([k]) => k.startsWith("agent.") || k.startsWith("gauge:agent."));
+    if (agentKeys.length === 0) {
+        return (
+            <div className="bg-white/5 border border-white/10 rounded-xl p-12 text-center text-slate-500 text-sm">
+                No agent metrics recorded yet. Metrics appear after the first agent turn.
+            </div>
+        );
+    }
+    return (
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {agentKeys.map(([k, v]) => {
+                const label = k.replace("gauge:", "").replace("agent.", "").replace(/_/g, " ");
+                return (
+                    <div key={k} className="bg-white/5 border border-white/10 rounded-xl p-4">
+                        <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">{label}</p>
+                        <p className="text-2xl font-bold text-white mt-1">{v.toLocaleString()}</p>
+                    </div>
+                );
+            })}
         </div>
     );
 }

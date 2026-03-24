@@ -1056,6 +1056,39 @@ async def list_executions(
     })
 
 
+@router.get("/executions/{instance_id}/trace", response_model=ResponseEnvelope[dict])
+async def get_execution_trace(
+    instance_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    admin_user: User = Depends(require_superadmin),
+) -> Any:
+    """Return all RuntimeEventLog rows for a given ExecutionInstance, ordered by time."""
+    result = await db.execute(
+        select(RuntimeEventLog)
+        .where(
+            RuntimeEventLog.related_ids["execution_instance_id"].as_string() == str(instance_id)
+        )
+        .order_by(RuntimeEventLog.created_at)
+    )
+    events = result.scalars().all()
+    return wrap_data({
+        "execution_instance_id": str(instance_id),
+        "events": [
+            {
+                "id": str(e.id),
+                "event_type": e.event_type,
+                "source": e.source,
+                "outcome": e.outcome,
+                "duration_ms": e.duration_ms,
+                "error_message": e.error_message,
+                "payload": e.payload,
+                "created_at": e.created_at.isoformat(),
+            }
+            for e in events
+        ],
+    })
+
+
 # ─── Plans & Entitlements (Mission 14) ──────────────────────────────────────
 
 class PlanCreateRequest(BaseModel):

@@ -122,6 +122,22 @@ export interface AuditLogEntry {
     created_at: string;
 }
 
+export interface ExecutionTraceEvent {
+    id: string;
+    event_type: string;
+    source: string;
+    outcome?: string | null;
+    duration_ms?: number | null;
+    error_message?: string | null;
+    payload?: Record<string, unknown> | null;
+    created_at: string;
+}
+
+export interface ExecutionTraceResponse {
+    execution_instance_id: string;
+    events: ExecutionTraceEvent[];
+}
+
 export interface RuntimeEventEntry {
     id: string;
     workspace_id?: string | null;
@@ -297,6 +313,10 @@ export const adminApi = {
     // Monitoring (legacy)
     getIntegrations: () => adminClient.get<{ items: any[] }>("/admin/integrations"),
     getExecutions: () => adminClient.get<{ items: any[] }>("/admin/executions"),
+    getExecutionTrace: (instanceId: string) =>
+        adminClient.get<ExecutionTraceResponse>(`/admin/executions/${instanceId}/trace`),
+    getAdminMetrics: () =>
+        adminClient.get<Record<string, number>>("/admin/metrics"),
 
     // Plans (Mission 14)
     getPlans: () => adminClient.get<{ items: any[] }>("/admin/plans"),
