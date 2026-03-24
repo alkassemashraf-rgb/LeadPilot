@@ -261,6 +261,12 @@ class Contact(WorkspaceScopedModel, table=True):
     zoho_lead_id: Optional[str] = Field(default=None, index=True)
     zoho_last_synced_at: Optional[datetime] = None
 
+    # Mission M-B: Multi-agent qualification
+    qualification_status: Optional[str] = Field(default=None)
+    # values: None | "in_progress" | "qualified" | "disqualified"
+    intent: Optional[str] = Field(default=None)
+    # values: None | "qualification" | "support" | "purchase" | "complaint"
+
     __table_args__ = (
         Index("idx_contact_workspace_zoho", "workspace_id", "zoho_lead_id"),
         Index("idx_contact_zoho_stats", "workspace_id", "zoho_last_synced_at"),

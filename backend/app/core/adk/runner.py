@@ -13,7 +13,7 @@ from google.genai import types
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from app.core.adk.agent import build_leadpilot_agent
+from app.core.adk.agents.orchestrator import build_orchestrator
 from app.models.models import (
     ExecutionInstance,
     ExecutionStatus,
@@ -43,8 +43,12 @@ async def run_for_contact(
     marks the ExecutionInstance COMPLETED or FAILED.
     """
     try:
-        agent = await build_leadpilot_agent(
-            workspace_id, session, execution_instance, inbound_message
+        agent = await build_orchestrator(
+            workspace_id=workspace_id,
+            contact_id=contact_id,
+            conversation_id=conversation_id,
+            session=session,
+            instance=execution_instance,
         )
 
         session_service = InMemorySessionService()
@@ -139,7 +143,7 @@ async def _build_adk_history(
     events: list[Event] = []
     for msg in messages:
         role = "user" if msg.direction == "inbound" else "model"
-        author = "user" if msg.direction == "inbound" else "leadpilot_agent"
+        author = "user" if msg.direction == "inbound" else "orchestrator"
         event = Event(
             invocation_id=f"history-{msg.id}",
             author=author,

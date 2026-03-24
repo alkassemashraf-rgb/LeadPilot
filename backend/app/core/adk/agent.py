@@ -1,5 +1,6 @@
 """
-Factory for building a fully-configured LlmAgent for a conversation turn.
+Single-agent mode factory — kept for tests and Prompt Studio.
+Production uses build_orchestrator() from app.core.adk.agents.orchestrator.
 """
 from uuid import UUID
 
