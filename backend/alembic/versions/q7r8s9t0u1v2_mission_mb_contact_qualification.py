@@ -16,8 +16,13 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("contact", sa.Column("qualification_status", sa.String(), nullable=True))
-    op.add_column("contact", sa.Column("intent", sa.String(), nullable=True))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    existing_cols = {c["name"] for c in inspector.get_columns("contact")}
+    if "qualification_status" not in existing_cols:
+        op.add_column("contact", sa.Column("qualification_status", sa.String(), nullable=True))
+    if "intent" not in existing_cols:
+        op.add_column("contact", sa.Column("intent", sa.String(), nullable=True))
 
 
 def downgrade() -> None:

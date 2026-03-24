@@ -1,11 +1,8 @@
-import logging
 from typing import Any, Dict
 from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select, desc
-
-logger = logging.getLogger(__name__)
 
 from app.api import deps
 from app.core.db import get_db
@@ -25,32 +22,28 @@ async def create_test_session(
     workspace: Workspace = Depends(deps.get_active_workspace),
 ) -> Any:
     """Create a new test conversation session."""
-    try:
-        result = await db.execute(
-            select(Contact).where(Contact.workspace_id == workspace.id, Contact.external_id == "test-contact")
-        )
-        contact = result.scalars().first()
-        if not contact:
-            contact = Contact(
-                workspace_id=workspace.id,
-                external_id="test-contact",
-                first_name="Test",
-                last_name="User"
-            )
-            db.add(contact)
-            await db.flush()
-
-        conversation = Conversation(
+    result = await db.execute(
+        select(Contact).where(Contact.workspace_id == workspace.id, Contact.external_id == "test-contact")
+    )
+    contact = result.scalars().first()
+    if not contact:
+        contact = Contact(
             workspace_id=workspace.id,
-            contact_id=contact.id
+            external_id="test-contact",
+            first_name="Test",
+            last_name="User"
         )
-        db.add(conversation)
-        await db.commit()
-        await db.refresh(conversation)
-        return wrap_data({"session_id": conversation.id})
-    except Exception as exc:
-        logger.error("create_test_session failed: %s", exc, exc_info=True)
-        return wrap_error(f"Session creation failed: {type(exc).__name__}: {exc}")
+        db.add(contact)
+        await db.flush()
+
+    conversation = Conversation(
+        workspace_id=workspace.id,
+        contact_id=contact.id
+    )
+    db.add(conversation)
+    await db.commit()
+    await db.refresh(conversation)
+    return wrap_data({"session_id": conversation.id})
 
 
 @router.post("/sessions/{session_id}/messages", response_model=ResponseEnvelope[dict], dependencies=[Depends(require_module_enabled(MODULE_RUNTIME_ENGINE, "write")), Depends(require_entitlement("runtime_engine"))])
