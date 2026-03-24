@@ -19,6 +19,8 @@ def build_reply_agent(
     platform: str,
     session: AsyncSession,
     instance: ExecutionInstance,
+    tone: str = "professional",
+    max_length: int = 160,
 ) -> LlmAgent:
     """
     Build the reply agent for a specific platform.
@@ -27,12 +29,14 @@ def build_reply_agent(
         platform: Messaging platform ("whatsapp" | "messenger" | "instagram")
         session: DB session (bound via closure)
         instance: Current execution instance (bound via closure)
+        tone: Desired reply tone from builder config (default: professional)
+        max_length: Max message character length from builder config (default: 160)
     """
     instruction = f"""You are the Reply Agent. Your ONLY job is to craft and send messages to the lead on {platform}.
 
 Rules:
-- Keep WhatsApp messages under 160 characters unless detail is genuinely required.
-- Match the business tone from the conversation context.
+- Keep messages under {max_length} characters unless detail is genuinely required.
+- Use a {tone} tone in all messages.
 - Never send multiple messages when one will do.
 - Use send_reply() for all text messages.
 - Use send_media_message() only when an image or document is explicitly needed.

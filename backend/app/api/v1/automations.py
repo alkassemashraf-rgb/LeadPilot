@@ -472,8 +472,8 @@ async def publish_flow(
             "errors": errors,
         })
 
-    # Translate to runtime contract
-    definition_json = translate(draft.builder_graph_json)
+    # Translate to runtime contract (dual output: legacy + ADK pipeline)
+    definition_json, adk_pipeline_config = translate(draft.builder_graph_json)
 
     # Get next version number
     version_result = await db.execute(
@@ -488,6 +488,7 @@ async def publish_flow(
         flow_id=flow_id,
         version_number=new_version_number,
         definition_json=definition_json,
+        adk_pipeline_config=adk_pipeline_config,
         is_published=True,
         created_at=now,
         updated_at=now,

@@ -169,7 +169,11 @@ class FlowVersion(BaseIDModel, table=True):
     version_number: int
     definition_json: Dict[str, Any] = Field(sa_column=Column(JSON))
     is_published: bool = Field(default=False)
-    
+    # Mission M-D: ADK pipeline config generated at publish time
+    adk_pipeline_config: Optional[Dict[str, Any]] = Field(
+        default=None, sa_column=Column(JSON)
+    )
+
     flow: "Flow" = Relationship(back_populates="versions")
 
 # --- Execution ---
@@ -187,6 +191,10 @@ class ExecutionInstance(WorkspaceScopedModel, table=True):
     # Mission 7.1: Abort Semantics
     abort_reason: Optional[str] = None
     aborted_at: Optional[datetime] = None
+
+    # Mission M-D: WAIT_DELAY resume support
+    resume_at: Optional[datetime] = Field(default=None)
+    resume_node_id: Optional[str] = Field(default=None)
 
     __table_args__ = (
         Index("idx_exec_stats", "workspace_id", "created_at", "status"),

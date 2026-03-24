@@ -1,6 +1,9 @@
 "use client";
 
-import { Bot, Send, User, Tag, Database, GitBranch, Clock, Info, X } from "lucide-react";
+import {
+    Bot, Send, User, Tag, Database, GitBranch, Clock, Info, X,
+    Shuffle, ArrowRightCircle, Filter, Map,
+} from "lucide-react";
 import type { BuilderNode } from "@/lib/automations-api";
 import { cn } from "@/lib/utils";
 
@@ -204,14 +207,280 @@ function ZohoUpsertConfig() {
     );
 }
 
-function ComingSoonConfig({ nodeType }: { nodeType: string }) {
+function ConditionConfig({
+    config,
+    onChange,
+}: {
+    config: Record<string, any>;
+    onChange: (updated: Record<string, any>) => void;
+}) {
+    const CONDITION_TYPES = [
+        { value: "qualification_status", label: "Qualification Status" },
+        { value: "intent", label: "Detected Intent" },
+        { value: "tag", label: "Contact Tag" },
+        { value: "custom_field", label: "Custom Field" },
+    ];
+    const OPERATORS = [
+        { value: "equals", label: "Equals" },
+        { value: "not_equals", label: "Not Equals" },
+        { value: "contains", label: "Contains" },
+        { value: "greater_than", label: "Greater Than" },
+        { value: "less_than", label: "Less Than" },
+    ];
+
     return (
-        <div className="flex items-start gap-2 p-3 rounded-lg bg-gray-50 dark:bg-gray-900/40 border border-border text-sm text-muted-foreground">
-            <Info className="w-4 h-4 shrink-0 mt-0.5" />
-            <p>
-                <strong>{nodeType}</strong> is coming soon and cannot be used in published
-                automations yet. You can add it to the canvas for planning purposes.
+        <div className="space-y-4">
+            <LabeledField label="Condition Type" required>
+                <select
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    value={config.condition_type ?? ""}
+                    onChange={(e) => onChange({ ...config, condition_type: e.target.value })}
+                >
+                    <option value="">Select a condition type...</option>
+                    {CONDITION_TYPES.map((ct) => (
+                        <option key={ct.value} value={ct.value}>{ct.label}</option>
+                    ))}
+                </select>
+            </LabeledField>
+            <LabeledField label="Operator" required>
+                <select
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    value={config.operator ?? ""}
+                    onChange={(e) => onChange({ ...config, operator: e.target.value })}
+                >
+                    <option value="">Select an operator...</option>
+                    {OPERATORS.map((op) => (
+                        <option key={op.value} value={op.value}>{op.label}</option>
+                    ))}
+                </select>
+            </LabeledField>
+            <LabeledField label="Value">
+                <input
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                    placeholder="e.g. qualified"
+                    value={config.value ?? ""}
+                    onChange={(e) => onChange({ ...config, value: e.target.value })}
+                />
+            </LabeledField>
+            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 text-xs text-cyan-700">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <p>Connect the <strong>TRUE</strong> handle to the path taken when the condition passes, and <strong>FALSE</strong> to the fallback path.</p>
+            </div>
+        </div>
+    );
+}
+
+function WaitDelayConfig({
+    config,
+    onChange,
+}: {
+    config: Record<string, any>;
+    onChange: (updated: Record<string, any>) => void;
+}) {
+    const UNITS = [
+        { value: "minutes", seconds: 60, label: "Minutes" },
+        { value: "hours", seconds: 3600, label: "Hours" },
+        { value: "days", seconds: 86400, label: "Days" },
+    ];
+
+    const unit = config.delay_unit ?? "hours";
+    const unitEntry = UNITS.find((u) => u.value === unit) ?? UNITS[1];
+    const displayValue = config.delay_seconds
+        ? Math.round(Number(config.delay_seconds) / unitEntry.seconds)
+        : "";
+
+    const handleChange = (rawValue: string, rawUnit: string) => {
+        const unitEntry2 = UNITS.find((u) => u.value === rawUnit) ?? UNITS[1];
+        const seconds = Math.max(60, (Number(rawValue) || 0) * unitEntry2.seconds);
+        onChange({ ...config, delay_seconds: seconds, delay_unit: rawUnit });
+    };
+
+    return (
+        <div className="space-y-4">
+            <LabeledField label="Delay Duration" required>
+                <div className="flex gap-2">
+                    <input
+                        type="number"
+                        min="1"
+                        className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        placeholder="e.g. 2"
+                        value={displayValue}
+                        onChange={(e) => handleChange(e.target.value, unit)}
+                    />
+                    <select
+                        className="w-28 rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                        value={unit}
+                        onChange={(e) => handleChange(String(displayValue), e.target.value)}
+                    >
+                        {UNITS.map((u) => (
+                            <option key={u.value} value={u.value}>{u.label}</option>
+                        ))}
+                    </select>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">Minimum: 1 minute.</p>
+            </LabeledField>
+            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200 text-xs text-indigo-700">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <p>Execution pauses here. The flow resumes after the delay via a background scheduler.</p>
+            </div>
+        </div>
+    );
+}
+
+function ParallelConfig({
+    config,
+    onChange,
+}: {
+    config: Record<string, any>;
+    onChange: (updated: Record<string, any>) => void;
+}) {
+    const AVAILABLE_AGENTS = [
+        { value: "qualification", label: "Qualification Agent" },
+        { value: "crm", label: "CRM Agent" },
+        { value: "reply", label: "Reply Agent" },
+        { value: "handover", label: "Handover Agent" },
+    ];
+
+    const selected: string[] = Array.isArray(config.agents) ? config.agents : [];
+
+    const toggle = (value: string) => {
+        const next = selected.includes(value)
+            ? selected.filter((a) => a !== value)
+            : [...selected, value];
+        onChange({ ...config, agents: next });
+    };
+
+    return (
+        <div className="space-y-4">
+            <LabeledField label="Agents to run in parallel">
+                <div className="space-y-2">
+                    {AVAILABLE_AGENTS.map((agent) => (
+                        <label key={agent.value} className="flex items-center gap-2.5 cursor-pointer group">
+                            <input
+                                type="checkbox"
+                                className="w-4 h-4 rounded border-border text-teal-600 focus:ring-teal-500"
+                                checked={selected.includes(agent.value)}
+                                onChange={() => toggle(agent.value)}
+                            />
+                            <span className="text-sm text-slate-700 group-hover:text-slate-900">{agent.label}</span>
+                        </label>
+                    ))}
+                </div>
+            </LabeledField>
+            <div className="flex items-start gap-2 p-2.5 rounded-lg bg-teal-50 dark:bg-teal-950/20 border border-teal-200 text-xs text-teal-700">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                <p>Selected agents will run simultaneously. Results are merged before continuing.</p>
+            </div>
+        </div>
+    );
+}
+
+function AgentHandoffConfig({
+    config,
+    onChange,
+}: {
+    config: Record<string, any>;
+    onChange: (updated: Record<string, any>) => void;
+}) {
+    const AGENTS = [
+        { value: "qualification", label: "Qualification Agent" },
+        { value: "crm", label: "CRM Agent" },
+        { value: "reply", label: "Reply Agent" },
+        { value: "handover", label: "Handover Agent" },
+    ];
+
+    return (
+        <LabeledField label="Target Agent" required>
+            <select
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                value={config.target_agent ?? ""}
+                onChange={(e) => onChange({ ...config, target_agent: e.target.value })}
+            >
+                <option value="">Select an agent...</option>
+                {AGENTS.map((a) => (
+                    <option key={a.value} value={a.value}>{a.label}</option>
+                ))}
+            </select>
+        </LabeledField>
+    );
+}
+
+function QualificationGateConfig() {
+    return (
+        <div className="space-y-3">
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-lime-50 dark:bg-lime-950/20 border border-lime-200 text-sm text-lime-800">
+                <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                <p>
+                    Routes leads based on their qualification status. Connect the{" "}
+                    <strong>QUALIFIED</strong> handle for qualified leads and the{" "}
+                    <strong>UNQUALIFIED</strong> handle for those still being evaluated.
+                </p>
+            </div>
+            <p className="text-xs text-muted-foreground">
+                Qualification criteria are configured in your workspace settings.
             </p>
+        </div>
+    );
+}
+
+function IntentRouterConfig({
+    config,
+    onChange,
+}: {
+    config: Record<string, any>;
+    onChange: (updated: Record<string, any>) => void;
+}) {
+    const routes: { intent: string; agent: string }[] = Array.isArray(config.routes) ? config.routes : [];
+
+    const AGENTS = ["qualification", "crm", "reply", "handover"];
+
+    const addRoute = () =>
+        onChange({ ...config, routes: [...routes, { intent: "", agent: "reply" }] });
+    const removeRoute = (i: number) =>
+        onChange({ ...config, routes: routes.filter((_, idx) => idx !== i) });
+    const updateRoute = (i: number, field: "intent" | "agent", val: string) =>
+        onChange({
+            ...config,
+            routes: routes.map((r, idx) => (idx === i ? { ...r, [field]: val } : r)),
+        });
+
+    return (
+        <div className="space-y-4">
+            <LabeledField label="Intent → Agent Routes" required>
+                <div className="space-y-2">
+                    {routes.map((route, i) => (
+                        <div key={i} className="flex gap-2 items-center">
+                            <input
+                                className="flex-1 rounded-lg border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                placeholder="Intent (e.g. complaint)"
+                                value={route.intent}
+                                onChange={(e) => updateRoute(i, "intent", e.target.value)}
+                            />
+                            <select
+                                className="w-28 rounded-lg border border-border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
+                                value={route.agent}
+                                onChange={(e) => updateRoute(i, "agent", e.target.value)}
+                            >
+                                {AGENTS.map((a) => (
+                                    <option key={a} value={a}>{a}</option>
+                                ))}
+                            </select>
+                            <button
+                                onClick={() => removeRoute(i)}
+                                className="p-1.5 rounded-md text-muted-foreground hover:text-red-500 hover:bg-red-50 transition-colors"
+                            >
+                                <X className="w-3.5 h-3.5" />
+                            </button>
+                        </div>
+                    ))}
+                    <button
+                        onClick={addRoute}
+                        className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+                    >
+                        + Add route
+                    </button>
+                </div>
+            </LabeledField>
         </div>
     );
 }
@@ -256,24 +525,34 @@ interface NodeConfigPanelProps {
 
 const NODE_TYPE_ICONS: Record<string, React.ReactNode> = {
     AI_REPLY: <Bot className="w-4 h-4" />,
+    AGENT_REPLY: <Bot className="w-4 h-4" />,
     SEND_MESSAGE: <Send className="w-4 h-4" />,
     HUMAN_HANDOVER: <User className="w-4 h-4" />,
     TAG_CONTACT: <Tag className="w-4 h-4" />,
     ZOHO_UPSERT_LEAD: <Database className="w-4 h-4" />,
     CONDITION: <GitBranch className="w-4 h-4" />,
     WAIT_DELAY: <Clock className="w-4 h-4" />,
+    PARALLEL: <Shuffle className="w-4 h-4" />,
+    AGENT_HANDOFF: <ArrowRightCircle className="w-4 h-4" />,
+    QUALIFICATION_GATE: <Filter className="w-4 h-4" />,
+    INTENT_ROUTER: <Map className="w-4 h-4" />,
     MESSAGE_INBOUND: <Bot className="w-4 h-4" />,
     LEAD_AD_SUBMIT: <Bot className="w-4 h-4" />,
 };
 
 const NODE_TYPE_LABELS: Record<string, string> = {
     AI_REPLY: "AI Reply",
+    AGENT_REPLY: "Agent Reply",
     SEND_MESSAGE: "Send Message",
     HUMAN_HANDOVER: "Human Handover",
     TAG_CONTACT: "Tag Contact",
     ZOHO_UPSERT_LEAD: "Zoho: Upsert Lead",
     CONDITION: "Condition",
     WAIT_DELAY: "Wait / Delay",
+    PARALLEL: "Parallel",
+    AGENT_HANDOFF: "Agent Handoff",
+    QUALIFICATION_GATE: "Qualification Gate",
+    INTENT_ROUTER: "Intent Router",
     MESSAGE_INBOUND: "Inbound Message",
     LEAD_AD_SUBMIT: "Lead Ad Submission",
 };
@@ -327,7 +606,7 @@ export default function NodeConfigPanel({ node, onClose, onUpdateConfig }: NodeC
 
             {/* Config body */}
             <div className="px-4 py-4 flex-1 space-y-4">
-                {nodeType === "AI_REPLY" && (
+                {(nodeType === "AI_REPLY" || nodeType === "AGENT_REPLY") && (
                     <AiReplyConfig config={config} onChange={handleChange} />
                 )}
                 {nodeType === "SEND_MESSAGE" && (
@@ -340,10 +619,23 @@ export default function NodeConfigPanel({ node, onClose, onUpdateConfig }: NodeC
                     <TagContactConfig config={config} onChange={handleChange} />
                 )}
                 {nodeType === "ZOHO_UPSERT_LEAD" && <ZohoUpsertConfig />}
-                {(nodeType === "CONDITION" || nodeType === "WAIT_DELAY") && (
-                    <ComingSoonConfig nodeType={NODE_TYPE_LABELS[nodeType] ?? nodeType} />
+                {nodeType === "CONDITION" && (
+                    <ConditionConfig config={config} onChange={handleChange} />
                 )}
-                {isTrigger && (nodeType === "MESSAGE_INBOUND") && (
+                {nodeType === "WAIT_DELAY" && (
+                    <WaitDelayConfig config={config} onChange={handleChange} />
+                )}
+                {nodeType === "PARALLEL" && (
+                    <ParallelConfig config={config} onChange={handleChange} />
+                )}
+                {nodeType === "AGENT_HANDOFF" && (
+                    <AgentHandoffConfig config={config} onChange={handleChange} />
+                )}
+                {nodeType === "QUALIFICATION_GATE" && <QualificationGateConfig />}
+                {nodeType === "INTENT_ROUTER" && (
+                    <IntentRouterConfig config={config} onChange={handleChange} />
+                )}
+                {isTrigger && nodeType === "MESSAGE_INBOUND" && (
                     <TriggerConfig config={config} onChange={handleChange} />
                 )}
                 {isTrigger && nodeType === "LEAD_AD_SUBMIT" && (

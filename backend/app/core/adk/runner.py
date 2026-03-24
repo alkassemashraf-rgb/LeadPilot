@@ -19,6 +19,7 @@ from app.models.models import (
     ExecutionInstance,
     ExecutionStatus,
     ExecutionStepLog,
+    FlowVersion,
     Message,
 )
 from app.services.runtime_event_service import log_event
@@ -44,12 +45,17 @@ async def run_for_contact(
     marks the ExecutionInstance COMPLETED or FAILED.
     """
     try:
+        # Load ADK pipeline config from the published FlowVersion
+        flow_version = await session.get(FlowVersion, execution_instance.flow_version_id)
+        pipeline_config = (flow_version.adk_pipeline_config or {}) if flow_version else {}
+
         agent = await build_orchestrator(
             workspace_id=workspace_id,
             contact_id=contact_id,
             conversation_id=conversation_id,
             session=session,
             instance=execution_instance,
+            pipeline_config=pipeline_config,
         )
 
         session_service = LeadPilotSessionService(db_engine=engine)

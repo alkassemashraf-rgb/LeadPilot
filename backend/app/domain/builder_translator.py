@@ -1,9 +1,9 @@
 """
-Builder Translator — Mission 27
+Builder Translator — Mission 27 / M-D
 
-Converts builder_graph_json (React Flow native format) into the runtime
-definition_json contract, validates graphs before publish, and simulates
-traversal without side effects.
+Converts builder_graph_json (React Flow native format) into:
+  1. runtime definition_json (legacy format, stored in FlowVersion for audit/display)
+  2. adk_pipeline_config (new format, drives the ADK orchestrator at runtime)
 
 Builder graph format (stored in FlowDraft.builder_graph_json):
 {
@@ -22,6 +22,19 @@ Runtime definition_json format (stored in FlowVersion.definition_json):
     "nodes": [{"id": "...", "type": "TRIGGER", "config": {...}}, ...],
     "edges": [{"id": "...", "source_node_id": "...", "target_node_id": "...", "source_handle": null}]
 }
+
+ADK pipeline config format (stored in FlowVersion.adk_pipeline_config):
+{
+    "pipeline_type": "orchestrated",
+    "agents": {
+        "orchestrator": {"routing_rules": [...], "sub_agents": []},
+        "reply": {"tone": "...", "max_length": 160},
+        ...
+    },
+    "triggers": [...],
+    "condition_branches": [...],
+    "wait_delays": [...]
+}
 """
 from __future__ import annotations
 
@@ -33,14 +46,17 @@ logger = logging.getLogger(__name__)
 # Trigger node types that map to runtime TRIGGER node type
 TRIGGER_NODE_TYPES = {"MESSAGE_INBOUND", "LEAD_AD_SUBMIT"}
 
-# Node types supported by the runtime engine
+# All node types supported by the runtime engine (Mission M-D: unlocked + new)
 RUNTIME_SUPPORTED_NODE_TYPES = {
-    "AI_REPLY", "SEND_MESSAGE", "HUMAN_HANDOVER",
+    "AI_REPLY", "AGENT_REPLY", "SEND_MESSAGE", "HUMAN_HANDOVER",
     "TAG_CONTACT", "ZOHO_UPSERT_LEAD",
+    "CONDITION", "WAIT_DELAY",              # unlocked in M-D
+    "PARALLEL", "AGENT_HANDOFF",            # new in M-D
+    "QUALIFICATION_GATE", "INTENT_ROUTER",  # new in M-D
 }
 
-# Builder-only node types (visual palette only; blocked from publishing)
-BUILDER_ONLY_NODE_TYPES = {"CONDITION", "WAIT_DELAY"}
+# Builder-only node types blocked from publishing (now empty — all types publishable)
+BUILDER_ONLY_NODE_TYPES: set[str] = set()
 
 
 def validate_graph(builder_graph: dict[str, Any]) -> list[dict[str, Any]]:
@@ -76,16 +92,6 @@ def validate_graph(builder_graph: dict[str, Any]) -> list[dict[str, Any]]:
                 "message": "Flow can only have one trigger node."
             })
 
-    # Check builder-only (unsupported runtime) node types
-    for node in nodes:
-        nt = _get_node_type(node)
-        if nt in BUILDER_ONLY_NODE_TYPES:
-            errors.append({
-                "node_id": node.get("id"),
-                "field": "type",
-                "message": f"Node type '{nt}' is not yet supported by the runtime engine — cannot publish. Remove it or replace it with a supported action."
-            })
-
     # Build reachability set from trigger (BFS/DFS)
     if trigger_nodes:
         trigger_id = trigger_nodes[0].get("id")
@@ -116,7 +122,7 @@ def validate_graph(builder_graph: dict[str, Any]) -> list[dict[str, Any]]:
         config = node.get("data", {}).get("config", {})
         nid = node.get("id")
 
-        if nt == "AI_REPLY":
+        if nt in ("AI_REPLY", "AGENT_REPLY"):
             goal = (config.get("goal") or "").strip()
             if not goal:
                 errors.append({
@@ -143,61 +149,160 @@ def validate_graph(builder_graph: dict[str, Any]) -> list[dict[str, Any]]:
                     "message": "Tag Contact node requires a tag name."
                 })
 
+        elif nt == "CONDITION":
+            if not (config.get("condition_type") or "").strip():
+                errors.append({
+                    "node_id": nid,
+                    "field": "config.condition_type",
+                    "message": "Condition node requires a condition type (e.g. qualification_status, intent, tag)."
+                })
+            if not (config.get("operator") or "").strip():
+                errors.append({
+                    "node_id": nid,
+                    "field": "config.operator",
+                    "message": "Condition node requires an operator (e.g. equals, contains)."
+                })
+
+        elif nt == "WAIT_DELAY":
+            delay = config.get("delay_seconds")
+            try:
+                delay_val = int(delay) if delay is not None else 0
+            except (ValueError, TypeError):
+                delay_val = 0
+            if delay_val < 60:
+                errors.append({
+                    "node_id": nid,
+                    "field": "config.delay_seconds",
+                    "message": "Wait / Delay node requires a minimum delay of 60 seconds (1 minute)."
+                })
+
+        elif nt == "AGENT_HANDOFF":
+            if not (config.get("target_agent") or "").strip():
+                errors.append({
+                    "node_id": nid,
+                    "field": "config.target_agent",
+                    "message": "Agent Handoff node requires a target agent name."
+                })
+
+        elif nt == "INTENT_ROUTER":
+            routes = config.get("routes") or []
+            if not routes:
+                errors.append({
+                    "node_id": nid,
+                    "field": "config.routes",
+                    "message": "Intent Router node requires at least one intent-to-agent route."
+                })
+
+        # QUALIFICATION_GATE: no required config — reads workspace config at runtime
+        # PARALLEL: no required config — agents field is optional
+
     return errors
 
 
-def translate(builder_graph: dict[str, Any]) -> dict[str, Any]:
+def translate(builder_graph: dict[str, Any]) -> tuple[dict[str, Any], dict[str, Any]]:
     """
-    Translate builder_graph_json to runtime definition_json.
+    Translate builder_graph_json to dual output.
     Must only be called after validate_graph() returns an empty list.
-    Returns the definition_json ready for FlowVersion.definition_json.
+
+    Returns:
+        (definition_json, adk_pipeline_config)
+        definition_json: legacy runtime format, stored in FlowVersion.definition_json
+        adk_pipeline_config: new ADK format, stored in FlowVersion.adk_pipeline_config
     """
-    nodes_in = builder_graph.get("nodes", [])
-    edges_in = builder_graph.get("edges", [])
+    definition_json = _translate_legacy(builder_graph)
+    adk_pipeline = translate_to_adk_pipeline(builder_graph)
+    return definition_json, adk_pipeline
 
-    runtime_nodes = []
-    start_node_id: str | None = None
 
-    for node in nodes_in:
-        nid = node.get("id")
+def translate_to_adk_pipeline(builder_graph: dict[str, Any]) -> dict[str, Any]:
+    """
+    Translate builder_graph_json to an ADK pipeline config dict.
+    This drives how the OrchestratorAgent is configured at runtime.
+    """
+    nodes = builder_graph.get("nodes", [])
+    edges = builder_graph.get("edges", [])
+
+    pipeline: dict[str, Any] = {
+        "pipeline_type": "orchestrated",
+        "agents": {
+            "orchestrator": {"routing_rules": [], "sub_agents": []},
+            "qualification": {},
+            "crm": {},
+            "reply": {},
+            "handover": {},
+        },
+        "triggers": [],
+        "condition_branches": [],
+        "wait_delays": [],
+    }
+
+    for node in nodes:
         node_type = _get_node_type(node)
-        data = node.get("data", {})
-        config = data.get("config", {})
+        config = node.get("data", {}).get("config", {})
+        nid = node.get("id")
 
         if node_type in TRIGGER_NODE_TYPES:
-            # Trigger node → runtime TRIGGER type
-            runtime_nodes.append({
-                "id": nid,
-                "type": "TRIGGER",
-                "config": {
-                    "trigger_type": node_type,
-                    "platform": data.get("platform", config.get("platform", "whatsapp")),
-                    "keywords": data.get("keywords", config.get("keywords", [])),
-                },
-            })
-            start_node_id = nid
-        else:
-            # Action node → preserve type and config
-            runtime_nodes.append({
-                "id": nid,
+            pipeline["triggers"].append({
                 "type": node_type,
-                "config": config,
+                "platform": node.get("data", {}).get("platform", config.get("platform", "whatsapp")),
             })
 
-    runtime_edges = []
-    for edge in edges_in:
-        runtime_edges.append({
-            "id": edge.get("id"),
-            "source_node_id": edge.get("source"),
-            "target_node_id": edge.get("target"),
-            "source_handle": edge.get("sourceHandle"),
-        })
+        elif node_type in ("AI_REPLY", "AGENT_REPLY"):
+            pipeline["agents"]["reply"].update({
+                "goal": config.get("goal"),
+                "tone": config.get("tone", "professional"),
+                "max_length": config.get("max_length", 160),
+                "extra_instructions": config.get("extra_instructions"),
+            })
 
-    return {
-        "start_node_id": start_node_id,
-        "nodes": runtime_nodes,
-        "edges": runtime_edges,
-    }
+        elif node_type == "CONDITION":
+            pipeline["condition_branches"].append({
+                "node_id": nid,
+                "condition_type": config.get("condition_type"),
+                "operator": config.get("operator"),
+                "value": config.get("value"),
+                "true_branch": _get_next_node(nid, edges, handle="true"),
+                "false_branch": _get_next_node(nid, edges, handle="false"),
+            })
+
+        elif node_type == "WAIT_DELAY":
+            pipeline["wait_delays"].append({
+                "node_id": nid,
+                "delay_seconds": config.get("delay_seconds", 3600),
+                "delay_unit": config.get("delay_unit", "hours"),
+                "resume_node_id": _get_next_node(nid, edges),
+            })
+
+        elif node_type == "QUALIFICATION_GATE":
+            pipeline["agents"]["orchestrator"]["routing_rules"].append({
+                "type": "qualification_gate",
+                "node_id": nid,
+                "qualified_branch": _get_next_node(nid, edges, handle="qualified"),
+                "unqualified_branch": _get_next_node(nid, edges, handle="unqualified"),
+            })
+
+        elif node_type == "INTENT_ROUTER":
+            pipeline["agents"]["orchestrator"]["routing_rules"].append({
+                "type": "intent_router",
+                "node_id": nid,
+                "routes": config.get("routes", []),
+            })
+
+        elif node_type == "PARALLEL":
+            pipeline["agents"]["orchestrator"]["routing_rules"].append({
+                "type": "parallel",
+                "node_id": nid,
+                "parallel_agents": config.get("agents", []),
+            })
+
+        elif node_type == "AGENT_HANDOFF":
+            pipeline["agents"]["orchestrator"]["routing_rules"].append({
+                "type": "agent_handoff",
+                "node_id": nid,
+                "target_agent": config.get("target_agent"),
+            })
+
+    return pipeline
 
 
 def simulate(
@@ -252,8 +357,8 @@ def simulate(
             step["description"] = f"Trigger: {node_type}"
             if mock_payload:
                 step["mock_payload"] = mock_payload
-        elif node_type == "AI_REPLY":
-            step["description"] = "AI Reply — would generate a response using your workspace prompt configuration."
+        elif node_type in ("AI_REPLY", "AGENT_REPLY"):
+            step["description"] = "Agent Reply — would generate a response using your workspace prompt configuration."
             step["goal"] = config.get("goal", "(no goal set)")
             step["would_dispatch"] = False
         elif node_type == "SEND_MESSAGE":
@@ -270,9 +375,27 @@ def simulate(
             step["description"] = f"Tag Contact — would apply tag '{config.get('tag', '')}' to the contact."
         elif node_type == "ZOHO_UPSERT_LEAD":
             step["description"] = "Zoho CRM — would upsert the contact as a lead in Zoho CRM."
-        elif node_type in BUILDER_ONLY_NODE_TYPES:
-            step["description"] = f"{node_type} — not yet supported by runtime. This node would be skipped."
-            step["warning"] = "Builder-only node type"
+        elif node_type == "CONDITION":
+            step["description"] = (
+                f"Condition — branches on '{config.get('condition_type', '?')}' "
+                f"{config.get('operator', '?')} '{config.get('value', '?')}'. "
+                "Simulation follows the 'true' branch."
+            )
+        elif node_type == "WAIT_DELAY":
+            delay = config.get("delay_seconds", 3600)
+            unit = config.get("delay_unit", "seconds")
+            step["description"] = f"Wait / Delay — would pause flow for {delay} {unit}."
+            step["note"] = "Simulation continues immediately; actual delay requires Celery beat."
+        elif node_type == "PARALLEL":
+            agents = config.get("agents", [])
+            step["description"] = f"Parallel — would run {len(agents)} agent(s) simultaneously: {', '.join(agents) or 'none configured'}."
+        elif node_type == "AGENT_HANDOFF":
+            step["description"] = f"Agent Handoff — would delegate to '{config.get('target_agent', '?')}' agent."
+        elif node_type == "QUALIFICATION_GATE":
+            step["description"] = "Qualification Gate — routes qualified leads to one branch, unqualified to another."
+        elif node_type == "INTENT_ROUTER":
+            routes = config.get("routes", [])
+            step["description"] = f"Intent Router — routes based on detected intent ({len(routes)} route(s) configured)."
         else:
             step["description"] = f"Unknown node type: {node_type}"
 
@@ -288,10 +411,77 @@ def simulate(
     }
 
 
+# ---------------------------------------------------------------------------
+# Private helpers
+# ---------------------------------------------------------------------------
+
+def _translate_legacy(builder_graph: dict[str, Any]) -> dict[str, Any]:
+    """
+    Translate builder_graph_json to the legacy runtime definition_json.
+    Stored in FlowVersion.definition_json for audit and display.
+    """
+    nodes_in = builder_graph.get("nodes", [])
+    edges_in = builder_graph.get("edges", [])
+
+    runtime_nodes = []
+    start_node_id: str | None = None
+
+    for node in nodes_in:
+        nid = node.get("id")
+        node_type = _get_node_type(node)
+        data = node.get("data", {})
+        config = data.get("config", {})
+
+        if node_type in TRIGGER_NODE_TYPES:
+            runtime_nodes.append({
+                "id": nid,
+                "type": "TRIGGER",
+                "config": {
+                    "trigger_type": node_type,
+                    "platform": data.get("platform", config.get("platform", "whatsapp")),
+                    "keywords": data.get("keywords", config.get("keywords", [])),
+                },
+            })
+            start_node_id = nid
+        else:
+            runtime_nodes.append({
+                "id": nid,
+                "type": node_type,
+                "config": config,
+            })
+
+    runtime_edges = []
+    for edge in edges_in:
+        runtime_edges.append({
+            "id": edge.get("id"),
+            "source_node_id": edge.get("source"),
+            "target_node_id": edge.get("target"),
+            "source_handle": edge.get("sourceHandle"),
+        })
+
+    return {
+        "start_node_id": start_node_id,
+        "nodes": runtime_nodes,
+        "edges": runtime_edges,
+    }
+
+
 def _get_node_type(node: dict) -> str:
     """Extract the business logic node type from a builder node."""
     data = node.get("data", {})
     return data.get("nodeType", "")
+
+
+def _get_next_node(node_id: str, edges: list[dict], handle: str | None = None) -> str | None:
+    """
+    Return the first target node ID connected from node_id.
+    If handle is specified, only consider edges with that sourceHandle.
+    """
+    for edge in edges:
+        if edge.get("source") == node_id:
+            if handle is None or edge.get("sourceHandle") == handle:
+                return edge.get("target")
+    return None
 
 
 def _reachable_nodes(start_id: str, edges: list[dict]) -> set[str]:

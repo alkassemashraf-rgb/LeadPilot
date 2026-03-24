@@ -121,8 +121,8 @@ def test_validate_graph_tag_contact_missing_tag():
     assert any(e["node_id"] == "node-1" for e in errors)
 
 
-def test_validate_graph_condition_node_blocked():
-    """CONDITION node should be blocked from publish with a clear message."""
+def test_validate_graph_condition_node_requires_config():
+    """CONDITION node without condition_type should return a config error (not a 'not supported' error)."""
     graph = {
         "nodes": [
             make_trigger_node(),
@@ -131,11 +131,31 @@ def test_validate_graph_condition_node_blocked():
         "edges": [make_edge("e1", "trigger-1", "node-1")],
     }
     errors = validate_graph(graph)
-    assert any(e["node_id"] == "node-1" and "not yet supported" in e["message"] for e in errors)
+    # Should have config errors, NOT a "not yet supported" error
+    assert any(e["node_id"] == "node-1" for e in errors)
+    assert not any("not yet supported" in e["message"] for e in errors)
+    assert any("condition_type" in e.get("field", "") for e in errors)
 
 
-def test_validate_graph_wait_delay_blocked():
-    """WAIT_DELAY node should be blocked from publish."""
+def test_validate_graph_condition_node_valid():
+    """CONDITION node with required config should pass validation."""
+    graph = {
+        "nodes": [
+            make_trigger_node(),
+            make_action_node("node-1", "CONDITION", {
+                "condition_type": "qualification_status",
+                "operator": "equals",
+                "value": "qualified",
+            }),
+        ],
+        "edges": [make_edge("e1", "trigger-1", "node-1")],
+    }
+    errors = validate_graph(graph)
+    assert errors == []
+
+
+def test_validate_graph_wait_delay_requires_delay_seconds():
+    """WAIT_DELAY node without delay_seconds should return a config error (not 'not supported')."""
     graph = {
         "nodes": [
             make_trigger_node(),
@@ -144,7 +164,22 @@ def test_validate_graph_wait_delay_blocked():
         "edges": [make_edge("e1", "trigger-1", "node-1")],
     }
     errors = validate_graph(graph)
-    assert any(e["node_id"] == "node-1" and "not yet supported" in e["message"] for e in errors)
+    assert any(e["node_id"] == "node-1" for e in errors)
+    assert not any("not yet supported" in e["message"] for e in errors)
+    assert any("delay_seconds" in e.get("field", "") for e in errors)
+
+
+def test_validate_graph_wait_delay_valid():
+    """WAIT_DELAY node with sufficient delay_seconds should pass."""
+    graph = {
+        "nodes": [
+            make_trigger_node(),
+            make_action_node("node-1", "WAIT_DELAY", {"delay_seconds": 3600}),
+        ],
+        "edges": [make_edge("e1", "trigger-1", "node-1")],
+    }
+    errors = validate_graph(graph)
+    assert errors == []
 
 
 def test_validate_graph_disconnected_node():
@@ -180,9 +215,9 @@ def test_validate_graph_lead_ad_submit_trigger():
 # ---------------------------------------------------------------------------
 
 def test_translate_produces_valid_contract():
-    """translate() should produce a valid runtime definition_json."""
+    """translate() should produce a valid runtime definition_json (first tuple element)."""
     graph = make_valid_graph()
-    definition = translate(graph)
+    definition, adk_pipeline = translate(graph)
 
     assert "nodes" in definition
     assert "edges" in definition
@@ -205,6 +240,10 @@ def test_translate_produces_valid_contract():
     assert edge["source_node_id"] == "trigger-1"
     assert edge["target_node_id"] == "node-1"
 
+    # ADK pipeline also returned
+    assert "pipeline_type" in adk_pipeline
+    assert adk_pipeline["pipeline_type"] == "orchestrated"
+
 
 def test_translate_sets_start_node_id():
     """start_node_id in output should match the trigger node id."""
@@ -215,14 +254,14 @@ def test_translate_sets_start_node_id():
         ],
         "edges": [make_edge("e1", "my-trigger", "step-1")],
     }
-    definition = translate(graph)
+    definition, _ = translate(graph)
     assert definition["start_node_id"] == "my-trigger"
 
 
 def test_translate_edge_format():
     """Edges in runtime format should use source_node_id and target_node_id."""
     graph = make_valid_graph()
-    definition = translate(graph)
+    definition, _ = translate(graph)
     edge = definition["edges"][0]
     assert "source_node_id" in edge
     assert "target_node_id" in edge
@@ -244,7 +283,7 @@ def test_translate_multiple_nodes():
             make_edge("e3", "n2", "n3"),
         ],
     }
-    definition = translate(graph)
+    definition, _ = translate(graph)
     assert len(definition["nodes"]) == 4
     assert len(definition["edges"]) == 3
     types = {n["type"] for n in definition["nodes"]}

@@ -39,6 +39,11 @@ celery_app.conf.beat_schedule = {
         "task": "app.workers.tasks.export_to_hf_task",
         "schedule": crontab(hour=2, minute=0),
     },
+    # Mission M-D: resume WAITING ExecutionInstances after WAIT_DELAY expires
+    "resume_waiting_instances_every_minute": {
+        "task": "app.workers.tasks.resume_waiting_instances_task",
+        "schedule": 60.0,
+    },
 }
 
 celery_app.autodiscover_tasks(["app.workers"])

@@ -3,7 +3,10 @@
 import { useState, useEffect } from "react";
 import { useCatalog, type CatalogEntry } from "@/lib/catalog";
 import { apiClient } from "@/lib/api";
-import { Zap, Bot, Send, User, Tag, Database, GitBranch, Clock, GripVertical, Lock } from "lucide-react";
+import {
+    Zap, Bot, Send, User, Tag, Database, GitBranch, Clock,
+    GripVertical, Lock, Shuffle, ArrowRightCircle, Filter, Map,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -20,6 +23,10 @@ const ICON_MAP: Record<string, React.ReactNode> = {
     clock: <Clock className="w-4 h-4" />,
     message: <Zap className="w-4 h-4" />,
     zap: <Zap className="w-4 h-4" />,
+    shuffle: <Shuffle className="w-4 h-4" />,
+    "arrow-right-circle": <ArrowRightCircle className="w-4 h-4" />,
+    filter: <Filter className="w-4 h-4" />,
+    map: <Map className="w-4 h-4" />,
 };
 
 // ---------------------------------------------------------------------------
@@ -171,12 +178,15 @@ export default function NodePalette({ hasTrigger }: NodePaletteProps) {
             {/* Divider */}
             <div className="mx-3 border-t border-border" />
 
-            {/* Action Nodes */}
+            {/* Agent Nodes */}
             <div className="px-3 py-4 space-y-2">
                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-1 mb-3">
-                    Actions
+                    Agent Nodes
                 </p>
-                {nodeTypes?.map((n) => (
+                {nodeTypes?.filter((n) => [
+                    "AI_REPLY", "AGENT_REPLY", "SEND_MESSAGE", "HUMAN_HANDOVER",
+                    "TAG_CONTACT", "ZOHO_UPSERT_LEAD",
+                ].includes(n.key)).map((n) => (
                     <PaletteItem
                         key={n.key}
                         nodeType={n.key}
@@ -188,21 +198,77 @@ export default function NodePalette({ hasTrigger }: NodePaletteProps) {
                 )) ?? (
                         <div className="space-y-1.5">
                             {[
-                                { key: "AI_REPLY", label: "AI Reply", iconHint: "bot" },
+                                { key: "AI_REPLY", label: "Agent Reply", iconHint: "bot" },
                                 { key: "SEND_MESSAGE", label: "Send Message", iconHint: "send" },
                                 { key: "HUMAN_HANDOVER", label: "Human Handover", iconHint: "user" },
                                 { key: "TAG_CONTACT", label: "Tag Contact", iconHint: "tag" },
                                 { key: "ZOHO_UPSERT_LEAD", label: "Zoho: Upsert Lead", iconHint: "database" },
-                                { key: "CONDITION", label: "Condition", iconHint: "git-branch", comingSoon: true },
-                                { key: "WAIT_DELAY", label: "Wait / Delay", iconHint: "clock", comingSoon: true },
                             ].map((n) => (
-                                <PaletteItem
-                                    key={n.key}
-                                    nodeType={n.key}
-                                    label={n.label}
-                                    iconHint={n.iconHint}
-                                    comingSoon={"comingSoon" in n ? n.comingSoon : false}
-                                />
+                                <PaletteItem key={n.key} nodeType={n.key} label={n.label} iconHint={n.iconHint} />
+                            ))}
+                        </div>
+                    )}
+            </div>
+
+            {/* Divider */}
+            <div className="mx-3 border-t border-border" />
+
+            {/* Flow Control */}
+            <div className="px-3 py-4 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-1 mb-3">
+                    Flow Control
+                </p>
+                {nodeTypes?.filter((n) => [
+                    "CONDITION", "WAIT_DELAY", "PARALLEL", "AGENT_HANDOFF",
+                ].includes(n.key)).map((n) => (
+                    <PaletteItem
+                        key={n.key}
+                        nodeType={n.key}
+                        label={n.label}
+                        iconHint={n.icon_hint ?? "git-branch"}
+                        comingSoon={n.runtime_supported === false}
+                        locked={isLocked(n)}
+                    />
+                )) ?? (
+                        <div className="space-y-1.5">
+                            {[
+                                { key: "CONDITION", label: "Condition", iconHint: "git-branch" },
+                                { key: "WAIT_DELAY", label: "Wait / Delay", iconHint: "clock" },
+                                { key: "PARALLEL", label: "Parallel", iconHint: "shuffle" },
+                                { key: "AGENT_HANDOFF", label: "Agent Handoff", iconHint: "arrow-right-circle" },
+                            ].map((n) => (
+                                <PaletteItem key={n.key} nodeType={n.key} label={n.label} iconHint={n.iconHint} />
+                            ))}
+                        </div>
+                    )}
+            </div>
+
+            {/* Divider */}
+            <div className="mx-3 border-t border-border" />
+
+            {/* Routing */}
+            <div className="px-3 py-4 space-y-2">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 px-1 mb-3">
+                    Routing
+                </p>
+                {nodeTypes?.filter((n) => [
+                    "QUALIFICATION_GATE", "INTENT_ROUTER",
+                ].includes(n.key)).map((n) => (
+                    <PaletteItem
+                        key={n.key}
+                        nodeType={n.key}
+                        label={n.label}
+                        iconHint={n.icon_hint ?? "filter"}
+                        comingSoon={n.runtime_supported === false}
+                        locked={isLocked(n)}
+                    />
+                )) ?? (
+                        <div className="space-y-1.5">
+                            {[
+                                { key: "QUALIFICATION_GATE", label: "Qualification Gate", iconHint: "filter" },
+                                { key: "INTENT_ROUTER", label: "Intent Router", iconHint: "map" },
+                            ].map((n) => (
+                                <PaletteItem key={n.key} nodeType={n.key} label={n.label} iconHint={n.iconHint} />
                             ))}
                         </div>
                     )}

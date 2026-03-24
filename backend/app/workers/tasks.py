@@ -672,3 +672,64 @@ def export_to_hf_task():
             )
 
     run_async(_run())
+
+
+@celery_app.task(name="app.workers.tasks.resume_waiting_instances_task")
+def resume_waiting_instances_task():
+    """
+    Every-minute task: find WAITING ExecutionInstances whose delay has elapsed
+    and re-trigger the ADK runner for them (Mission M-D: WAIT_DELAY support).
+    """
+    from sqlalchemy.ext.asyncio import AsyncSession
+    from app.models.models import Conversation
+
+    async def _run():
+        now = datetime.utcnow()
+        async with AsyncSession(engine, expire_on_commit=False) as session:
+            result = await session.execute(
+                select(ExecutionInstance).where(
+                    ExecutionInstance.status == ExecutionStatus.WAITING,
+                    ExecutionInstance.resume_at <= now,
+                )
+            )
+            instances = result.scalars().all()
+            if not instances:
+                return
+
+            for instance in instances:
+                try:
+                    instance.status = ExecutionStatus.RUNNING
+                    session.add(instance)
+                    await session.flush()
+
+                    # Resolve conversation_id for this contact in this workspace
+                    conv_result = await session.execute(
+                        select(Conversation).where(
+                            Conversation.workspace_id == instance.workspace_id,
+                            Conversation.contact_id == instance.contact_id,
+                        ).limit(1)
+                    )
+                    conversation = conv_result.scalars().first()
+                    if not conversation:
+                        logger.warning(
+                            f"[resume_waiting_instances_task] No conversation for instance {instance.id}"
+                        )
+                        continue
+
+                    await run_for_contact(
+                        workspace_id=instance.workspace_id,
+                        contact_id=instance.contact_id,
+                        conversation_id=conversation.id,
+                        inbound_message="[Resumed after delay]",
+                        execution_instance=instance,
+                        session=session,
+                    )
+                except Exception:
+                    logger.exception(
+                        f"[resume_waiting_instances_task] Failed to resume instance {instance.id}"
+                    )
+
+            await session.commit()
+            logger.info(f"[resume_waiting_instances_task] Resumed {len(instances)} waiting instance(s)")
+
+    run_async(_run())

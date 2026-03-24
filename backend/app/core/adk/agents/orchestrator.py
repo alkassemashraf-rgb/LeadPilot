@@ -37,6 +37,7 @@ async def build_orchestrator(
     conversation_id: UUID,
     session: AsyncSession,
     instance: ExecutionInstance,
+    pipeline_config: dict | None = None,
 ) -> LlmAgent:
     """
     Build the full multi-agent graph for one conversation turn.
@@ -88,7 +89,12 @@ async def build_orchestrator(
         for c in criteria_result.scalars().all()
     ]
 
-    # 5. Build sub-agents
+    # 5. Extract builder-configured policies (Mission M-D)
+    _pipeline = pipeline_config or {}
+    _reply_cfg = _pipeline.get("agents", {}).get("reply", {})
+    _routing_rules = _pipeline.get("agents", {}).get("orchestrator", {}).get("routing_rules", [])
+
+    # Build sub-agents (apply builder tone/max_length overrides to reply agent)
     qualification_agent = build_qualification_agent(
         qualification_questions=qualification_questions,
         qualification_criteria=qualification_criteria,
@@ -96,8 +102,40 @@ async def build_orchestrator(
         instance=instance,
     )
     crm_agent = build_crm_agent(session=session, instance=instance)
-    reply_agent = build_reply_agent(platform=platform, session=session, instance=instance)
+    reply_agent = build_reply_agent(
+        platform=platform,
+        session=session,
+        instance=instance,
+        tone=_reply_cfg.get("tone", "professional"),
+        max_length=_reply_cfg.get("max_length", 160),
+    )
     handover_agent = build_handover_agent(session=session, instance=instance)
+
+    # Build routing rules addendum from builder config
+    _routing_addendum = ""
+    if _routing_rules:
+        rule_lines = []
+        for rule in _routing_rules:
+            rt = rule.get("type")
+            if rt == "qualification_gate":
+                rule_lines.append(
+                    "- Qualification Gate: route qualified leads to the reply path, "
+                    "unqualified leads to the qualification path."
+                )
+            elif rt == "intent_router":
+                for r in rule.get("routes", []):
+                    rule_lines.append(
+                        f"- If detected intent is '{r.get('intent')}', delegate to {r.get('agent')} agent."
+                    )
+            elif rt == "parallel":
+                agents = ", ".join(rule.get("parallel_agents", []))
+                rule_lines.append(f"- Run these agents in parallel when appropriate: {agents}.")
+            elif rt == "agent_handoff":
+                rule_lines.append(
+                    f"- Explicit handoff configured: delegate to {rule.get('target_agent')} agent."
+                )
+        if rule_lines:
+            _routing_addendum = "\nBuilder-configured routing rules (apply these in addition to defaults):\n" + "\n".join(rule_lines)
 
     # 6. Orchestrator instruction with injected state
     orchestrator_instruction = f"""You are the Conversation Orchestrator for this business's AI system.
@@ -115,7 +153,7 @@ Routing rules (follow in order):
 5. After any sub-agent completes its task, always end the turn by delegating to reply_agent to send a response.
 
 Business context and tone:
-{compiled.system_instruction}
+{compiled.system_instruction}{_routing_addendum}
 """
 
     return LlmAgent(
