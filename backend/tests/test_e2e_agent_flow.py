@@ -133,12 +133,19 @@ async def test_run_for_contact_tool_call_produces_step_log_and_events(
     async def _fake_run_async(**kwargs):
         yield mock_event
 
+    mock_svc = MagicMock()
+    mock_svc.get_session = AsyncMock(return_value=None)
+    mock_svc.create_session = AsyncMock(return_value=MagicMock())
+    mock_svc.append_event = AsyncMock()
+    mock_svc.update_session = AsyncMock()
+
     with (
         patch(
             "app.core.adk.agents.orchestrator.compile_workspace_prompt",
             new=AsyncMock(return_value=_compiled_prompt()),
         ),
         patch("google.adk.runners.Runner.run_async", side_effect=_fake_run_async),
+        patch("app.core.adk.runner.LeadPilotSessionService", return_value=mock_svc),
     ):
         await run_for_contact(
             workspace_id=ws.id,
@@ -194,12 +201,19 @@ async def test_run_for_contact_exception_marks_instance_failed(
         raise RuntimeError("Gemini API unavailable")
         yield  # pragma: no cover
 
+    mock_svc = MagicMock()
+    mock_svc.get_session = AsyncMock(return_value=None)
+    mock_svc.create_session = AsyncMock(return_value=MagicMock())
+    mock_svc.append_event = AsyncMock()
+    mock_svc.update_session = AsyncMock()
+
     with (
         patch(
             "app.core.adk.agents.orchestrator.compile_workspace_prompt",
             new=AsyncMock(return_value=_compiled_prompt()),
         ),
         patch("google.adk.runners.Runner.run_async", side_effect=_raise_on_run),
+        patch("app.core.adk.runner.LeadPilotSessionService", return_value=mock_svc),
     ):
         with pytest.raises(RuntimeError, match="Gemini API unavailable"):
             await run_for_contact(
@@ -246,12 +260,19 @@ async def test_wait_delay_instance_resumes_and_completes(db_session: AsyncSessio
     async def _fake_run_async(**kwargs):
         yield mock_event
 
+    mock_svc = MagicMock()
+    mock_svc.get_session = AsyncMock(return_value=None)
+    mock_svc.create_session = AsyncMock(return_value=MagicMock())
+    mock_svc.append_event = AsyncMock()
+    mock_svc.update_session = AsyncMock()
+
     with (
         patch(
             "app.core.adk.agents.orchestrator.compile_workspace_prompt",
             new=AsyncMock(return_value=_compiled_prompt()),
         ),
         patch("google.adk.runners.Runner.run_async", side_effect=_fake_run_async),
+        patch("app.core.adk.runner.LeadPilotSessionService", return_value=mock_svc),
     ):
         await run_for_contact(
             workspace_id=ws.id,

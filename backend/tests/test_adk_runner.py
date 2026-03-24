@@ -244,9 +244,16 @@ async def test_run_for_contact_marks_completed(db_session: AsyncSession):
     async def _fake_run_async(**kwargs):
         yield mock_event
 
+    mock_svc = MagicMock()
+    mock_svc.get_session = AsyncMock(return_value=None)
+    mock_svc.create_session = AsyncMock(return_value=MagicMock())
+    mock_svc.append_event = AsyncMock()
+    mock_svc.update_session = AsyncMock()
+
     with (
         patch("app.core.adk.agent.compile_workspace_prompt", new=AsyncMock(return_value=compiled)),
         patch("google.adk.runners.Runner.run_async", side_effect=_fake_run_async),
+        patch("app.core.adk.runner.LeadPilotSessionService", return_value=mock_svc),
     ):
         await run_for_contact(
             workspace_id=ws.id,
@@ -276,9 +283,16 @@ async def test_run_for_contact_marks_failed_on_error(db_session: AsyncSession):
         raise RuntimeError("Gemini API unavailable")
         yield  # make it an async generator
 
+    mock_svc = MagicMock()
+    mock_svc.get_session = AsyncMock(return_value=None)
+    mock_svc.create_session = AsyncMock(return_value=MagicMock())
+    mock_svc.append_event = AsyncMock()
+    mock_svc.update_session = AsyncMock()
+
     with (
         patch("app.core.adk.agent.compile_workspace_prompt", new=AsyncMock(return_value=compiled)),
         patch("google.adk.runners.Runner.run_async", side_effect=_fake_run_async),
+        patch("app.core.adk.runner.LeadPilotSessionService", return_value=mock_svc),
     ):
         with pytest.raises(RuntimeError, match="Gemini API unavailable"):
             await run_for_contact(
