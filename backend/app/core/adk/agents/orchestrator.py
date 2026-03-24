@@ -18,7 +18,6 @@ from app.core.config import settings
 from app.models.models import (
     ChannelIdentity,
     Contact,
-    Conversation,
     ExecutionInstance,
     QualificationConfig,
     QualificationCriterion,
@@ -53,9 +52,8 @@ async def build_orchestrator(
         include_qualification=True,
     )
 
-    # 2. Contact + conversation state
+    # 2. Contact state
     contact = await session.get(Contact, contact_id)
-    conversation = await session.get(Conversation, conversation_id)
 
     is_qualified = (contact.qualification_status == "qualified") if contact else False
     crm_synced = bool(contact.zoho_lead_id) if contact else False

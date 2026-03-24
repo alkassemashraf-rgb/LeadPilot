@@ -16,12 +16,13 @@ psycopg2-binary
 pytest
 httpx
 pytest-asyncio
+ruff
 openai
 cryptography
 huggingface_hub
 email-validator
 google-generativeai
-google-adk>=1.0.0
+google-adk==1.27.3
 aiosmtplib
 jinja2
 python-dotenv
